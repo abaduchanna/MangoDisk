@@ -5,10 +5,11 @@ import { LANGUAGE_IDS, LANGUAGE_OPTIONS } from '@/lib/models/settings';
 import { LanguageService } from '@/lib/services/language-service';
 import enUS from '@/locales/en-US.json';
 import jaJP from '@/locales/ja-JP.json';
+import koKR from '@/locales/ko-KR.json';
 import zhCN from '@/locales/zh-CN.json';
 import zhTW from '@/locales/zh-TW.json';
 
-const localeResources = [zhCN, zhTW, jaJP, enUS];
+const localeResources = [zhCN, zhTW, jaJP, koKR, enUS];
 
 function leafKeys(value: unknown, prefix = ''): string[] {
   if (!value || typeof value !== 'object' || Array.isArray(value)) return [prefix];
