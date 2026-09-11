@@ -2,6 +2,7 @@
 import { useI18n } from 'vue-i18n';
 import { computed, nextTick, onMounted, reactive, ref, watch } from 'vue';
 
+import MdResidentSettings from '@/pages/settings/components/md-resident-settings.vue';
 import MdPageShell from '@/components/custom/md-page-shell.vue';
 import MdStatusBadge from '@/components/custom/md-status-badge.vue';
 import MdIcon from '@/components/icons/md-icon.vue';
@@ -189,6 +190,7 @@ function updateTheme(value: unknown) {
             </SelectContent>
           </Select>
         </div>
+        <MdResidentSettings />
       </Card>
     </section>
 
@@ -353,7 +355,7 @@ function updateTheme(value: unknown) {
   @apply border-border/70 bg-card shadow-none;
 }
 
-.setting-row {
+.settings-list :deep(.setting-row) {
   display: grid;
   width: 100%;
   min-height: 60px;
@@ -367,17 +369,17 @@ function updateTheme(value: unknown) {
   @apply border-border/60 text-card-foreground transition-colors duration-200 hover:bg-muted/50;
 }
 
-.setting-row:first-child {
+.settings-list :deep(.setting-row:first-child) {
   border-top: 0;
 }
 
-.setting-copy {
+.settings-list :deep(.setting-copy) {
   display: flex;
   min-width: 0;
   flex-direction: column;
   gap: 2px;
 }
-.setting-copy strong {
+.settings-list :deep(.setting-copy strong) {
   font-size: var(--font-content-primary);
   font-weight: 650;
 }
@@ -394,7 +396,7 @@ function updateTheme(value: unknown) {
   @apply bg-primary;
 }
 
-.setting-copy small {
+.settings-list :deep(.setting-copy small) {
   overflow: hidden;
   font-size: var(--font-content-secondary);
   text-overflow: ellipsis;
@@ -481,7 +483,7 @@ function updateTheme(value: unknown) {
   justify-content: flex-end;
   gap: 10px;
 }
-.section-icon {
+.settings-list :deep(.section-icon) {
   display: grid;
   width: 34px;
   height: 34px;
@@ -515,11 +517,11 @@ function updateTheme(value: unknown) {
  */
 @supports not (container-type: inline-size) {
   @media (min-width: 900px) {
-    .setting-row {
+    .settings-list :deep(.setting-row) {
       grid-template-columns: 42px minmax(0, 1fr) auto;
     }
 
-    .setting-copy small {
+    .settings-list :deep(.setting-copy small) {
       white-space: nowrap;
     }
 

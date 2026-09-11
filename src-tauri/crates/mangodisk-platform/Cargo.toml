@@ -10,6 +10,8 @@ dirs = "6"
 log = "0.4.33"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
+# Keep OS sampling behind the platform boundary and match the workspace MSRV.
+sysinfo = { version = "0.37.2", default-features = false, features = ["system"] }
 
 [target.'cfg(target_os = "macos")'.dependencies]
 dispatch2 = { version = "0.3.1", default-features = false, features = ["std"] }
@@ -31,7 +33,7 @@ rusqlite = { version = "0.37", features = ["bundled"] }
 winreg = { version = "0.55", features = ["transactions"] }
 windows = { version = "0.61.3", features = ["ApplicationModel_DataTransfer", "Foundation", "Win32_Foundation", "Win32_Security_Cryptography", "Win32_Security_WinTrust", "Win32_Storage_FileSystem", "Win32_System_Com", "Win32_System_Ole", "Win32_System_Registry", "Win32_System_Services", "Win32_System_SystemInformation", "Win32_System_TaskScheduler", "Win32_System_Variant", "Win32_UI_LegacyWindowsEnvironmentFeatures", "Win32_UI_Shell"] }
 windows-core = "0.61.2"
-windows-sys = { version = "0.61", features = ["Win32_Foundation", "Win32_Graphics_Gdi", "Win32_Security", "Win32_Security_Authorization", "Win32_Storage_FileSystem", "Win32_System_ApplicationInstallationAndServicing", "Win32_System_Com", "Win32_System_DataExchange", "Win32_System_Diagnostics_ToolHelp", "Win32_System_Environment", "Win32_System_IO", "Win32_System_Ioctl", "Win32_System_Registry", "Win32_System_SystemInformation", "Win32_System_SystemServices", "Win32_System_Threading", "Win32_UI_Shell", "Win32_UI_WindowsAndMessaging"] }
+windows-sys = { version = "0.61", features = ["Win32_Foundation", "Win32_Graphics_Gdi", "Win32_Security", "Win32_Security_Authorization", "Win32_Storage_FileSystem", "Win32_System_ApplicationInstallationAndServicing", "Win32_System_Com", "Win32_System_DataExchange", "Win32_System_Diagnostics_ToolHelp", "Win32_System_Environment", "Win32_System_IO", "Win32_System_Ioctl", "Win32_System_ProcessStatus", "Win32_System_Registry", "Win32_System_SystemInformation", "Win32_System_SystemServices", "Win32_System_Threading", "Win32_UI_Shell", "Win32_UI_WindowsAndMessaging"] }
 
 [target.'cfg(windows)'.dev-dependencies]
 windows-sys = { version = "0.61", features = ["Win32_System_ProcessStatus", "Win32_System_Threading"] }

@@ -1,0 +1,77 @@
+import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { ResidentService } from './resident-service';
+
+const { invoke, listen, onFocusChanged } = vi.hoisted(() => ({
+  invoke: vi.fn(),
+  listen: vi.fn(),
+  onFocusChanged: vi.fn(),
+}));
+vi.mock('@tauri-apps/api/core', () => ({ invoke }));
+vi.mock('@tauri-apps/api/event', () => ({ listen }));
+vi.mock('@tauri-apps/api/window', () => ({ getCurrentWindow: () => ({ onFocusChanged }) }));
+
+describe('resident desktop protocol', () => {
+  beforeEach(() => vi.clearAllMocks());
+
+  it.each([
+    ['reading', 'monitoring_get_reading'],
+    ['refresh', 'monitoring_refresh'],
+    ['preferences', 'resident_get_preferences'],
+    ['autostartEnabled', 'resident_get_autostart'],
+    ['openPanel', 'resident_open_panel'],
+    ['panelReady', 'resident_panel_ready'],
+    ['hidePanel', 'resident_hide_panel'],
+    ['quit', 'resident_quit'],
+  ] as const)('binds %s to its registered command', async (method, command) => {
+    invoke.mockResolvedValueOnce({ marker: command });
+    expect(await ResidentService[method]()).toEqual({ marker: command });
+    expect(invoke).toHaveBeenCalledWith(command);
+  });
+
+  it('passes typed preferences and navigation without accepting process names or paths', async () => {
+    const preferences = { schemaVersion: 1, enabled: false, showMemory: true } as const;
+    await ResidentService.savePreferences(preferences);
+    await ResidentService.openMain('applications');
+    expect(invoke.mock.calls).toEqual([
+      ['resident_save_preferences', { preferences }],
+      ['resident_open_main', { destination: 'applications' }],
+    ]);
+  });
+
+  it('sends login registration changes to the native adapter', async () => {
+    await ResidentService.setAutostart(true);
+    expect(invoke).toHaveBeenCalledWith('resident_set_autostart', { enabled: true });
+    await ResidentService.openMain('main');
+    expect(invoke).toHaveBeenLastCalledWith('resident_open_main', { destination: 'main' });
+  });
+
+  it('requests application quit using only its opaque row identity', async () => {
+    invoke.mockResolvedValueOnce('requested');
+    expect(await ResidentService.quitApplication('application-id')).toBe('requested');
+    expect(invoke).toHaveBeenCalledWith('monitoring_quit_application', { applicationId: 'application-id' });
+  });
+
+  it('requests native memory reclamation without an authorization payload', async () => {
+    await ResidentService.releaseMemory();
+    expect(invoke).toHaveBeenCalledWith('monitoring_release_memory');
+  });
+
+  it('unwraps event payloads and preserves listener disposal', async () => {
+    const dispose = vi.fn();
+    listen.mockResolvedValue(dispose);
+    onFocusChanged.mockResolvedValue(dispose);
+    const handler = vi.fn();
+    expect(await ResidentService.onReading(handler)).toBe(dispose);
+    listen.mock.calls[0]?.[1]({ payload: { revision: 2 } });
+    expect(handler).toHaveBeenLastCalledWith({ revision: 2 });
+    expect(await ResidentService.onNavigate(handler)).toBe(dispose);
+    listen.mock.calls[1]?.[1]({ payload: 'settings' });
+    expect(handler).toHaveBeenLastCalledWith('settings');
+    expect(await ResidentService.onFocus(handler)).toBe(dispose);
+    handler.mockClear();
+    onFocusChanged.mock.calls[0]?.[0]({ payload: false });
+    expect(handler).not.toHaveBeenCalled();
+    onFocusChanged.mock.calls[0]?.[0]({ payload: true });
+    expect(handler).toHaveBeenCalledOnce();
+  });
+});

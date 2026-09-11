@@ -30,6 +30,12 @@ describe('ByteSizeService', () => {
     expect(ByteSizeService.diskCapacity(241 * 1024 ** 3)).toBe('241.00 GB');
   });
 
+  it.each(['macos', 'windows'])('formats RAM capacity in binary units on %s', platform => {
+    platformMock.mockReturnValue(platform);
+    expect(ByteSizeService.memory(64 * 1024 ** 3)).toBe('64.0 GB');
+    expect(ByteSizeService.memory(512 * 1024 ** 2)).toBe('512 MB');
+  });
+
   it('resolves semantic presets to decimal raw bytes on macOS', () => {
     platformMock.mockReturnValue('macos');
 

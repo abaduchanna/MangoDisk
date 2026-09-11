@@ -9,6 +9,7 @@ mod shared;
 mod startup;
 mod storage;
 mod system_maintenance;
+pub mod system_resources;
 mod system_settings;
 
 pub const APPLICATION_IDENTIFIER: &str = "app.mangodisk.desktop";
@@ -22,8 +23,9 @@ pub use applications::leftovers::{
 };
 pub use applications::process_control::{
     ApplicationCloseBatchResult, ApplicationCloseMode, ApplicationCloseTargetResult,
-    ApplicationCloseTargetStatus,
+    ApplicationCloseTargetStatus, ApplicationQuitStatus,
 };
+pub use applications::quit::request as request_running_application_quit;
 pub use applications::uninstall::{
     ApplicationUninstallActionReason, ApplicationUninstallActionResult,
     ApplicationUninstallActionStatus, ApplicationUninstallBatchPlan,

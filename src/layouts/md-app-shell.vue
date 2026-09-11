@@ -18,6 +18,9 @@ import {
 } from '@/lib/models/application-shell';
 import type { AppSettings } from '@/lib/models/settings';
 import type { PageId } from '@/lib/models/application-shell';
+import { ApplicationWindowService } from '@/lib/services/application-window-service';
+import type { ResidentDestination } from '@/lib/models/resident';
+import { ResidentService } from '@/lib/services/resident-service';
 import { ApplicationMenuService } from '@/lib/services/application-menu-service';
 import { FileManagerService } from '@/lib/services/file-manager-service';
 import { LinkService } from '@/lib/services/link-service';
@@ -218,6 +221,7 @@ const noticePages = computed<PageId[]>(() => (appUpdateStore.updateNoticeUnread 
 let navigationRequest = 0;
 let diskInitialization: Promise<void> | null = null;
 let historyInitialization: Promise<void> | null = null;
+let unlistenResident: (() => void) | null = null;
 let unlistenOpenAbout: (() => void) | null = null;
 let shellMounted = true;
 let automaticUpdateTimer: ReturnType<typeof setTimeout> | null = null;
@@ -277,6 +281,7 @@ onMounted(() => {
     automaticUpdateTimer = null;
     void appUpdateStore.check(store.settings.language, false);
   }, APP_UPDATE_AUTOMATIC_CHECK_DELAY_MS);
+  void connectWindowNavigation();
   void ApplicationMenuService.onOpenAbout(() => {
     void openAboutSettings();
   })
@@ -290,11 +295,46 @@ onMounted(() => {
     .catch(error => store.reportError(error));
 });
 
+async function handleResidentDestination(destination: ResidentDestination) {
+  if (destination === 'main') return;
+  if (destination === 'about') {
+    await openAboutSettings();
+    return;
+  }
+  await navigate(
+    destination === 'applications'
+      ? PAGE_IDS.applicationUninstall
+      : destination === 'settings'
+        ? PAGE_IDS.settings
+        : PAGE_IDS.cleanup
+  );
+}
+
+async function connectWindowNavigation() {
+  try {
+    const unlisten = await ResidentService.onNavigate(destination => {
+      void handleResidentDestination(destination);
+    });
+    if (shellMounted) unlistenResident = unlisten;
+    else {
+      unlisten();
+      return;
+    }
+  } catch (error) {
+    store.reportError(error);
+  }
+  if (!shellMounted) return;
+  // Subscription precedes readiness so the first Settings/About request survives lazy creation.
+  const destination = await ApplicationWindowService.showAfterMount();
+  if (shellMounted && destination) await handleResidentDestination(destination);
+}
+
 onBeforeUnmount(() => {
   shellMounted = false;
   window.removeEventListener('resize', syncSidebarExpansion);
   if (automaticUpdateTimer) window.clearTimeout(automaticUpdateTimer);
   unlistenOpenAbout?.();
+  unlistenResident?.();
 });
 
 async function navigate(page: PageId) {

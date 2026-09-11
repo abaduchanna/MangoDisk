@@ -1,3 +1,4 @@
+pub mod application_quit;
 mod browser_profile;
 mod command;
 mod contracts;
@@ -11,6 +12,7 @@ mod macos;
 mod startup_helper;
 #[cfg(windows)]
 mod system_maintenance_helper;
+pub mod system_resources;
 #[cfg(windows)]
 mod system_settings_helper;
 mod vscode_history;

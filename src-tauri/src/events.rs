@@ -13,7 +13,7 @@ pub const APPLICATION_UNINSTALL_EXECUTION_PROGRESS: &str =
 pub const PRIVACY_SCAN_PROGRESS: &str = "privacy-scan-progress";
 pub const PRIVACY_EXECUTION_PROGRESS: &str = "privacy-execution-progress";
 pub const SYSTEM_MAINTENANCE_JOB_UPDATED: &str = "system-maintenance-job-updated";
-#[cfg(target_os = "macos")]
+// Resident navigation can request About on either desktop platform.
 pub const OPEN_ABOUT: &str = "application-menu-open-about";
 
 /// Emits one typed desktop event and keeps delivery failures in native logs.

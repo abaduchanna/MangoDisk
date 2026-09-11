@@ -26,9 +26,19 @@ export default defineConfig({
     // to the much newer Safari version used by Vite's default target.
     target: 'safari15.6',
     rolldownOptions: {
+      input: {
+        main: fileURLToPath(new URL('./index.html', import.meta.url)),
+        'tray-panel': fileURLToPath(new URL('./tray-panel.html', import.meta.url)),
+      },
       output: {
         codeSplitting: {
           groups: [
+            {
+              // Keep optional AI rich-text dependencies out of the main entry when
+              // the monitoring window changes the shared-chunk graph.
+              name: 'rich-text',
+              test: /\/node_modules\/(?:dompurify|marked)\//u,
+            },
             {
               // Locale resources are intentionally available offline, but
               // each language can remain an independent parse unit instead
@@ -79,6 +89,8 @@ export default defineConfig({
     warmup: {
       clientFiles: [
         './src/main.ts',
+        './src/tray-panel.ts',
+        './src/pages/monitoring/**/*.vue',
         './src/App.vue',
         './src/assets/main.css',
         './src/layouts/**/*.vue',

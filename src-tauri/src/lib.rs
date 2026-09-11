@@ -2,6 +2,7 @@
 mod application_menu;
 mod commands;
 mod events;
+mod resident;
 mod services;
 
 use log::LevelFilter;
@@ -37,7 +38,7 @@ fn restored_size_is_below_minimum(
         || min_height.is_some_and(|minimum| height < minimum)
 }
 
-fn restore_main_window_state(app: &tauri::App) {
+fn restore_main_window_state(app: &tauri::AppHandle) {
     let Some(window) = app.get_webview_window(MAIN_WINDOW_LABEL) else {
         log::warn!("window_state_restore_skipped reason=main_window_missing");
         return;
@@ -113,53 +114,34 @@ fn restore_main_window_state(app: &tauri::App) {
     }
 }
 
-fn focus_main_window(app: &tauri::AppHandle) {
-    let Some(window) = app.get_webview_window(MAIN_WINDOW_LABEL) else {
-        log::warn!("main_window_focus_failed reason=main_window_missing");
-        return;
-    };
-
-    if let Err(error) = window.unminimize() {
-        log::warn!("main_window_unminimize_failed error={error}");
-    }
-    if let Err(error) = window.show() {
-        log::warn!("main_window_show_failed error={error}");
-    }
-    if let Err(error) = window.set_focus() {
-        log::warn!("main_window_focus_failed error={error}");
-    }
-}
-
 pub fn run() {
     // This plugin must be registered before every other plugin so a secondary
     // process exits before it can initialize application services.
     let builder =
-        tauri::Builder::default().plugin(tauri_plugin_single_instance::init(|app, _, _| {
-            log::info!("secondary_instance_requested");
-            focus_main_window(app);
+        tauri::Builder::default().plugin(tauri_plugin_single_instance::init(|app, args, _| {
+            if !resident::main_window::is_background_launch(args) {
+                resident::main_window::request(
+                    app,
+                    resident::main_window::Destination::Main,
+                    "manual_relaunch",
+                );
+            }
         }));
     #[cfg(target_os = "macos")]
     let builder = builder
         .menu(application_menu::build)
-        .on_menu_event(application_menu::handle)
-        .on_window_event(|window, event| {
-            if window.label() == MAIN_WINDOW_LABEL {
-                if let tauri::WindowEvent::CloseRequested { api, .. } = event {
-                    // Keep the WebView alive so closing preserves page and scan state.
-                    // Explicit Quit retains Tauri's default process termination behavior.
-                    api.prevent_close();
-                    match window.hide() {
-                        Ok(()) => log::info!("main_window_hidden reason=close_requested"),
-                        Err(error) => log::warn!("main_window_hide_failed error={error}"),
-                    }
-                }
-            }
-        });
+        .on_menu_event(application_menu::handle);
+    let builder = builder.on_window_event(resident::handle_window_event);
     // Release builds must not expose the WebView's browser context menu or
     // browser-only shortcuts. Debug builds retain them for inspection.
     #[cfg(not(debug_assertions))]
     let builder = builder.plugin(tauri_plugin_prevent_default::init());
     let app = builder
+        .manage(resident::main_window::MainWindowState::default())
+        .plugin(tauri_plugin_autostart::init(
+            tauri_plugin_autostart::MacosLauncher::LaunchAgent,
+            Some(vec![resident::main_window::BACKGROUND_ARGUMENT]),
+        ))
         .manage(ApplicationUninstallCatalogCache::default())
         .manage(commands::ai::AiRuntime::default())
         .plugin(tauri_plugin_dialog::init())
@@ -178,16 +160,30 @@ pub fn run() {
         .plugin(tauri_plugin_updater::Builder::new().build())
         .plugin(
             tauri_plugin_window_state::Builder::default()
-                // Visibility remains controlled by the Vue mount boundary so
+                // Visibility remains controlled by the native readiness handshake so
                 // restoring state never exposes an unrendered WebView.
                 // Decorations are static application configuration.
                 .with_state_flags(StateFlags::SIZE | StateFlags::POSITION | StateFlags::MAXIMIZED)
-                // Restore the main window explicitly in application setup so
-                // its logical dimensions can be validated before Vue shows it.
+                // Restore the main window when it is created, before the readiness handshake.
                 .skip_initial_state(MAIN_WINDOW_LABEL)
+                .with_filter(|label| label == MAIN_WINDOW_LABEL)
                 .build(),
         )
         .invoke_handler(tauri::generate_handler![
+            commands::resident::monitoring_get_reading,
+            commands::resident::monitoring_refresh,
+            commands::resident::monitoring_release_memory,
+            commands::resident::monitoring_quit_application,
+            commands::resident::resident_get_preferences,
+            commands::resident::resident_save_preferences,
+            commands::resident::resident_open_panel,
+            commands::resident::resident_panel_ready,
+            commands::resident::resident_hide_panel,
+            commands::resident::resident_open_main,
+            commands::resident::resident_quit,
+            commands::resident::resident_main_ready,
+            commands::resident::resident_get_autostart,
+            commands::resident::resident_set_autostart,
             commands::ai::ai_get_settings,
             commands::ai::ai_get_configuration,
             commands::ai::ai_save_settings,
@@ -269,6 +265,7 @@ pub fn run() {
         ])
         .setup(|app| {
             configure_core_storage(app)?;
+            resident::install(app.handle())?;
             let feedback_store = FeedbackDraftStore::initialize(&app.path().app_cache_dir()?);
             let feedback_cleanup_store = feedback_store.clone();
             app.manage(feedback_store);
@@ -302,18 +299,45 @@ pub fn run() {
                     blake3::hash(error.to_string().as_bytes()).to_hex()
                 ),
             }
-            restore_main_window_state(app);
+            let login_launch = resident::main_window::is_background_launch(std::env::args());
+            let resident_enabled = app
+                .state::<std::sync::Arc<resident::runtime::ResidentState>>()
+                .enabled();
+            if resident::main_window::start_hidden(login_launch, resident_enabled) {
+                #[cfg(target_os = "macos")]
+                app.set_activation_policy(tauri::ActivationPolicy::Accessory);
+                log::info!("background_launch_ready");
+            } else {
+                // Login startup remains useful without a tray: open the main UI
+                // instead of silently exiting or changing the OS login setting.
+                resident::main_window::open(
+                    app.handle(),
+                    resident::main_window::Destination::Main,
+                    if login_launch {
+                        "login_launch"
+                    } else {
+                        "manual_launch"
+                    },
+                )?;
+            }
             Ok(())
         })
         .build(tauri::generate_context!())
         .expect("MangoDisk failed to start");
     app.run(|_app, _event| {
+        if let tauri::RunEvent::Ready = _event {
+            resident::panel::prewarm(_app);
+        }
         // Dock reopening does not launch another process, so the single-instance
         // callback alone cannot restore a hidden or minimized macOS window.
         #[cfg(target_os = "macos")]
         if let tauri::RunEvent::Reopen { .. } = _event {
             log::info!("main_window_reopen_requested");
-            focus_main_window(_app);
+            resident::main_window::request(
+                _app,
+                resident::main_window::Destination::Main,
+                "macos_reopen",
+            );
         }
     });
 }

@@ -33,6 +33,11 @@ export class ByteSizeService {
     return FormatUtils.bytes(bytes, this.currentUnitBase(), 2);
   }
 
+  /** RAM uses binary quantities on both platforms, matching installed memory capacity. */
+  static memory(bytes: number): string {
+    return FormatUtils.bytes(bytes, BYTE_UNIT_BASES.binary);
+  }
+
   /**
    * Resolves product presets to labels and platform-accurate raw byte values.
    *
