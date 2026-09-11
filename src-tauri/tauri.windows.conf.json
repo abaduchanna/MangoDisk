@@ -15,5 +15,16 @@
         "decorations": false
       }
     ]
+  },
+  "bundle": {
+    "icon": [
+      "icons/windows/icon.ico"
+    ],
+    "windows": {
+      "nsis": {
+        "installerIcon": "icons/windows/icon.ico",
+        "uninstallerIcon": "icons/windows/icon.ico"
+      }
+    }
   }
 }

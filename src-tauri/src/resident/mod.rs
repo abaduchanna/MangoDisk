@@ -21,8 +21,15 @@ pub fn install(app: &tauri::AppHandle) -> tauri::Result<()> {
     let open = MenuItem::with_id(app, "resident-open", "MangoDisk", true, None::<&str>)?;
     let quit = PredefinedMenuItem::quit(app, None)?;
     let menu = Menu::with_items(app, &[&open, &quit])?;
+    // System surfaces need tightly framed artwork, not the padded Dock tile.
+    // AppKit tints the template automatically for menu-bar appearance and selection.
+    #[cfg(target_os = "macos")]
+    let icon = tauri::include_image!("icons/tray-template.png");
+    #[cfg(not(target_os = "macos"))]
+    let icon = tauri::include_image!("icons/tray-color.png");
     let builder = TrayIconBuilder::with_id(TRAY_ID)
-        .icon(tauri::include_image!("icons/icon.png"))
+        .icon(icon)
+        .icon_as_template(cfg!(target_os = "macos"))
         .tooltip("MangoDisk")
         .menu(&menu)
         .show_menu_on_left_click(false)
@@ -65,7 +72,15 @@ pub fn install(app: &tauri::AppHandle) -> tauri::Result<()> {
     tray.set_visible(preferences.enabled)?;
     let state = runtime::start(app, preferences);
     app.manage(state);
-    log::info!("resident_started enabled={}", preferences.enabled);
+    log::info!(
+        "resident_started enabled={} icon_style={}",
+        preferences.enabled,
+        if cfg!(target_os = "macos") {
+            "template"
+        } else {
+            "color"
+        }
+    );
     Ok(())
 }
 
