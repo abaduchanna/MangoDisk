@@ -280,6 +280,28 @@ pub fn run() {
                 app.package_info().version,
                 commands::app_distribution::current().diagnostic_name()
             );
+            // Tauri reports the available WebView2 runtime on Windows and the
+            // system WebKit bundle build on macOS, not the Safari app version.
+            // Read once per launch; missing diagnostics must never block startup.
+            let webview_engine = if cfg!(target_os = "windows") {
+                "webview2"
+            } else {
+                "webkit"
+            };
+            match tauri::webview_version() {
+                Ok(version) => log::info!(
+                    "webview_runtime_version platform={} engine={} version={}",
+                    std::env::consts::OS,
+                    webview_engine,
+                    version
+                ),
+                Err(error) => log::warn!(
+                    "webview_runtime_version_failed platform={} engine={} error_digest={}",
+                    std::env::consts::OS,
+                    webview_engine,
+                    blake3::hash(error.to_string().as_bytes()).to_hex()
+                ),
+            }
             restore_main_window_state(app);
             Ok(())
         })
