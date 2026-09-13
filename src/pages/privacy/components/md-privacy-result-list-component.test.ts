@@ -1,5 +1,7 @@
 // @vitest-environment happy-dom
 
+import { createPinia } from 'pinia';
+import { useAiStore } from '@/stores/ai-store';
 import { mount } from '@vue/test-utils';
 import { describe, expect, it, vi } from 'vitest';
 
@@ -100,7 +102,7 @@ function mountBrowser(sourceIconUrls: Readonly<Record<string, string>> = {}) {
       sourceIconUrls,
     },
     global: {
-      plugins: [i18n],
+      plugins: [enabledPinia(), i18n],
       stubs: {
         MdIcon: iconStub,
         MdApplicationIcon: applicationIconStub,
@@ -262,7 +264,7 @@ describe('privacy result list component', () => {
         permissionLabel: 'Full Disk Access required',
       },
       global: {
-        plugins: [i18n],
+        plugins: [enabledPinia(), i18n],
         stubs: {
           MdIcon: iconStub,
           MdApplicationIcon: applicationIconStub,
@@ -290,4 +292,21 @@ describe('privacy result list component', () => {
     expect(wrapper.emitted('update:selectedTokens')).toBeUndefined();
     wrapper.unmount();
   });
+});
+
+function enabledPinia() {
+  const pinia = createPinia();
+  useAiStore(pinia).$patch({ enabled: true, preferencesLoaded: true });
+  return pinia;
+}
+
+it('removes empty AI action columns while retaining the privacy results', async () => {
+  const wrapper = mountBrowser();
+  useAiStore().enabled = false;
+  await wrapper.vm.$nextTick();
+  expect(wrapper.find('.md-ai-action').exists()).toBe(false);
+  expect(wrapper.find('.result-item-actions').exists()).toBe(false);
+  expect(wrapper.find('.result-item-content.has-actions').exists()).toBe(false);
+  expect(wrapper.find('.result-item-content').exists()).toBe(true);
+  wrapper.unmount();
 });

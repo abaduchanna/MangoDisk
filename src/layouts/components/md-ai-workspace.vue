@@ -21,6 +21,12 @@ const props = defineProps<{ module: AiSubject['module'] }>();
 const aiStore = useAiStore();
 const store = computed(() => aiStore.workspaces[props.module]);
 const settingsOpen = ref(false);
+watch(
+  () => aiStore.enabled,
+  enabled => {
+    if (!enabled) settingsOpen.value = false;
+  }
+);
 const scroller = ref<HTMLElement | null>(null);
 const follow = ref(true);
 const generating = computed(() => store.value.status === 'generating');
@@ -38,7 +44,7 @@ const now = ref(performance.now());
 let quotaTimer: ReturnType<typeof setInterval> | undefined;
 const cooldown = computed(() => aiQuotaCooldownSeconds(aiStore.quota, aiStore.quotaReadAt, now.value));
 watch(
-  () => store.value.open && freeMode.value,
+  () => aiStore.enabled && store.value.open && freeMode.value,
   active => {
     clearInterval(quotaTimer);
     if (active)
@@ -49,7 +55,7 @@ watch(
   { immediate: true }
 );
 function refreshAfterFocus() {
-  if (store.value.open && freeMode.value && store.value.settings?.freeAvailable)
+  if (aiStore.enabled && store.value.open && freeMode.value && store.value.settings?.freeAvailable)
     void aiStore.refreshQuota(store.value.language, true);
 }
 onMounted(() => window.addEventListener('focus', refreshAfterFocus));
@@ -90,6 +96,7 @@ function scroll() {
 
 <template>
   <MdFloatingPanel
+    v-if="aiStore.enabled"
     :open="store.open"
     :minimized="store.minimized"
     :title="t('ai.explain')"
@@ -194,6 +201,7 @@ function scroll() {
     </template>
   </MdFloatingPanel>
   <MdAiSettingsDialog
+    v-if="aiStore.enabled"
     v-model:open="settingsOpen"
     :quota="aiStore.quota"
     @refresh-quota="aiStore.refreshQuota"

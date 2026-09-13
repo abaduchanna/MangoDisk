@@ -1,8 +1,9 @@
 <script setup lang="ts">
 import { computed, nextTick, ref, watch } from 'vue';
 import { useI18n } from 'vue-i18n';
+import { useAiStore } from '@/stores/ai-store';
 
-import MdAiAction from '@/components/custom/md-ai-action.vue';
+import MdAiAction from '@/layouts/components/md-ai-action.vue';
 import MdApplicationIcon from '@/components/custom/md-application-icon.vue';
 import MdResultCategoryItem from '@/components/custom/md-result-category-item.vue';
 import MdResultMasterDetail from '@/components/custom/md-result-master-detail.vue';
@@ -40,6 +41,7 @@ const emit = defineEmits<{
   explain: [item: PrivacyItem];
 }>();
 
+const aiStore = useAiStore();
 const { t } = useI18n({ useScope: 'global' });
 const activeCategoryId = ref<PrivacyCategory>('browserActivity');
 const expandedSourceIds = ref(new Set<string>());
@@ -418,7 +420,7 @@ watch(activeCategoryId, async () => {
                         :value-detail="item.itemCount > 0 ? ByteSizeService.bytes(item.estimatedBytes) : undefined"
                       >
                         <template #icon><MdIcon :name="kindIcons[item.kind]" :size="20" /></template>
-                        <template #actions
+                        <template v-if="aiStore.enabled" #actions
                           ><MdAiAction
                             :name="t(`privacy.kinds.${item.kind}`)"
                             :disabled="busy"
@@ -461,7 +463,7 @@ watch(activeCategoryId, async () => {
                     :value-detail="item.itemCount > 0 ? ByteSizeService.bytes(item.estimatedBytes) : undefined"
                   >
                     <template #icon><MdIcon :name="kindIcons[item.kind]" :size="20" /></template>
-                    <template #actions
+                    <template v-if="aiStore.enabled" #actions
                       ><MdAiAction
                         :name="t(`privacy.kinds.${item.kind}`)"
                         :disabled="busy"
@@ -506,7 +508,7 @@ watch(activeCategoryId, async () => {
                 :value-detail="item.itemCount > 0 ? ByteSizeService.bytes(item.estimatedBytes) : undefined"
               >
                 <template #icon><MdIcon :name="kindIcons[item.kind]" :size="20" /></template>
-                <template #actions
+                <template v-if="aiStore.enabled" #actions
                   ><MdAiAction
                     :name="t(`privacy.kinds.${item.kind}`)"
                     :disabled="busy"

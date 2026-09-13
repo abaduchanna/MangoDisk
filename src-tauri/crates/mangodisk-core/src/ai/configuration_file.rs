@@ -51,7 +51,7 @@ pub(super) fn delete() -> Result<(), AiError> {
     delete_from(&path()?)
 }
 
-fn read_from(path: &Path) -> Result<Option<String>, AiError> {
+pub(super) fn read_from(path: &Path) -> Result<Option<String>, AiError> {
     let file = match fs::File::open(path) {
         Ok(file) => file,
         Err(error) if error.kind() == std::io::ErrorKind::NotFound => return Ok(None),
@@ -67,7 +67,7 @@ fn read_from(path: &Path) -> Result<Option<String>, AiError> {
     Ok(Some(document))
 }
 
-fn write_to(path: &Path, document: &str) -> Result<(), AiError> {
+pub(super) fn write_to(path: &Path, document: &str) -> Result<(), AiError> {
     if document.len() as u64 > MAX_DOCUMENT_BYTES {
         return Err(AiError::InvalidConfiguration);
     }

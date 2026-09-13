@@ -1,5 +1,8 @@
 {
   "ai": {
+    "sectionTitle": "AI",
+    "configureAction": "設定…",
+    "featureDisabledHint": "無効です。サービス設定は保持されています",
     "configurationGuide": "設定ガイド",
     "guideOpenInBrowser": "ブラウザーで設定ガイドを開く",
     "guideOpenFailed": "ガイドを開けませんでした。もう一度お試しください",
@@ -62,7 +65,8 @@
       "freeClockSkew": "システム時刻を確認して再試行してください",
       "freeSignatureInvalid": "MangoDisk を更新するかカスタムサービスをご利用ください",
       "freeRequestExists": "リクエストが重複しているか、無効になっています。新しく解説を開始してください",
-      "freeArchiveUnavailable": "無料解説を処理できませんでした。しばらくしてから再試行してください"
+      "freeArchiveUnavailable": "無料解説を処理できませんでした。しばらくしてから再試行してください",
+      "disabled": "AI 機能はオフになっています"
     },
     "minimize": "最小化",
     "restore": "AI 解説を開く",
@@ -86,7 +90,11 @@
     "freeDailyExhausted": "利用上限に達しました",
     "freeResetsAt": "利用上限に達しました。{time} にリセット",
     "freeTemporarilyUnavailable": "無料 AI サービスは一時的に利用できません",
-    "freeUseCustom": "カスタムサービスに切り替えて、ご自身の API Key を利用できます"
+    "freeUseCustom": "カスタムサービスに切り替えて、ご自身の API Key を利用できます",
+    "enableFeature": "AI 機能を有効にする",
+    "enableFeatureHint": "オフにすると AI 解説の入口を非表示にし、リクエストを停止します。サービス設定は保持されます",
+    "featureLoadFailed": "この設定を読み込めませんでした。再試行してください",
+    "featureSaveFailed": "変更を保存できませんでした。以前の設定は保持されています。再試行してください"
   },
   "navigation": {
     "system-optimization": "システム最適化",

@@ -7,6 +7,11 @@ import type { SystemMaintenanceItem } from './system-maintenance';
 export type AiReasoningMode = 'default' | 'disabled';
 export type AiServiceMode = 'free' | 'custom';
 
+export interface AiPreferences {
+  schemaVersion: 1;
+  enabled: boolean;
+}
+
 export interface AiClientMetadata {
   installId: string;
   appVersion: string;
@@ -32,6 +37,7 @@ export interface AiQuota {
 }
 
 export const AI_ERROR_LABELS = {
+  disabled: 'ai.errors.disabled',
   freeUnavailable: 'ai.errors.freeUnavailable',
   freeConsentRequired: 'ai.errors.freeConsentRequired',
   freeDailyLimit: 'ai.errors.freeDailyLimit',
@@ -189,6 +195,7 @@ export interface AiUsage {
 }
 
 export const AI_ERROR_CODES = [
+  'disabled',
   'freeUnavailable',
   'freeConsentRequired',
   'freeDailyLimit',

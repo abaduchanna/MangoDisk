@@ -24,6 +24,7 @@ const streams = vi.hoisted(
 );
 vi.mock('@/lib/services/ai-service', () => ({
   AiService: {
+    setEnabled: async (enabled: boolean) => ({ schemaVersion: 1, enabled }),
     settings: async () => ({
       schemaVersion: 2,
       mode: 'custom',
@@ -67,6 +68,7 @@ it.each([true, false])(
       { global: { plugins: [pinia, i18n], stubs: { MdAiSettingsDialog: true } } }
     );
     const store = useAiStore(pinia);
+    store.$patch({ enabled: true, preferencesLoaded: true });
     const contexts = Object.fromEntries((fixtures as AiContext[]).map(context => [context.subject.module, context]));
     try {
       const first = store.show(contexts.startup!, 'en-US');
@@ -122,6 +124,7 @@ it.each(['zh-CN', 'zh-TW', 'en-US', 'ja-JP'] as const)(
       global: { plugins: [pinia, i18n], stubs: { MdAiSettingsDialog: true } },
     });
     const store = useAiStore(pinia);
+    store.$patch({ enabled: true, preferencesLoaded: true });
     const context = (fixtures as AiContext[]).find(item => item.subject.module === 'startup')!;
     const request = store.show(context, locale);
     try {
@@ -179,6 +182,7 @@ it('keeps an existing answer and offers settings when the free service is disabl
     global: { plugins: [pinia, i18n], stubs: { MdAiSettingsDialog: true } },
   });
   const store = useAiStore(pinia);
+  store.$patch({ enabled: true, preferencesLoaded: true });
   const context = (fixtures as AiContext[]).find(item => item.subject.module === 'startup')!;
   const request = store.show(context, 'en-US');
   try {
@@ -214,6 +218,7 @@ it.each(['completed', 'cancelled', 'failed'] as const)(
       global: { plugins: [pinia, i18n], stubs: { MdAiSettingsDialog: true } },
     });
     const store = useAiStore(pinia);
+    store.$patch({ enabled: true, preferencesLoaded: true });
     const context = (fixtures as AiContext[]).find(item => item.subject.module === 'startup')!;
     const request = store.show(context, 'en-US');
     try {

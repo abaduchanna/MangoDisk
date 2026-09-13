@@ -8,6 +8,7 @@ import MdPageShell from '@/components/custom/md-page-shell.vue';
 import MdStatusBadge from '@/components/custom/md-status-badge.vue';
 import MdIcon from '@/components/icons/md-icon.vue';
 import MdFeedbackDialog from '@/pages/settings/components/md-feedback-dialog.vue';
+import MdAiFeatureToggle from '@/pages/settings/components/md-ai-feature-toggle.vue';
 import MdAiSettingsDialog from '@/components/custom/md-ai-settings-dialog.vue';
 import MdIconMangodisk from '@/components/icons/md-icon-mangodisk.vue';
 import { Card } from '@/components/ui/card';
@@ -43,6 +44,12 @@ const form = reactive<AppSettings>({ ...props.settings });
 const aboutRow = ref<HTMLElement | null>(null);
 const feedbackOpen = ref(false);
 const aiSettingsOpen = ref(false);
+watch(
+  () => aiStore.enabled,
+  enabled => {
+    if (!enabled) aiSettingsOpen.value = false;
+  }
+);
 const isMacOs = MacOsPermissionService.isMacOs();
 const permissionObservation = ref(MacOsPermissionService.defaultObservation());
 const languageLabel = computed(() => {
@@ -198,22 +205,9 @@ function updateTheme(value: unknown) {
     <MdStatusDisplaySettings :is-mac-os="isMacOs" />
 
     <section class="settings-section">
-      <h2>{{ t('ai.settingsTitle') }}</h2>
+      <h2>{{ t('ai.sectionTitle') }}</h2>
       <Card class="settings-list">
-        <button
-          class="setting-row action-row grid-cols-[40px_minmax(0,1fr)] @2xl/settings:grid-cols-[42px_minmax(0,1fr)_auto]"
-          type="button"
-          @click="aiSettingsOpen = true"
-        >
-          <span class="section-icon"><MdIcon :name="ICON_NAMES.sparkles" /></span>
-          <span class="setting-copy"
-            ><strong>{{ t('ai.providerTitle') }}</strong
-            ><small class="whitespace-normal">{{ t('ai.settingsDescription') }}</small></span
-          >
-          <span class="row-action col-start-2 @2xl/settings:col-auto"
-            >{{ t('ai.configure') }}<MdIcon :name="ICON_NAMES.chevronRight" :size="16"
-          /></span>
-        </button>
+        <MdAiFeatureToggle @configure="aiSettingsOpen = true" />
       </Card>
     </section>
 
@@ -333,6 +327,7 @@ function updateTheme(value: unknown) {
 
     <MdFeedbackDialog v-model:open="feedbackOpen" @error="emit('error', $event)" />
     <MdAiSettingsDialog
+      v-if="aiStore.enabled"
       v-model:open="aiSettingsOpen"
       :quota="aiStore.quota"
       @refresh-quota="aiStore.refreshQuota"

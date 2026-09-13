@@ -1,8 +1,9 @@
 <script setup lang="ts">
 import { computed } from 'vue';
 import { useI18n } from 'vue-i18n';
+import { useAiStore } from '@/stores/ai-store';
 
-import MdAiAction from '@/components/custom/md-ai-action.vue';
+import MdAiAction from '@/layouts/components/md-ai-action.vue';
 import MdApplicationIcon from '@/components/custom/md-application-icon.vue';
 import MdIconAction from '@/components/custom/md-icon-action.vue';
 import MdStatusBadge from '@/components/custom/md-status-badge.vue';
@@ -26,6 +27,7 @@ import {
   type StartupManageableState,
 } from '../startup-view';
 
+const aiStore = useAiStore();
 const props = defineProps<{
   group: StartupOwnerGroup;
   artifacts: StartupArtifact[];
@@ -108,8 +110,9 @@ function localizedDiagnostics(artifact: StartupArtifact): string {
         </button>
 
         <span
-          class="startup-actions has-ai"
-          :class="{ 'has-cleanup': removableItems.length, 'has-location': revealPath }"
+          v-if="aiStore.enabled || removableItems.length || revealPath"
+          class="startup-actions"
+          :class="{ 'has-ai': aiStore.enabled, 'has-cleanup': removableItems.length, 'has-location': revealPath }"
         >
           <MdAiAction :name="group.name" :disabled="busy" @explain="emit('explain', group.name, artifacts)" />
           <MdIconAction

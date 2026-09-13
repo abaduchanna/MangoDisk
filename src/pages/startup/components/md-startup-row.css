@@ -103,11 +103,12 @@
   padding-right: 34px;
 }
 
-.startup-row-line:has(.startup-actions.has-cleanup) .startup-identity,
-.startup-row-line:has(.startup-actions.has-location) .startup-identity {
+.startup-row-line:has(.startup-actions.has-ai.has-cleanup) .startup-identity,
+.startup-row-line:has(.startup-actions.has-ai.has-location) .startup-identity,
+.startup-row-line:has(.startup-actions.has-cleanup.has-location) .startup-identity {
   padding-right: 68px;
 }
-.startup-row-line:has(.startup-actions.has-cleanup.has-location) .startup-identity {
+.startup-row-line:has(.startup-actions.has-ai.has-cleanup.has-location) .startup-identity {
   padding-right: 102px;
 }
 

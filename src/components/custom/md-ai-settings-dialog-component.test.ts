@@ -22,11 +22,12 @@ const mocks = vi.hoisted(() => {
     delete: vi.fn(),
     run: vi.fn(),
     success: vi.fn(),
+    dismiss: vi.fn(),
     error: vi.fn(),
     openLink: vi.fn().mockResolvedValue(undefined),
   };
 });
-vi.mock('vue-sonner', () => ({ toast: { success: mocks.success, error: mocks.error } }));
+vi.mock('vue-sonner', () => ({ toast: { success: mocks.success, error: mocks.error, dismiss: mocks.dismiss } }));
 vi.mock('@/lib/services/link-service', () => ({ LinkService: { open: mocks.openLink } }));
 vi.mock('@/lib/services/ai-service', () => ({
   AiService: mocks,
@@ -73,7 +74,7 @@ describe('AI configuration dialog', () => {
       mocks.openLink.mockRejectedValueOnce(new Error('native opener unavailable'));
       link.click();
       await flushPromises();
-      expect(mocks.error).toHaveBeenCalledWith(i18n.global.t('ai.guideOpenFailed'));
+      expect(mocks.error).toHaveBeenCalledWith(i18n.global.t('ai.guideOpenFailed'), { id: expect.any(String) });
       expect(input.value).toBe('unsaved-model');
       expect(document.querySelector('[role="alert"]')).toBeNull();
     } finally {
@@ -332,7 +333,7 @@ describe('AI configuration dialog', () => {
     await flushPromises();
     expect(mocks.save).toHaveBeenCalledWith(configuration);
     expect(wrapper.emitted('configured')).toHaveLength(1);
-    expect(mocks.success).toHaveBeenCalledWith(i18n.global.t('ai.saved'));
+    expect(mocks.success).toHaveBeenCalledWith(i18n.global.t('ai.saved'), { id: expect.any(String) });
     expect(dialog?.textContent).not.toContain(i18n.global.t('ai.saved'));
     expect((document.getElementById('ai-key') as HTMLInputElement).value).toBe(configuration.apiKey);
     expect(wrapper.emitted('update:open')).toBeUndefined();
@@ -372,7 +373,7 @@ describe('AI configuration dialog', () => {
       expect(wrapper.findComponent(MdSpinner).exists()).toBe(true);
       finish();
       await flushPromises();
-      expect(mocks.success).toHaveBeenLastCalledWith(i18n.global.t('ai.connected'));
+      expect(mocks.success).toHaveBeenLastCalledWith(i18n.global.t('ai.connected'), { id: expect.any(String) });
       expect(document.querySelector('[role="dialog"]')?.textContent).not.toContain(i18n.global.t('ai.connected'));
       mocks.success.mockClear();
       mocks.run.mockRejectedValueOnce('unauthorized');
@@ -382,12 +383,13 @@ describe('AI configuration dialog', () => {
       expect(document.querySelector('[role="alert"]')?.textContent).toBe(i18n.global.t('ai.errors.unauthorized'));
       button('ai.deleteConfiguration').click();
       await flushPromises();
-      expect(mocks.success).toHaveBeenLastCalledWith(i18n.global.t('ai.deleted'));
+      expect(mocks.success).toHaveBeenLastCalledWith(i18n.global.t('ai.deleted'), { id: expect.any(String) });
       expect(document.querySelector('[role="alert"]')).toBeNull();
       expect(document.getElementById('ai-reasoning')).toBeNull();
       expect(modeRadio('free').checked).toBe(true);
     } finally {
       wrapper.unmount();
+      expect(mocks.dismiss).toHaveBeenCalledWith(mocks.success.mock.lastCall?.[1]?.id);
     }
   });
 
@@ -484,4 +486,40 @@ describe('AI configuration dialog', () => {
     expect(mocks.save).not.toHaveBeenCalled();
     wrapper.unmount();
   });
+});
+
+it.each(['save', 'test'])('suppresses late %s notifications and automatic resume after unmount', async stage => {
+  mocks.configuration.mockResolvedValueOnce({
+    schemaVersion: 2,
+    mode: 'custom',
+    freeConsent: false,
+    endpoint: 'http://localhost/v1',
+    model: 'fixture',
+    apiKey: '',
+    reasoning: 'default',
+  });
+  let finish!: () => void;
+  const pending = new Promise<void>(resolve => {
+    finish = resolve;
+  });
+  if (stage === 'save') mocks.save.mockReturnValueOnce(pending);
+  else mocks.run.mockReturnValueOnce(pending);
+  const wrapper = mount(MdAiSettingsDialog, {
+    props: { open: true },
+    attachTo: document.body,
+    global: { plugins: [i18n] },
+  });
+  await flushPromises();
+  const button = [...document.querySelectorAll('button')].find(
+    candidate => candidate.textContent?.trim() === i18n.global.t('ai.saveAndTest')
+  )!;
+  button.click();
+  await flushPromises();
+  wrapper.unmount();
+  finish();
+  await flushPromises();
+  expect(mocks.success).not.toHaveBeenCalled();
+  expect(mocks.error).not.toHaveBeenCalled();
+  expect(wrapper.emitted('configured')).toBeUndefined();
+  if (stage === 'save') expect(mocks.run).not.toHaveBeenCalled();
 });

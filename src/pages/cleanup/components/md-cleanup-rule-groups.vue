@@ -35,7 +35,7 @@ import { applicationLeftoverGroupSelection, groupApplicationLeftovers } from '..
 import { hasCleanupRuleDetails, isAggregateOnlyCleanupRule } from '../cleanup-rule-details';
 import { cleanupGroupIcon, cleanupRuleIcon } from '../cleanup-rule-icon';
 import { buildCleanupResultCategories, type CleanupResultCategory } from '../cleanup-result-categories';
-import MdAiAction from '@/components/custom/md-ai-action.vue';
+import MdAiAction from '@/layouts/components/md-ai-action.vue';
 import { OperatingSystemService } from '@/lib/services/operating-system-service';
 import { cleanupAiContext } from '../cleanup-ai-context';
 import { useAiStore } from '@/stores/ai-store';
@@ -591,7 +591,7 @@ watch(
                     :size="20"
                   />
                 </template>
-                <template v-if="row.rule.category !== 'custom'" #actions>
+                <template v-if="aiStore.enabled && row.rule.category !== 'custom'" #actions>
                   <MdAiAction :name="row.rule.name" :disabled="busy" @explain="explainRule(row.rule)" />
                 </template>
               </MdResultItemContent>

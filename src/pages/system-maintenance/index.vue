@@ -3,7 +3,7 @@ import { computed, onMounted, onUnmounted, ref, watch } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { toast } from 'vue-sonner';
 
-import MdAiAction from '@/components/custom/md-ai-action.vue';
+import MdAiAction from '@/layouts/components/md-ai-action.vue';
 import { systemMaintenanceAiContext } from './system-maintenance-ai-context';
 import { maintenanceFailureFeedback } from './system-maintenance-feedback';
 import MdCategoryFilter from '@/components/custom/md-category-filter.vue';

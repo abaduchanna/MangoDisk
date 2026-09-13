@@ -7,6 +7,7 @@ mod evaluation;
 mod language;
 mod official;
 mod official_protocol;
+mod preferences;
 mod prompt;
 mod prompt_schema;
 mod provider_error;
@@ -18,11 +19,13 @@ pub use configuration::{
 };
 pub use context::{AiContext, AiPlatform, AiSubject};
 pub use official::{official_explain, official_quota, AiClientMetadata, AiQuota};
+pub use preferences::AiPreferences;
 pub use transport::{explain, AiDelta, AiRequest, AiUsage};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize)]
 #[serde(rename_all = "camelCase")]
 pub enum AiError {
+    Disabled,
     InvalidConfiguration,
     InvalidContext,
     NotConfigured,

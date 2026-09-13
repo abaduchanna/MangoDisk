@@ -1,4 +1,6 @@
 // @vitest-environment happy-dom
+import { createPinia } from 'pinia';
+import { useAiStore } from '@/stores/ai-store';
 import { mount } from '@vue/test-utils';
 import { describe, expect, it } from 'vitest';
 import { i18n } from '@/i18n';
@@ -64,7 +66,7 @@ function row(artifacts: StartupArtifact[] = [service], expanded = false) {
       copiedActionKey: null,
     },
     global: {
-      plugins: [i18n],
+      plugins: [enabledPinia(), i18n],
       stubs: { MdApplicationIcon: true, MdIcon: true, MdIconAction: { template: '<button><slot /></button>' } },
     },
   });
@@ -142,4 +144,21 @@ describe('startup row source badges and service controls', () => {
     expect(wrapper.findAll('.switch-spinner')).toHaveLength(1);
     wrapper.unmount();
   });
+});
+
+function enabledPinia() {
+  const pinia = createPinia();
+  useAiStore(pinia).$patch({ enabled: true, preferencesLoaded: true });
+  return pinia;
+}
+
+it('removes the unused hover-action reservation when AI is disabled', async () => {
+  const wrapper = row();
+  expect(wrapper.find('.startup-actions').exists()).toBe(true);
+  useAiStore().enabled = false;
+  await wrapper.vm.$nextTick();
+  expect(wrapper.find('.startup-actions').exists()).toBe(false);
+  expect(wrapper.find('.md-ai-action').exists()).toBe(false);
+  expect(wrapper.find('[role="switch"]').exists()).toBe(true);
+  wrapper.unmount();
 });

@@ -1,5 +1,8 @@
 {
   "ai": {
+    "sectionTitle": "AI",
+    "configureAction": "설정…",
+    "featureDisabledHint": "꺼짐 · 서비스 설정은 유지됩니다",
     "configurationGuide": "설정 가이드",
     "guideOpenInBrowser": "브라우저에서 설정 가이드 열기",
     "guideOpenFailed": "가이드를 열 수 없습니다. 다시 시도하세요",
@@ -62,7 +65,8 @@
       "freeClockSkew": "시스템 시간을 확인하고 다시 시도하세요",
       "freeSignatureInvalid": "MangoDisk를 업데이트하거나 사용자 지정 서비스를 사용하세요. 이 빌드는 무료 AI를 사용할 수 없습니다",
       "freeRequestExists": "중복된 요청이거나 더 이상 유효하지 않습니다. 새 설명을 시작하세요",
-      "freeArchiveUnavailable": "무료 설명을 처리할 수 없습니다. 나중에 다시 시도하세요"
+      "freeArchiveUnavailable": "무료 설명을 처리할 수 없습니다. 나중에 다시 시도하세요",
+      "disabled": "AI 기능이 꺼져 있습니다"
     },
     "minimize": "최소화",
     "restore": "AI 설명 펼치기",
@@ -86,7 +90,11 @@
     "freeDailyExhausted": "일일 한도 도달",
     "freeResetsAt": "한도에 도달했습니다. {time}에 초기화됩니다",
     "freeTemporarilyUnavailable": "무료 AI를 일시적으로 사용할 수 없습니다",
-    "freeUseCustom": "사용자 지정 서비스로 전환해 자신의 API Key를 사용하세요"
+    "freeUseCustom": "사용자 지정 서비스로 전환해 자신의 API Key를 사용하세요",
+    "enableFeature": "AI 기능 사용",
+    "enableFeatureHint": "끄면 AI 해설 항목을 숨기고 요청을 중지합니다. 서비스 설정은 유지됩니다",
+    "featureLoadFailed": "이 설정을 불러오지 못했습니다. 다시 시도해 주세요",
+    "featureSaveFailed": "변경 사항을 저장하지 못했습니다. 기존 설정이 유지됩니다. 다시 시도해 주세요"
   },
   "navigation": {
     "system-optimization": "시스템 최적화",

@@ -1,8 +1,12 @@
-use std::{collections::HashMap, sync::Mutex, time::Instant};
+use std::{
+    collections::HashMap,
+    sync::{Arc, Mutex},
+    time::Instant,
+};
 
 use mangodisk_core::ai::{
-    explain, AiConfiguration, AiConfigurationUpdate, AiDelta, AiError, AiRequest, AiSettings,
-    AiUsage,
+    explain, AiConfiguration, AiConfigurationUpdate, AiDelta, AiError, AiPreferences, AiRequest,
+    AiSettings, AiUsage,
 };
 use tauri::{ipc::Channel, State};
 use tokio::sync::watch;
@@ -13,16 +17,76 @@ struct ActiveRequest {
     created: Instant,
 }
 
+#[derive(Default, Clone)]
+pub(crate) struct AiRuntime(Arc<Mutex<AiRuntimeState>>);
+
 #[derive(Default)]
-pub(crate) struct AiRuntime(Mutex<HashMap<String, ActiveRequest>>);
+struct AiRuntimeState {
+    preferences: Option<AiPreferences>,
+    active: HashMap<String, ActiveRequest>,
+    // Each disable invalidates existing quota reads even after a quick re-enable.
+    disabled_revision: watch::Sender<u64>,
+}
+
+impl AiRuntimeState {
+    fn require_enabled(&self) -> Result<(), AiError> {
+        if self.preferences.is_some_and(|value| value.enabled) {
+            Ok(())
+        } else {
+            Err(AiError::Disabled)
+        }
+    }
+
+    fn apply_preferences(&mut self, preferences: AiPreferences) {
+        self.preferences = Some(preferences);
+        if !preferences.enabled {
+            self.disabled_revision
+                .send_modify(|revision| *revision += 1);
+            for request in self.active.values() {
+                request.cancel.send_replace(true);
+            }
+            self.active.retain(|_, request| request.running);
+        }
+    }
+}
 
 // Five module streams and one connection test can coexist. Keep reservations
 // bounded so abandoned IPC calls cannot consume unbounded client resources.
 const MAX_ACTIVE_REQUESTS: usize = 6;
 
 impl AiRuntime {
+    fn preferences(&self) -> Result<AiPreferences, AiError> {
+        let mut state = self.0.lock().map_err(|_| AiError::Busy)?;
+        if let Some(preferences) = state.preferences {
+            return Ok(preferences);
+        }
+        let preferences = AiPreferences::load()?;
+        state.apply_preferences(preferences);
+        Ok(preferences)
+    }
+
+    fn save_preferences(&self, enabled: bool) -> Result<AiPreferences, AiError> {
+        let mut state = self.0.lock().map_err(|_| AiError::Busy)?;
+        // Serialize persistence with request admission. A failed atomic write
+        // leaves the last confirmed setting intact; success cancels all modules
+        // and connection tests before acknowledging the toggle to the UI.
+        let preferences = AiPreferences::save(enabled)?;
+        let active_count = state.active.len();
+        state.apply_preferences(preferences);
+        log::info!("ai_feature_preference_saved enabled={enabled} active_count={active_count}");
+        Ok(preferences)
+    }
+
+    fn quota_permit(&self) -> Result<watch::Receiver<u64>, AiError> {
+        let state = self.0.lock().map_err(|_| AiError::Busy)?;
+        state.require_enabled()?;
+        Ok(state.disabled_revision.subscribe())
+    }
+
     fn begin(&self) -> Result<String, AiError> {
-        let mut active = self.0.lock().map_err(|_| AiError::Busy)?;
+        let mut state = self.0.lock().map_err(|_| AiError::Busy)?;
+        state.require_enabled()?;
+        let active = &mut state.active;
         let before = active.len();
         active.retain(|_, value| value.running || value.created.elapsed().as_secs() < 60);
         if before != active.len() {
@@ -50,7 +114,9 @@ impl AiRuntime {
     }
 
     fn start(&self, id: &str) -> Result<watch::Receiver<bool>, AiError> {
-        let mut active = self.0.lock().map_err(|_| AiError::Busy)?;
+        let mut state = self.0.lock().map_err(|_| AiError::Busy)?;
+        state.require_enabled()?;
+        let active = &mut state.active;
         let value = active
             .get_mut(id)
             .filter(|value| !value.running)
@@ -60,7 +126,8 @@ impl AiRuntime {
     }
 
     fn cancel(&self, id: &str) -> Result<(), AiError> {
-        let mut active = self.0.lock().map_err(|_| AiError::Busy)?;
+        let mut state = self.0.lock().map_err(|_| AiError::Busy)?;
+        let active = &mut state.active;
         if let Some(value) = active.get_mut(id) {
             value.cancel.send_replace(true);
             log::debug!(
@@ -77,9 +144,30 @@ impl AiRuntime {
 
     fn finish(&self, id: &str) {
         if let Ok(mut active) = self.0.lock() {
-            active.remove(id);
+            active.active.remove(id);
         }
     }
+}
+
+#[tauri::command]
+pub(crate) async fn ai_get_preferences(
+    state: State<'_, AiRuntime>,
+) -> Result<AiPreferences, AiError> {
+    let runtime = state.inner().clone();
+    tauri::async_runtime::spawn_blocking(move || runtime.preferences())
+        .await
+        .map_err(|_| AiError::ConfigurationUnavailable)?
+}
+
+#[tauri::command]
+pub(crate) async fn ai_set_enabled(
+    enabled: bool,
+    state: State<'_, AiRuntime>,
+) -> Result<AiPreferences, AiError> {
+    let runtime = state.inner().clone();
+    tauri::async_runtime::spawn_blocking(move || runtime.save_preferences(enabled))
+        .await
+        .map_err(|_| AiError::ConfigurationUnavailable)?
 }
 
 #[tauri::command]
@@ -193,6 +281,9 @@ pub(crate) async fn ai_explain(
             .await
             .map_err(|_| AiError::ConfigurationUnavailable)??
             .unwrap_or_else(AiConfiguration::initial);
+        if *cancel.borrow() {
+            return Err(AiError::Cancelled);
+        }
         if config.mode != expected_mode {
             return Err(AiError::InvalidConfiguration);
         }
@@ -225,14 +316,72 @@ pub(crate) async fn ai_explain(
 #[tauri::command]
 pub(crate) async fn ai_get_quota(
     metadata: mangodisk_core::ai::AiClientMetadata,
+    state: State<'_, AiRuntime>,
 ) -> Result<mangodisk_core::ai::AiQuota, AiError> {
-    mangodisk_core::ai::official_quota(metadata).await
+    let mut disabled = state.quota_permit()?;
+    tokio::select! {
+        biased;
+        _ = disabled.changed() => Err(AiError::Cancelled),
+        result = mangodisk_core::ai::official_quota(metadata) => result,
+    }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
     use std::time::Duration;
+
+    fn enabled_runtime() -> AiRuntime {
+        let runtime = AiRuntime::default();
+        runtime
+            .0
+            .lock()
+            .unwrap()
+            .apply_preferences(AiPreferences::default());
+        runtime
+    }
+
+    #[test]
+    fn unloaded_and_disabled_preferences_block_all_network_admission() {
+        let runtime = AiRuntime::default();
+        assert!(matches!(runtime.begin(), Err(AiError::Disabled)));
+        assert!(matches!(runtime.quota_permit(), Err(AiError::Disabled)));
+        runtime.0.lock().unwrap().apply_preferences(AiPreferences {
+            enabled: false,
+            ..AiPreferences::default()
+        });
+        assert!(matches!(runtime.begin(), Err(AiError::Disabled)));
+        assert!(matches!(runtime.start("unknown"), Err(AiError::Disabled)));
+        assert!(matches!(runtime.quota_permit(), Err(AiError::Disabled)));
+    }
+
+    #[test]
+    fn disabling_cancels_every_stream_reservation_and_quota_without_reviving_them() {
+        let runtime = enabled_runtime();
+        let reserved = runtime.begin().unwrap();
+        let running = runtime.begin().unwrap();
+        let cancellation = runtime.start(&running).unwrap();
+        let quota = runtime.quota_permit().unwrap();
+        runtime.0.lock().unwrap().apply_preferences(AiPreferences {
+            enabled: false,
+            ..AiPreferences::default()
+        });
+        assert!(*cancellation.borrow());
+        assert!(quota.has_changed().unwrap());
+        assert!(matches!(runtime.begin(), Err(AiError::Disabled)));
+        runtime
+            .0
+            .lock()
+            .unwrap()
+            .apply_preferences(AiPreferences::default());
+        assert!(*cancellation.borrow());
+        assert!(quota.has_changed().unwrap());
+        assert!(matches!(runtime.start(&reserved), Err(AiError::Cancelled)));
+        runtime.finish(&running);
+        let fresh = runtime.begin().unwrap();
+        assert!(!*runtime.start(&fresh).unwrap().borrow());
+        assert!(!runtime.quota_permit().unwrap().has_changed().unwrap());
+    }
 
     #[test]
     fn editor_snapshot_uses_the_frontend_contract_without_changing_persisted_configuration() {
@@ -255,7 +404,7 @@ mod tests {
 
     #[test]
     fn parallel_requests_cancel_and_finish_independently() {
-        let runtime = AiRuntime::default();
+        let runtime = enabled_runtime();
         let first = runtime.begin().unwrap();
         let second = runtime.begin().unwrap();
         let first_cancel = runtime.start(&first).unwrap();
@@ -264,16 +413,16 @@ mod tests {
         assert!(*first_cancel.borrow());
         assert!(!*second_cancel.borrow());
         runtime.finish(&first);
-        assert!(runtime.0.lock().unwrap().contains_key(&second));
+        assert!(runtime.0.lock().unwrap().active.contains_key(&second));
         runtime.cancel(&first).unwrap();
         assert!(!*second_cancel.borrow());
         runtime.finish(&second);
-        assert!(runtime.0.lock().unwrap().is_empty());
+        assert!(runtime.0.lock().unwrap().active.is_empty());
     }
 
     #[test]
     fn five_modules_and_connection_test_fit_with_bounded_capacity() {
-        let runtime = AiRuntime::default();
+        let runtime = enabled_runtime();
         let ids: Vec<_> = (0..MAX_ACTIVE_REQUESTS)
             .map(|_| runtime.begin().unwrap())
             .collect();
@@ -289,22 +438,23 @@ mod tests {
 
     #[test]
     fn reservations_expire_without_evicting_running_streams() {
-        let runtime = AiRuntime::default();
+        let runtime = enabled_runtime();
         let reserved = runtime.begin().unwrap();
         let running = runtime.begin().unwrap();
         runtime.start(&running).unwrap();
-        for request in runtime.0.lock().unwrap().values_mut() {
+        for request in runtime.0.lock().unwrap().active.values_mut() {
             request.created = Instant::now() - Duration::from_secs(61);
         }
         runtime.begin().unwrap();
-        let active = runtime.0.lock().unwrap();
+        let state = runtime.0.lock().unwrap();
+        let active = &state.active;
         assert!(!active.contains_key(&reserved));
         assert!(active.contains_key(&running));
     }
 
     #[test]
     fn cancelled_unknown_and_replayed_reservations_cannot_start() {
-        let runtime = AiRuntime::default();
+        let runtime = enabled_runtime();
         let cancelled = runtime.begin().unwrap();
         runtime.cancel(&cancelled).unwrap();
         assert!(matches!(runtime.start(&cancelled), Err(AiError::Cancelled)));

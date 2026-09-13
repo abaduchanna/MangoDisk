@@ -10,6 +10,7 @@ import type {
   AiClientMetadata,
   AiQuota,
   AiEditorState,
+  AiPreferences,
 } from '@/lib/models/ai';
 import { getVersion } from '@tauri-apps/api/app';
 import { ClientRequestMetadataService } from '@/lib/services/client-request-metadata-service';
@@ -61,6 +62,12 @@ export class AiSession {
 }
 
 export class AiService {
+  static preferences(): Promise<AiPreferences> {
+    return invoke('ai_get_preferences');
+  }
+  static setEnabled(enabled: boolean): Promise<AiPreferences> {
+    return invoke('ai_set_enabled', { enabled });
+  }
   static async metadata(language: string): Promise<AiClientMetadata> {
     const distribution = await AppDistributionService.current();
     const metadata = await ClientRequestMetadataService.collect(language, distribution, source => {
@@ -77,8 +84,15 @@ export class AiService {
       timezone: metadata.timezone || 'UTC',
     };
   }
-  static async quota(language: string): Promise<AiQuota> {
-    return invoke('ai_get_quota', { metadata: await this.metadata(language) });
+  static async quota(language: string, isCurrent: () => boolean): Promise<AiQuota> {
+    const metadata = await this.metadata(language);
+    // Metadata collection can span a disable/re-enable cycle. The caller owns
+    // that lifecycle; reject stale work before IPC admits a new network request.
+    if (!isCurrent()) {
+      LoggerService.info('ai', 'quota_request_cancelled_before_dispatch');
+      throw 'cancelled';
+    }
+    return invoke('ai_get_quota', { metadata });
   }
   static editorState(): Promise<AiEditorState> {
     return invoke('ai_get_configuration');

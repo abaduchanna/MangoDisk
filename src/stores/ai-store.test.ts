@@ -11,9 +11,18 @@ const mocks = vi.hoisted(() => ({
   quota: vi.fn(),
   configuration: vi.fn(),
   save: vi.fn(),
+  preferences: vi.fn(),
+  setEnabled: vi.fn(),
 }));
 vi.mock('@/lib/services/ai-service', () => ({
-  AiService: { settings: mocks.settings, quota: mocks.quota, configuration: mocks.configuration, save: mocks.save },
+  AiService: {
+    preferences: mocks.preferences,
+    setEnabled: mocks.setEnabled,
+    settings: mocks.settings,
+    quota: mocks.quota,
+    configuration: mocks.configuration,
+    save: mocks.save,
+  },
   AiSession: class {
     run = mocks.run;
     cancel = mocks.cancel;
@@ -56,6 +65,9 @@ const settings = {
 beforeEach(() => {
   setActivePinia(createPinia());
   vi.resetAllMocks();
+  useAiStore().$patch({ enabled: true, preferencesLoaded: true });
+  mocks.preferences.mockResolvedValue({ schemaVersion: 1, enabled: true });
+  mocks.setEnabled.mockImplementation(async enabled => ({ schemaVersion: 1, enabled }));
   mocks.settings.mockResolvedValue(settings);
   mocks.run.mockImplementation(async (_context, _language, delta) => {
     delta({ kind: 'text', text: 'Purpose. Impact.' });
@@ -527,5 +539,152 @@ describe('AI explanations', () => {
     await Promise.all([store.show(context, 'en-US'), store.show({ ...context, title: 'Latest' }, 'en-US')]);
     expect(mocks.run).toHaveBeenCalledTimes(1);
     expect(mocks.run.mock.calls[0]?.[0].title).toBe('Latest');
+  });
+});
+
+describe('global AI preference', () => {
+  it('starts closed until preferences load, fails closed, and supports retry', async () => {
+    const store = useAiStore();
+    store.$reset();
+    expect(store.enabled).toBe(false);
+    await store.show(context, 'en-US');
+    expect(mocks.settings).not.toHaveBeenCalled();
+    mocks.preferences.mockRejectedValueOnce('configurationUnavailable');
+    await store.loadPreferences();
+    expect(store.enabled).toBe(false);
+    expect(store.preferencesLoaded).toBe(false);
+    expect(store.preferencesError).toBe('load');
+    await store.setEnabled(true);
+    expect(mocks.setEnabled).not.toHaveBeenCalled();
+    await store.loadPreferences();
+    expect(store.enabled).toBe(true);
+    expect(store.preferencesLoaded).toBe(true);
+    expect(store.preferencesError).toBeNull();
+    expect(mocks.run).not.toHaveBeenCalled();
+  });
+
+  it('serializes toggles, preserves the confirmed state on failure, and leaves credentials alone', async () => {
+    const store = useAiStore();
+    let fail!: (error: string) => void;
+    mocks.setEnabled.mockImplementationOnce(
+      () =>
+        new Promise((_resolve, reject) => {
+          fail = reject;
+        })
+    );
+    const saving = store.setEnabled(false);
+    await store.setEnabled(false);
+    await store.setEnabled(true);
+    expect(mocks.setEnabled).toHaveBeenCalledTimes(1);
+    expect(store.enabled).toBe(true);
+    expect(store.preferencesBusy).toBe(true);
+    fail('configurationUnavailable');
+    await saving;
+    expect(store.enabled).toBe(true);
+    expect(store.preferencesError).toBe('save');
+    await store.setEnabled(false);
+    await store.setEnabled(true);
+    expect(store.enabled).toBe(true);
+    expect(store.preferencesError).toBeNull();
+    expect(mocks.configuration).not.toHaveBeenCalled();
+    expect(mocks.save).not.toHaveBeenCalled();
+    expect(mocks.run).not.toHaveBeenCalled();
+  });
+
+  it.each(['success', 'failure'])(
+    'discards late stream %s across disable and re-enable without refreshing quota',
+    async outcome => {
+      const store = useAiStore();
+      const free = { ...settings, mode: 'free', freeConsent: true, freeAvailable: true };
+      mocks.settings.mockResolvedValue(free);
+      mocks.quota.mockResolvedValue({ remaining: 20 });
+      const streams: Array<{ delta: (value: AiDelta) => void; finish: () => void }> = [];
+      mocks.run.mockImplementation(
+        (_item, _language, delta) =>
+          new Promise<void>((resolve, reject) => {
+            streams.push({ delta, finish: () => (outcome === 'success' ? resolve() : reject('connectionFailed')) });
+            delta({ kind: 'text', text: 'Old answer' });
+          })
+      );
+      const first = store.show(context, 'en-US');
+      const second = store.show({ ...context, subject: { module: 'startup', entries: [], omittedCount: 0 } }, 'en-US');
+      await flushPromises();
+      store.minimize('cleanup');
+      await store.setEnabled(false);
+      expect(mocks.cancel).toHaveBeenCalledTimes(2);
+      expect(store.open).toBe(false);
+      expect(
+        Object.values(store.workspaces).every(workspace => workspace.context === null && !workspace.minimized)
+      ).toBe(true);
+      expect(store.quota).toBeNull();
+      mocks.quota.mockClear();
+      await store.show(context, 'en-US');
+      await store.generate('cleanup');
+      await store.refreshQuota('en-US', true);
+      await store.acceptFree('cleanup');
+      await store.configurationChanged(null, 'cleanup');
+      expect(mocks.run).toHaveBeenCalledTimes(2);
+      expect(mocks.save).not.toHaveBeenCalled();
+      await store.setEnabled(true);
+      for (const stream of streams) {
+        stream.delta({ kind: 'text', text: 'Late answer' });
+        stream.finish();
+      }
+      await Promise.all([first, second]);
+      expect(store.open).toBe(false);
+      expect(store.cache).toEqual({});
+      expect(store.workspaces.cleanup.text).toBe('');
+      expect(store.workspaces.cleanup.error).toBeNull();
+      expect(mocks.quota).not.toHaveBeenCalled();
+    }
+  );
+
+  it('invalidates pending quota reads and their forced follow-ups even after re-enabling', async () => {
+    const store = useAiStore();
+    let finish!: (value: unknown) => void;
+    mocks.quota.mockImplementationOnce(
+      () =>
+        new Promise(resolve => {
+          finish = resolve;
+        })
+    );
+    const initial = store.refreshQuota('en-US');
+    const forced = store.refreshQuota('en-US', true);
+    const isCurrent: () => boolean = mocks.quota.mock.calls[0]![1];
+    expect(isCurrent()).toBe(true);
+    await store.setEnabled(false);
+    expect(isCurrent()).toBe(false);
+    await store.setEnabled(true);
+    expect(isCurrent()).toBe(false);
+    finish({ remaining: 10 });
+    await Promise.all([initial, forced]);
+    expect(store.quota).toBeNull();
+    expect(store.quotaError).toBeNull();
+    expect(mocks.quota).toHaveBeenCalledTimes(1);
+    mocks.quota.mockResolvedValue({ remaining: 9 });
+    await store.refreshQuota('en-US');
+    const isFreshRequestCurrent: () => boolean = mocks.quota.mock.calls[1]![1];
+    expect(isFreshRequestCurrent()).toBe(true);
+    expect(store.quota?.remaining).toBe(9);
+  });
+
+  it.each(['selection', 'configuration'])('invalidates a pending %s settings read after disabling', async action => {
+    const store = useAiStore();
+    let finish!: (value: unknown) => void;
+    mocks.settings.mockImplementationOnce(
+      () =>
+        new Promise(resolve => {
+          finish = resolve;
+        })
+    );
+    const pending = action === 'selection' ? store.show(context, 'en-US') : store.configurationChanged();
+    await flushPromises();
+    await store.setEnabled(false);
+    await store.setEnabled(true);
+    finish(settings);
+    await pending;
+    expect(store.workspaces.cleanup.settings).toBeNull();
+    expect(store.open).toBe(false);
+    expect(mocks.run).not.toHaveBeenCalled();
   });
 });

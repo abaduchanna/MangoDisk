@@ -6,7 +6,7 @@ import { toast } from 'vue-sonner';
 import MdActionBarContainer from '@/components/custom/md-action-bar-container.vue';
 import MdCatalogList from '@/components/custom/md-catalog-list.vue';
 import MdCatalogListItem from '@/components/custom/md-catalog-list-item.vue';
-import MdAiAction from '@/components/custom/md-ai-action.vue';
+import MdAiAction from '@/layouts/components/md-ai-action.vue';
 import { systemOptimizationAiContext } from './system-optimization-ai-context';
 import MdCategoryFilter from '@/components/custom/md-category-filter.vue';
 import MdEmptyState from '@/components/custom/md-empty-state.vue';

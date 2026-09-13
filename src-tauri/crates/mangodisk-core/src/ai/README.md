@@ -19,6 +19,14 @@ authorize cleanup. Existing native preflight and confirmation remain authoritati
   Unsupported schemas and invalid documents are rejected without rewriting.
   The unreleased credential-store prototype is not migrated automatically:
   re-enter that preview's settings once; existing OS credentials are untouched.
+- Core persists the global feature preference separately in `data/ai-preferences.json`
+  (schema 1). A missing file preserves the previous enabled behavior; unreadable,
+  invalid, and unsupported documents fail closed without being rewritten.
+  Provider configuration deletion never changes this preference. Tauri serializes
+  preference writes with request admission and cancels streams, reservations, and
+  quota reads when disabling. The frontend loads the preference before mounting,
+  hides all explanation UI except the settings toggle, and discards late callbacks.
+  Re-enabling preserves credentials and consent but never resumes old requests.
 - Tauri owns request reservation, cancellation, IPC channels, and diagnostic logs.
 - The frontend service owns IPC sessions. The AI store owns transient UI state
   and a bounded, memory-only result cache. Changing configuration clears the cache.

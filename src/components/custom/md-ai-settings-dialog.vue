@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, ref, watch, onMounted, onBeforeUnmount } from 'vue';
+import { computed, ref, watch, onMounted, onBeforeUnmount, useId } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { toast } from 'vue-sonner';
 import { Button } from '@/components/ui/button';
@@ -30,6 +30,10 @@ const emit = defineEmits<{
   refreshQuota: [language: string, force: boolean];
 }>();
 const { t, locale } = useI18n({ useScope: 'global' });
+// Each editor owns one notification so disabling AI can remove already-visible
+// feedback as well as suppressing callbacks that arrive after unmount.
+const notificationId = useId();
+let disposed = false;
 const guideUrl = computed(() => projectWebsiteUrl(locale.value, '/docs/ai#custom-service'));
 
 async function openGuide() {
@@ -38,7 +42,7 @@ async function openGuide() {
   } catch {
     // Do not include the editor draft or native error: it may contain private configuration.
     LoggerService.warn('ai', 'configuration_guide_open_failed');
-    toast.error(t('ai.guideOpenFailed'));
+    if (!disposed && props.open) toast.error(t('ai.guideOpenFailed'), { id: notificationId });
   }
 }
 const configured = ref(false);
@@ -142,6 +146,7 @@ async function save(test: boolean) {
       temperature: temperature.value,
       maxTokens: maxTokens.value,
     });
+    if (disposed) return;
     configured.value = true;
     showKey.value = false;
     saved = true;
@@ -152,7 +157,7 @@ async function save(test: boolean) {
     }
     // Success feedback must not add a form row and move the dialog or its
     // actions. Report test success only after streaming finishes successfully.
-    toast.success(t(test ? 'ai.connected' : 'ai.saved'));
+    if (!disposed && props.open) toast.success(t(test ? 'ai.connected' : 'ai.saved'), { id: notificationId });
   } catch (cause) {
     error.value = aiErrorCode(cause);
   } finally {
@@ -161,7 +166,7 @@ async function save(test: boolean) {
     testing.value = false;
     // Publish after the connection-test session releases its reservation;
     // an open explanation panel can then start automatically without Busy.
-    if (saved) emit('configured', error.value);
+    if (saved && !disposed) emit('configured', error.value);
   }
 }
 
@@ -170,6 +175,7 @@ async function remove() {
   error.value = null;
   try {
     await AiService.delete();
+    if (disposed) return;
     configured.value = false;
     loaded.value = true;
     mode.value = 'free';
@@ -183,7 +189,7 @@ async function remove() {
     maxTokens.value = null;
     advanced.value = false;
     showKey.value = false;
-    toast.success(t('ai.deleted'));
+    toast.success(t('ai.deleted'), { id: notificationId });
   } catch (cause) {
     error.value = aiErrorCode(cause);
   } finally {
@@ -204,6 +210,8 @@ async function cancelTest() {
   }
 }
 onBeforeUnmount(() => {
+  disposed = true;
+  toast.dismiss(notificationId);
   window.removeEventListener('focus', refreshQuotaAfterFocus);
   ++loadRevision;
   void cancelTest();
@@ -233,9 +241,12 @@ onBeforeUnmount(() => {
           <legend class="sr-only">{{ t('ai.serviceMode') }}</legend>
           <div
             class="min-w-0 rounded-xl border transition-colors"
-            :class="mode === 'free' ? 'border-primary/60 bg-accent/30' : 'border-border/70'"
+            :class="mode === 'free' ? 'border-primary/30' : 'border-border/70'"
           >
-            <label class="flex cursor-pointer items-start gap-3 p-4" :class="{ 'cursor-default': busy }">
+            <label
+              class="flex cursor-pointer items-start gap-3 rounded-t-xl p-4 transition-colors"
+              :class="{ 'cursor-default': busy, 'bg-accent/15': mode === 'free' }"
+            >
               <input
                 v-model="mode"
                 type="radio"
@@ -271,10 +282,13 @@ onBeforeUnmount(() => {
           </div>
           <div
             class="min-w-0 rounded-xl border transition-colors"
-            :class="mode === 'custom' ? 'border-primary/60 bg-accent/30' : 'border-border/70'"
+            :class="mode === 'custom' ? 'border-primary/30' : 'border-border/70'"
           >
             <!-- Keep the help link outside the radio label so opening help never changes the draft mode. -->
-            <div class="relative">
+            <div
+              class="relative rounded-t-xl transition-colors"
+              :class="{ 'bg-accent/15': mode === 'custom' }"
+            >
               <label class="flex cursor-pointer items-start gap-3 p-4" :class="{ 'cursor-default': busy }">
                 <input
                   v-model="mode"

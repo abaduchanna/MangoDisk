@@ -200,6 +200,8 @@ pub fn run() {
             commands::resident::resident_main_ready,
             commands::resident::resident_get_autostart,
             commands::resident::resident_set_autostart,
+            commands::ai::ai_get_preferences,
+            commands::ai::ai_set_enabled,
             commands::ai::ai_get_settings,
             commands::ai::ai_get_configuration,
             commands::ai::ai_save_settings,

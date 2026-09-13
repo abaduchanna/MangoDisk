@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import type { AiDelta } from '@/lib/models/ai';
+import type { AiClientMetadata, AiDelta } from '@/lib/models/ai';
 import { AiService, AiSession } from './ai-service';
 import { ClientRequestMetadataService } from './client-request-metadata-service';
 import { AppDistributionService } from './app-distribution-service';
@@ -100,4 +100,44 @@ describe('AI IPC sessions', () => {
     await AiService.configuration();
     expect(ipc.invoke).toHaveBeenLastCalledWith('ai_get_configuration');
   });
+});
+
+it('uses a separate versioned preference contract without touching provider configuration', async () => {
+  ipc.invoke.mockResolvedValue({ schemaVersion: 1, enabled: false });
+  expect(await AiService.preferences()).toEqual({ schemaVersion: 1, enabled: false });
+  expect(ipc.invoke).toHaveBeenLastCalledWith('ai_get_preferences');
+  expect(await AiService.setEnabled(false)).toEqual({ schemaVersion: 1, enabled: false });
+  expect(ipc.invoke).toHaveBeenLastCalledWith('ai_set_enabled', { enabled: false });
+});
+
+it.each([true, false])('dispatches a prepared quota request only when its lifecycle is current: %s', async current => {
+  const metadata: AiClientMetadata = {
+    installId: 'fixture',
+    appVersion: '1.0.9',
+    locale: 'en-US',
+    distribution: 'installed',
+    osVersion: 'unknown',
+    timezone: 'UTC',
+  };
+  let finish!: (value: AiClientMetadata) => void;
+  vi.spyOn(AiService, 'metadata').mockImplementationOnce(
+    () =>
+      new Promise(resolve => {
+        finish = resolve;
+      })
+  );
+  const isCurrent = vi.fn(() => true);
+  ipc.invoke.mockResolvedValue({ remaining: 10 });
+  const pending = AiService.quota('en-US', isCurrent);
+  const assertion = current
+    ? expect(pending).resolves.toEqual({ remaining: 10 })
+    : expect(pending).rejects.toBe('cancelled');
+  expect(isCurrent).not.toHaveBeenCalled();
+  expect(ipc.invoke).not.toHaveBeenCalled();
+  isCurrent.mockReturnValue(current);
+  finish(metadata);
+  await assertion;
+  expect(isCurrent).toHaveBeenCalledTimes(1);
+  if (current) expect(ipc.invoke).toHaveBeenCalledWith('ai_get_quota', { metadata });
+  else expect(ipc.invoke).not.toHaveBeenCalled();
 });

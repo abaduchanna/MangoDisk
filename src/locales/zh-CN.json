@@ -1,5 +1,8 @@
 {
   "ai": {
+    "sectionTitle": "AI",
+    "configureAction": "配置…",
+    "featureDisabledHint": "已关闭，服务配置已保留",
     "configurationGuide": "配置指南",
     "guideOpenInBrowser": "在浏览器中打开配置指南",
     "guideOpenFailed": "暂时无法打开指南，请重试",
@@ -62,7 +65,8 @@
       "freeClockSkew": "请检查系统时间后重试",
       "freeSignatureInvalid": "此版本无法使用免费 AI，请更新 MangoDisk 或使用自定义服务",
       "freeRequestExists": "请求重复或已失效，请重新发起解读",
-      "freeArchiveUnavailable": "免费解读处理失败，请稍后重试"
+      "freeArchiveUnavailable": "免费解读处理失败，请稍后重试",
+      "disabled": "AI 功能已关闭"
     },
     "minimize": "收起",
     "restore": "展开 AI 解读",
@@ -86,7 +90,11 @@
     "freeDailyExhausted": "次数已用完",
     "freeResetsAt": "次数已用完，{time} 恢复",
     "freeTemporarilyUnavailable": "免费 AI 服务暂不可用",
-    "freeUseCustom": "可切换自定义服务，使用自己的 API Key"
+    "freeUseCustom": "可切换自定义服务，使用自己的 API Key",
+    "enableFeature": "启用 AI 功能",
+    "enableFeatureHint": "关闭后隐藏所有 AI 解读入口并停止请求，保留服务配置",
+    "featureLoadFailed": "无法读取此设置，请重试",
+    "featureSaveFailed": "未能保存更改，已保留原设置，请重试"
   },
   "navigation": {
     "system-optimization": "系统优化",
