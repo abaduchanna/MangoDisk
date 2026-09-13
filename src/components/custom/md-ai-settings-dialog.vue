@@ -285,10 +285,7 @@ onBeforeUnmount(() => {
             :class="mode === 'custom' ? 'border-primary/30' : 'border-border/70'"
           >
             <!-- Keep the help link outside the radio label so opening help never changes the draft mode. -->
-            <div
-              class="relative rounded-t-xl transition-colors"
-              :class="{ 'bg-accent/15': mode === 'custom' }"
-            >
+            <div class="relative rounded-t-xl transition-colors" :class="{ 'bg-accent/15': mode === 'custom' }">
               <label class="flex cursor-pointer items-start gap-3 p-4" :class="{ 'cursor-default': busy }">
                 <input
                   v-model="mode"

@@ -7,6 +7,7 @@ import { AppDistributionService } from './app-distribution-service';
 const ipc = vi.hoisted(() => ({ invoke: vi.fn() }));
 vi.mock('@tauri-apps/api/core', () => ({
   invoke: ipc.invoke,
+  isTauri: () => false,
   Channel: class {
     onmessage: ((delta: AiDelta) => void) | null = null;
   },

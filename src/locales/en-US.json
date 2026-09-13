@@ -92,7 +92,6 @@
     "freeTemporarilyUnavailable": "Free AI is temporarily unavailable",
     "freeUseCustom": "Switch to a custom service to use your own API Key",
     "enableFeature": "Enable AI features",
-    "enableFeatureHint": "Turn off to hide AI explanations and stop requests. Service settings are kept",
     "featureLoadFailed": "Could not load this setting. Please retry",
     "featureSaveFailed": "Could not save the change. Your previous setting is unchanged. Please retry"
   },

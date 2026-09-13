@@ -92,7 +92,6 @@
     "freeTemporarilyUnavailable": "免费 AI 服务暂不可用",
     "freeUseCustom": "可切换自定义服务，使用自己的 API Key",
     "enableFeature": "启用 AI 功能",
-    "enableFeatureHint": "关闭后隐藏所有 AI 解读入口并停止请求，保留服务配置",
     "featureLoadFailed": "无法读取此设置，请重试",
     "featureSaveFailed": "未能保存更改，已保留原设置，请重试"
   },

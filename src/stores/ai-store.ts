@@ -134,10 +134,7 @@ export const useAiStore = defineStore('ai', {
       const revision = ++this.quotaRevision;
       const pending = (async () => {
         try {
-          const quota = await AiService.quota(
-            language,
-            () => this.enabled && featureRevision === this.featureRevision
-          );
+          const quota = await AiService.quota(language, () => this.enabled && featureRevision === this.featureRevision);
           if (revision !== this.quotaRevision) return;
           this.quota = quota;
           this.quotaReadAt = performance.now();
