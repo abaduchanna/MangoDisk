@@ -51,6 +51,7 @@
       "icons/icon.ico"
     ],
     "windows": {
+      "minimumWebview2Version": "111.0.1661.62",
       "nsis": {
         "displayLanguageSelector": false,
         "headerImage": "icons/nsis/installer-header.bmp",

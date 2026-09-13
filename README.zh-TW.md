@@ -214,7 +214,7 @@ MangoDisk 預設只進行唯讀掃描。執行清理、刪除、解除安裝或�
 目前版本支援以下系統：
 
 - **macOS**：macOS Monterey 12.5 或更新版本。
-- **Windows**：64 位元 Windows 10 或更新版本。
+- **Windows**：64 位元 Windows 10 或更新版本，Microsoft Edge WebView2 Runtime 111.0.1661.62 或更新版本（建議使用最新版）。
 
 macOS 使用者可以透過 Homebrew 快速安裝：
 

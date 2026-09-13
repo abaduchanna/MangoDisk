@@ -214,7 +214,7 @@ MangoDisk はデフォルトで読み取り専用のスキャンを行います�
 現在のバージョンは、次の OS に対応しています。
 
 - **macOS**：macOS Monterey 12.5 以降
-- **Windows**：64 ビット版 Windows 10 以降
+- **Windows**：64 ビット版 Windows 10 以降、Microsoft Edge WebView2 Runtime 111.0.1661.62 以降（最新版を推奨）
 
 Homebrew を使って macOS に MangoDisk をインストールできます。
 

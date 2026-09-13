@@ -3571,5 +3571,11 @@
     "read": "読込",
     "allDisks": "全ディスク",
     "diskActivityHistory": "全ブロックデバイス：上は書き込み、下は読み取り · 直近1分間"
+  },
+  "webviewRuntime": {
+    "updateRequired": "MangoDisk の画面表示に必要なコンポーネントが古くなっています。Microsoft Edge WebView2 Runtime を更新してから、MangoDisk を再起動してください",
+    "update": "更新ページを開く",
+    "exit": "終了",
+    "openFailed": "ブラウザーを開けませんでした。次のアドレスにアクセスして、Microsoft Edge WebView2 Runtime を更新してください：\n{url}"
   }
 }

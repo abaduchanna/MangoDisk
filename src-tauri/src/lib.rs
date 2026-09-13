@@ -4,6 +4,7 @@ mod commands;
 mod events;
 mod resident;
 mod services;
+mod webview_runtime;
 
 use log::LevelFilter;
 use mangodisk_core::{configure_application_paths, ApplicationPaths};
@@ -115,10 +116,20 @@ fn restore_main_window_state(app: &tauri::AppHandle) {
 }
 
 pub fn run() {
+    let webview_version = tauri::webview_version();
+    let webview_update_required = cfg!(target_os = "windows")
+        && webview_runtime::requires_update(
+            webview_version.as_deref().ok(),
+            Some(webview_runtime::MINIMUM_VERSION),
+        );
     // This plugin must be registered before every other plugin so a secondary
     // process exits before it can initialize application services.
-    let builder =
-        tauri::Builder::default().plugin(tauri_plugin_single_instance::init(|app, args, _| {
+    let builder = tauri::Builder::default().plugin(tauri_plugin_single_instance::init(
+        move |app, args, _| {
+            // A second launch must not bypass the native compatibility prompt.
+            if webview_update_required {
+                return;
+            }
             if !resident::main_window::is_background_launch(args) {
                 resident::main_window::request(
                     app,
@@ -126,7 +137,8 @@ pub fn run() {
                     "manual_relaunch",
                 );
             }
-        }));
+        },
+    ));
     #[cfg(target_os = "macos")]
     let builder = builder
         .menu(application_menu::build)
@@ -267,15 +279,7 @@ pub fn run() {
             commands::system_maintenance::cancel_system_maintenance_execution,
             commands::system_maintenance::get_system_maintenance_runtime,
         ])
-        .setup(|app| {
-            configure_core_storage(app)?;
-            resident::install(app.handle())?;
-            let feedback_store = FeedbackDraftStore::initialize(&app.path().app_cache_dir()?);
-            let feedback_cleanup_store = feedback_store.clone();
-            app.manage(feedback_store);
-            tauri::async_runtime::spawn_blocking(move || {
-                feedback_cleanup_store.cleanup_stale_drafts();
-            });
+        .setup(move |app| {
             log::info!(
                 "application_started version={} distribution={}",
                 app.package_info().version,
@@ -289,7 +293,7 @@ pub fn run() {
             } else {
                 "webkit"
             };
-            match tauri::webview_version() {
+            match webview_version {
                 Ok(version) => log::info!(
                     "webview_runtime_version platform={} engine={} version={}",
                     std::env::consts::OS,
@@ -303,6 +307,23 @@ pub fn run() {
                     blake3::hash(error.to_string().as_bytes()).to_hex()
                 ),
             }
+            #[cfg(target_os = "windows")]
+            if webview_update_required {
+                log::warn!(
+                    "webview_runtime_update_required minimum={}",
+                    webview_runtime::MINIMUM_VERSION
+                );
+                webview_runtime::show_update_prompt(app.handle());
+                return Ok(());
+            }
+            configure_core_storage(app)?;
+            resident::install(app.handle())?;
+            let feedback_store = FeedbackDraftStore::initialize(&app.path().app_cache_dir()?);
+            let feedback_cleanup_store = feedback_store.clone();
+            app.manage(feedback_store);
+            tauri::async_runtime::spawn_blocking(move || {
+                feedback_cleanup_store.cleanup_stale_drafts();
+            });
             let login_launch = resident::main_window::is_background_launch(std::env::args());
             let resident_enabled = app
                 .state::<std::sync::Arc<resident::runtime::ResidentState>>()
@@ -328,8 +349,8 @@ pub fn run() {
         })
         .build(tauri::generate_context!())
         .expect("MangoDisk failed to start");
-    app.run(|_app, _event| {
-        if let tauri::RunEvent::Ready = _event {
+    app.run(move |_app, _event| {
+        if !webview_update_required && matches!(_event, tauri::RunEvent::Ready) {
             resident::panel::prewarm(_app);
         }
         // Dock reopening does not launch another process, so the single-instance

@@ -214,7 +214,7 @@ MangoDisk는 자체 정리 규칙을 관리합니다. 서드파티 프로젝트�
 MangoDisk는 현재 다음 환경을 지원합니다:
 
 - **macOS**: macOS Monterey 12.5 이상.
-- **Windows**: 64비트 Windows 10 이상.
+- **Windows**: 64비트 Windows 10 이상, Microsoft Edge WebView2 Runtime 111.0.1661.62 이상(최신 버전 권장).
 
 macOS에서는 Homebrew로 MangoDisk를 설치합니다:
 

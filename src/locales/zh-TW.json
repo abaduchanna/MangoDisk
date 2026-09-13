@@ -3571,5 +3571,11 @@
     "read": "讀取",
     "allDisks": "全部磁碟",
     "diskActivityHistory": "全部區塊儲存裝置：上方寫入，下方讀取 · 最近一分鐘"
+  },
+  "webviewRuntime": {
+    "updateRequired": "目前的介面執行元件版本較舊。請更新 Microsoft Edge WebView2 Runtime，然後重新開啟 MangoDisk",
+    "update": "前往更新",
+    "exit": "結束",
+    "openFailed": "無法開啟瀏覽器。請手動前往以下網址，更新 Microsoft Edge WebView2 Runtime：\n{url}"
   }
 }

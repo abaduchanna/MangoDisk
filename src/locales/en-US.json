@@ -3571,5 +3571,11 @@
     "read": "Read",
     "allDisks": "All disks",
     "diskActivityHistory": "All block devices: write above, read below · last minute"
+  },
+  "webviewRuntime": {
+    "updateRequired": "The component used to display MangoDisk is out of date. Update Microsoft Edge WebView2 Runtime, then reopen MangoDisk",
+    "update": "Get update",
+    "exit": "Exit",
+    "openFailed": "The browser could not be opened. Please visit this address to update Microsoft Edge WebView2 Runtime:\n{url}"
   }
 }

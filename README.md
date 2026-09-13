@@ -214,7 +214,7 @@ The complete rule library and revision history are open for inspection: [view th
 MangoDisk currently supports:
 
 - **macOS**: macOS Monterey 12.5 or later.
-- **Windows**: 64-bit Windows 10 or later.
+- **Windows**: 64-bit Windows 10 or later, with Microsoft Edge WebView2 Runtime 111.0.1661.62 or later (latest recommended).
 
 Install MangoDisk on macOS with Homebrew:
 

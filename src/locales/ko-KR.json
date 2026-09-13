@@ -3571,5 +3571,11 @@
     "read": "읽기",
     "allDisks": "모든 디스크",
     "diskActivityHistory": "모든 블록 장치: 위쪽 쓰기, 아래쪽 읽기 · 최근 1분"
+  },
+  "webviewRuntime": {
+    "updateRequired": "MangoDisk 화면 표시에 필요한 구성 요소의 버전이 오래되었습니다. Microsoft Edge WebView2 Runtime을 업데이트한 후 MangoDisk를 다시 실행해 주세요",
+    "update": "업데이트 페이지 열기",
+    "exit": "종료",
+    "openFailed": "브라우저를 열 수 없습니다. 다음 주소에 접속하여 Microsoft Edge WebView2 Runtime을 업데이트해 주세요:\n{url}"
   }
 }
