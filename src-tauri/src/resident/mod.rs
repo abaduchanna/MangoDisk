@@ -4,83 +4,33 @@ mod diagnostics;
 pub mod main_window;
 pub mod memory_release;
 pub mod panel;
+mod preference_schema;
 pub mod preferences;
 pub mod runtime;
+mod sampling_schedule;
+mod sampling_workers;
 
-use std::sync::{atomic::Ordering, Arc};
-use tauri::{
-    menu::{Menu, MenuItem, PredefinedMenuItem},
-    tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent},
-    Manager,
-};
+use std::sync::Arc;
+use tauri::Manager;
+pub mod taskbar_display;
+pub mod tray_display;
 
 pub const PANEL_LABEL: &str = "tray-panel";
 pub const TRAY_ID: &str = "resident";
 
 pub fn install(app: &tauri::AppHandle) -> tauri::Result<()> {
-    let open = MenuItem::with_id(app, "resident-open", "MangoDisk", true, None::<&str>)?;
-    let quit = PredefinedMenuItem::quit(app, None)?;
-    let menu = Menu::with_items(app, &[&open, &quit])?;
-    // System surfaces need tightly framed artwork, not the padded Dock tile.
-    // AppKit tints the template automatically for menu-bar appearance and selection.
-    #[cfg(target_os = "macos")]
-    let icon = tauri::include_image!("icons/tray-template.png");
-    #[cfg(not(target_os = "macos"))]
-    let icon = tauri::include_image!("icons/tray-color.png");
-    let builder = TrayIconBuilder::with_id(TRAY_ID)
-        .icon(icon)
-        .icon_as_template(cfg!(target_os = "macos"))
-        .tooltip("MangoDisk")
-        .menu(&menu)
-        .show_menu_on_left_click(false)
-        .on_menu_event(|app, event| {
-            if event.id().as_ref() == "resident-open" {
-                main_window::request(app, main_window::Destination::Main, "tray_menu");
-            }
-        })
-        .on_tray_icon_event(|tray, event| {
-            #[cfg(windows)]
-            if matches!(event, TrayIconEvent::Leave { .. }) {
-                panel::tray_pointer_left(tray.app_handle());
-            }
-            if let TrayIconEvent::Click {
-                button: MouseButton::Left,
-                button_state: MouseButtonState::Up,
-                ..
-            } = event
-            {
-                let app = tray.app_handle();
-                let state = app.state::<Arc<runtime::ResidentState>>();
-                let was_open = state.panel_open.load(Ordering::Relaxed);
-                log::info!("resident_tray_clicked panel_open={was_open}");
-                if was_open {
-                    panel::hide(app);
-                } else {
-                    // WebView2 creation must leave the native event handler to avoid
-                    // the Windows synchronous window-creation deadlock.
-                    let app = app.clone();
-                    tauri::async_runtime::spawn(async move {
-                        if let Err(error) = panel::open(&app) {
-                            log::warn!("resident_panel_open_failed error={error}");
-                        }
-                    });
-                }
-            }
-        });
-    let tray = builder.build(app)?;
+    #[cfg(windows)]
+    taskbar_display::install(app);
+    tray_display::install(app)?;
     let preferences = preferences::load(app);
-    tray.set_visible(preferences.enabled)?;
-    let state = runtime::start(app, preferences);
-    app.manage(state);
-    log::info!(
-        "resident_started enabled={} icon_style={}",
-        preferences.enabled,
-        if cfg!(target_os = "macos") {
-            "template"
-        } else {
-            "color"
-        }
-    );
+    let state = runtime::start(app, preferences.clone());
+    let reading = state
+        .reading
+        .lock()
+        .unwrap_or_else(|error| error.into_inner())
+        .clone();
+    tray_display::apply_preferences(app, &preferences, &reading)?;
+    log::info!("resident_started enabled={}", preferences.enabled);
     Ok(())
 }
 
@@ -109,3 +59,5 @@ pub fn handle_window_event(window: &tauri::Window, event: &tauri::WindowEvent) {
         }
     }
 }
+
+mod disk_activity;

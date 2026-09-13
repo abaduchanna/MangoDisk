@@ -1,13 +1,20 @@
+import { createPinia } from 'pinia';
+import type { ResidentPreferences } from '@/lib/models/resident';
+import { preferencesFixture } from '@/tests/fixtures/resident';
 // @vitest-environment happy-dom
 import { flushPromises, mount } from '@vue/test-utils';
 import { createI18n } from 'vue-i18n';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import ResidentSettings from './md-resident-settings.vue';
+import AutostartSettings from './md-autostart-settings.vue';
+import DisplaySettings from './md-status-display-settings.vue';
+import { readingFixture } from '@/tests/fixtures/resident';
 import { ResidentService } from '@/lib/services/resident-service';
 
 vi.mock('@/lib/services/resident-service', () => ({
   ResidentService: {
     preferences: vi.fn(),
+    catalogue: vi.fn(),
+    onReading: vi.fn(),
     autostartEnabled: vi.fn(),
     setAutostart: vi.fn(),
     savePreferences: vi.fn(),
@@ -15,22 +22,34 @@ vi.mock('@/lib/services/resident-service', () => ({
 }));
 
 function render() {
-  return mount(ResidentSettings, {
-    global: {
-      plugins: [
-        createI18n({ legacy: false, locale: 'en', messages: { en: {} }, missingWarn: false, fallbackWarn: false }),
-      ],
+  return mount(
+    {
+      components: { AutostartSettings, DisplaySettings },
+      template: '<AutostartSettings /><DisplaySettings :is-mac-os="true" />',
     },
-  });
+    {
+      global: {
+        plugins: [
+          createPinia(),
+          createI18n({ legacy: false, locale: 'en', messages: { en: {} }, missingWarn: false, fallbackWarn: false }),
+        ],
+      },
+    }
+  );
 }
 
 describe('resident settings', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    vi.mocked(ResidentService.catalogue).mockResolvedValue(readingFixture());
+    vi.mocked(ResidentService.onReading).mockResolvedValue(vi.fn());
     vi.mocked(ResidentService.autostartEnabled).mockResolvedValue(false);
     vi.mocked(ResidentService.setAutostart).mockResolvedValue();
-    vi.mocked(ResidentService.preferences).mockResolvedValue({ schemaVersion: 1, enabled: true, showMemory: true });
-    vi.mocked(ResidentService.savePreferences).mockResolvedValue();
+    vi.mocked(ResidentService.preferences).mockResolvedValue(preferencesFixture());
+    vi.mocked(ResidentService.savePreferences).mockImplementation(async value => ({
+      ...value,
+      revision: value.revision + 1,
+    }));
   });
 
   it('loads native preferences and persists the switch before displaying its new state', async () => {
@@ -38,7 +57,7 @@ describe('resident settings', () => {
     await flushPromises();
     const toggle = wrapper.get('#resident-enabled');
     expect(toggle.attributes('aria-checked')).toBe('true');
-    let finish!: () => void;
+    let finish!: (value: ResidentPreferences) => void;
     vi.mocked(ResidentService.savePreferences).mockReturnValueOnce(
       new Promise(resolve => {
         finish = resolve;
@@ -47,14 +66,13 @@ describe('resident settings', () => {
     await toggle.trigger('click');
     expect(toggle.attributes('disabled')).toBeDefined();
     expect(toggle.attributes('aria-checked')).toBe('true');
-    finish();
+    finish({ ...preferencesFixture(), enabled: false, revision: 1 });
     await flushPromises();
     expect(toggle.attributes('aria-checked')).toBe('false');
     expect(wrapper.get('#resident-autostart').attributes('disabled')).toBeUndefined();
     expect(ResidentService.savePreferences).toHaveBeenCalledWith({
-      schemaVersion: 1,
+      ...preferencesFixture(),
       enabled: false,
-      showMemory: true,
     });
     wrapper.unmount();
   });
@@ -66,7 +84,7 @@ describe('resident settings', () => {
     await wrapper.get('#resident-enabled').trigger('click');
     await flushPromises();
     expect(wrapper.get('#resident-enabled').attributes('aria-checked')).toBe('true');
-    expect(wrapper.get('[role="alert"]').text()).toContain('monitoring.settingsFailed');
+    expect(wrapper.get('.settings-feedback').text()).toContain('systemStatus.saveFailed');
     wrapper.unmount();
   });
 
@@ -75,7 +93,7 @@ describe('resident settings', () => {
     const wrapper = render();
     await flushPromises();
     expect(wrapper.get('#resident-enabled').attributes('disabled')).toBeDefined();
-    await wrapper.get('[role="alert"] button').trigger('click');
+    await wrapper.get('.settings-feedback button').trigger('click');
     await flushPromises();
     expect(wrapper.get('#resident-enabled').attributes('disabled')).toBeUndefined();
     wrapper.unmount();
@@ -95,7 +113,7 @@ describe('resident settings', () => {
   });
 
   it('enables login startup without enabling residency', async () => {
-    vi.mocked(ResidentService.preferences).mockResolvedValue({ schemaVersion: 1, enabled: false, showMemory: true });
+    vi.mocked(ResidentService.preferences).mockResolvedValue({ ...preferencesFixture(), enabled: false });
     const wrapper = render();
     await flushPromises();
     expect(wrapper.get('#resident-autostart').attributes('disabled')).toBeUndefined();
@@ -125,12 +143,14 @@ describe('resident settings', () => {
     wrapper.unmount();
   });
 
-  it('shows only residency and login switches without a nested section', async () => {
+  it('groups the display switch with its options and keeps login in general settings', async () => {
     const wrapper = render();
     await flushPromises();
     expect(wrapper.find('#resident-memory').exists()).toBe(false);
     expect(wrapper.findAll('[role="switch"]')).toHaveLength(2);
-    expect(wrapper.find('h2').exists()).toBe(false);
+    expect(wrapper.find('.status-card #resident-enabled').exists()).toBe(true);
+    expect(wrapper.find('.autostart-settings #resident-autostart').exists()).toBe(true);
+    expect(wrapper.find('.autostart-settings #resident-enabled').exists()).toBe(false);
     expect(wrapper.text()).not.toContain('monitoring.openPanel');
     wrapper.unmount();
   });

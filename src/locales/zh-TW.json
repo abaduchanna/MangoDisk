@@ -148,7 +148,12 @@
     },
     "completedTitle": "隱私清理已完成",
     "completedDescription": "已清理並驗證 {count} 條隱私痕跡",
-    "timeRanges": { "lastHour": "最近 1 小時", "today": "今天", "lastSevenDays": "最近 7 天", "allTime": "全部時間" },
+    "timeRanges": {
+      "lastHour": "最近 1 小時",
+      "today": "今天",
+      "lastSevenDays": "最近 7 天",
+      "allTime": "全部時間"
+    },
     "selectionMode": {
       "label": "選擇方式",
       "smart": "智慧建議",
@@ -245,7 +250,12 @@
       "processedItems": "已處理項目",
       "incompleteItems": "略過或失敗",
       "unknownSource": "隱私資料來源",
-      "statuses": { "cleared": "已清除並驗證", "unchanged": "無需變更", "failed": "未能完成", "cancelled": "已略過" }
+      "statuses": {
+        "cleared": "已清除並驗證",
+        "unchanged": "無需變更",
+        "failed": "未能完成",
+        "cancelled": "已略過"
+      }
     },
     "feedback": {
       "completed": "已清理並驗證 {count} 條隱私痕跡",
@@ -472,11 +482,21 @@
     },
     "modes": {
       "label": "最佳化方案",
-      "unchanged": { "name": "保留目前設定" },
-      "smart": { "name": "智慧建議" },
-      "performance": { "name": "效能優先" },
-      "privacy": { "name": "隱私優先" },
-      "manual": { "name": "自訂選擇" }
+      "unchanged": {
+        "name": "保留目前設定"
+      },
+      "smart": {
+        "name": "智慧建議"
+      },
+      "performance": {
+        "name": "效能優先"
+      },
+      "privacy": {
+        "name": "隱私優先"
+      },
+      "manual": {
+        "name": "自訂選擇"
+      }
     },
     "statuses": {
       "pendingEnable": "待啟用",
@@ -508,7 +528,10 @@
       "partialRestart": "已完成 {changed} 項、{failed} 項無法套用；部分變更需重新開啟相關系統元件或重新登入"
     },
     "items": {
-      "macos_finder_show-hidden-files": { "name": "顯示隱藏檔案", "description": "在 Finder 中直接查看隱藏項目" },
+      "macos_finder_show-hidden-files": {
+        "name": "顯示隱藏檔案",
+        "description": "在 Finder 中直接查看隱藏項目"
+      },
       "macos_finder_show-posix-path": {
         "name": "Finder 標題顯示完整路徑",
         "description": "在視窗標題中顯示目前資料夾的完整路徑"
@@ -521,7 +544,10 @@
         "name": "視窗最小化到應用程式圖示",
         "description": "避免 Dock 產生額外的視窗縮圖"
       },
-      "macos_dock_use-scale-effect": { "name": "使用縮放最小化效果", "description": "使用簡潔的縮放動畫取代神奇效果" },
+      "macos_dock_use-scale-effect": {
+        "name": "使用縮放最小化效果",
+        "description": "使用簡潔的縮放動畫取代神奇效果"
+      },
       "macos_mission-control_keep-space-order": {
         "name": "保持桌面空間順序",
         "description": "阻止系統依最近使用情況自動重排桌面"
@@ -534,8 +560,14 @@
         "name": "啟用完整鍵盤導覽",
         "description": "使用 Tab 鍵在更多介面控制項之間移動"
       },
-      "macos_keyboard_fast-key-repeat": { "name": "加快按鍵重複速度", "description": "長按按鍵時更快連續輸入字元" },
-      "macos_keyboard_short-repeat-delay": { "name": "縮短按鍵重複等待", "description": "長按按鍵後更快開始連續輸入" },
+      "macos_keyboard_fast-key-repeat": {
+        "name": "加快按鍵重複速度",
+        "description": "長按按鍵時更快連續輸入字元"
+      },
+      "macos_keyboard_short-repeat-delay": {
+        "name": "縮短按鍵重複等待",
+        "description": "長按按鍵後更快開始連續輸入"
+      },
       "macos_text_disable-auto-capitalization": {
         "name": "關閉自動大寫",
         "description": "避免系統自動修改英文句首大小寫"
@@ -560,7 +592,10 @@
         "name": "隱藏工作列搜尋框",
         "description": "釋放工作列空間，仍可從開始功能表搜尋"
       },
-      "windows_taskbar_align-left": { "name": "工作列圖示靠左", "description": "將開始功能表和應用程式圖示移到左側" },
+      "windows_taskbar_align-left": {
+        "name": "工作列圖示靠左",
+        "description": "將開始功能表和應用程式圖示移到左側"
+      },
       "windows_taskbar_disable-animations": {
         "name": "關閉工作列動畫",
         "description": "減少工作列過場動畫，讓操作回饋更直接"
@@ -605,8 +640,14 @@
         "name": "顯示所有副檔名",
         "description": "更容易識別檔案真實類型，減少誤操作"
       },
-      "macos_finder_show-path-bar": { "name": "顯示 Finder 路徑列", "description": "在視窗底部顯示目前位置的完整層級" },
-      "macos_finder_show-status-bar": { "name": "顯示 Finder 狀態列", "description": "顯示項目數量和剩餘磁碟空間" },
+      "macos_finder_show-path-bar": {
+        "name": "顯示 Finder 路徑列",
+        "description": "在視窗底部顯示目前位置的完整層級"
+      },
+      "macos_finder_show-status-bar": {
+        "name": "顯示 Finder 狀態列",
+        "description": "顯示項目數量和剩餘磁碟空間"
+      },
       "macos_finder_keep-folders-on-top": {
         "name": "資料夾優先排列",
         "description": "依名稱排序時將資料夾保持在檔案前面"
@@ -619,8 +660,14 @@
         "name": "關閉副檔名變更提醒",
         "description": "重新命名副檔名時不再二次詢問"
       },
-      "macos_panels_expand-save": { "name": "展開檔案儲存面板", "description": "儲存檔案時直接顯示完整目錄選擇器" },
-      "macos_panels_expand-print": { "name": "展開列印面板", "description": "列印時直接顯示完整選項" },
+      "macos_panels_expand-save": {
+        "name": "展開檔案儲存面板",
+        "description": "儲存檔案時直接顯示完整目錄選擇器"
+      },
+      "macos_panels_expand-print": {
+        "name": "展開列印面板",
+        "description": "列印時直接顯示完整選項"
+      },
       "macos_desktop_prevent-network-ds-store": {
         "name": "不在網路磁碟寫入 .DS_Store",
         "description": "減少共享目錄中的 macOS 中繼資料檔案"
@@ -629,7 +676,10 @@
         "name": "不在 USB 磁碟寫入 .DS_Store",
         "description": "減少行動磁碟中的 macOS 中繼資料檔案"
       },
-      "macos_dock_auto-hide": { "name": "自動隱藏 Dock", "description": "需要時再顯示 Dock，增加可用桌面空間" },
+      "macos_dock_auto-hide": {
+        "name": "自動隱藏 Dock",
+        "description": "需要時再顯示 Dock，增加可用桌面空間"
+      },
       "macos_dock_hide-recent-apps": {
         "name": "隱藏 Dock 最近 App",
         "description": "不在 Dock 末端顯示最近開啟的 App"
@@ -638,20 +688,50 @@
         "name": "截圖不包含視窗陰影",
         "description": "視窗截圖邊緣更緊湊，檔案通常更小"
       },
-      "macos_screenshots_use-png": { "name": "截圖使用 PNG", "description": "保留無損畫質和透明背景" },
-      "macos_text_disable-auto-correct": { "name": "關閉自動更正", "description": "避免系統自動改寫輸入內容" },
-      "macos_text_disable-smart-quotes": { "name": "關閉智慧引號", "description": "輸入時保留一般直引號" },
-      "macos_text_disable-smart-dashes": { "name": "關閉智慧破折號", "description": "輸入時不自動替換連續連字號" },
+      "macos_screenshots_use-png": {
+        "name": "截圖使用 PNG",
+        "description": "保留無損畫質和透明背景"
+      },
+      "macos_text_disable-auto-correct": {
+        "name": "關閉自動更正",
+        "description": "避免系統自動改寫輸入內容"
+      },
+      "macos_text_disable-smart-quotes": {
+        "name": "關閉智慧引號",
+        "description": "輸入時保留一般直引號"
+      },
+      "macos_text_disable-smart-dashes": {
+        "name": "關閉智慧破折號",
+        "description": "輸入時不自動替換連續連字號"
+      },
       "windows_explorer_show-file-extensions": {
         "name": "顯示副檔名",
         "description": "更容易識別檔案真實類型，減少誤操作"
       },
-      "windows_explorer_show-hidden-files": { "name": "顯示隱藏檔案", "description": "在檔案總管中顯示一般隱藏項目" },
-      "windows_explorer_launch-this-pc": { "name": "檔案總管開啟本機", "description": "新視窗預設顯示磁碟與常用位置" },
-      "windows_explorer_compact-mode": { "name": "使用精簡檔案間距", "description": "在同一視窗中顯示更多檔案" },
-      "windows_explorer_show-full-path": { "name": "標題列顯示完整路徑", "description": "更清楚地識別目前資料夾位置" },
-      "windows_taskbar_show-seconds": { "name": "工作列時鐘顯示秒", "description": "在系統時鐘中顯示秒數" },
-      "windows_taskbar_hide-task-view": { "name": "隱藏工作檢視按鈕", "description": "減少不常用的工作列按鈕" },
+      "windows_explorer_show-hidden-files": {
+        "name": "顯示隱藏檔案",
+        "description": "在檔案總管中顯示一般隱藏項目"
+      },
+      "windows_explorer_launch-this-pc": {
+        "name": "檔案總管開啟本機",
+        "description": "新視窗預設顯示磁碟與常用位置"
+      },
+      "windows_explorer_compact-mode": {
+        "name": "使用精簡檔案間距",
+        "description": "在同一視窗中顯示更多檔案"
+      },
+      "windows_explorer_show-full-path": {
+        "name": "標題列顯示完整路徑",
+        "description": "更清楚地識別目前資料夾位置"
+      },
+      "windows_taskbar_show-seconds": {
+        "name": "工作列時鐘顯示秒",
+        "description": "在系統時鐘中顯示秒數"
+      },
+      "windows_taskbar_hide-task-view": {
+        "name": "隱藏工作檢視按鈕",
+        "description": "減少不常用的工作列按鈕"
+      },
       "windows_taskbar_hide-widgets": {
         "name": "關閉 Windows 小工具",
         "description": "移除工作列入口並禁止開啟小工具面板"
@@ -664,13 +744,22 @@
         "name": "允許從工作列結束工作",
         "description": "可從 App 圖示的右鍵選單直接結束處理程序"
       },
-      "windows_personalization_dark-apps": { "name": "App 使用深色模式", "description": "讓支援的 App 使用深色介面" },
+      "windows_personalization_dark-apps": {
+        "name": "App 使用深色模式",
+        "description": "讓支援的 App 使用深色介面"
+      },
       "windows_personalization_dark-system": {
         "name": "系統使用深色模式",
         "description": "讓工作列和系統介面使用深色主題"
       },
-      "windows_gaming_enable-game-mode": { "name": "啟用遊戲模式", "description": "遊戲執行時優先分配系統資源" },
-      "windows_gaming_disable-capture": { "name": "關閉背景遊戲錄製", "description": "不需錄製時減少背景擷取負擔" },
+      "windows_gaming_enable-game-mode": {
+        "name": "啟用遊戲模式",
+        "description": "遊戲執行時優先分配系統資源"
+      },
+      "windows_gaming_disable-capture": {
+        "name": "關閉背景遊戲錄製",
+        "description": "不需錄製時減少背景擷取負擔"
+      },
       "windows_privacy_disable-advertising-id": {
         "name": "關閉個人化廣告識別碼",
         "description": "阻止 App 使用廣告 ID 提供個人化廣告"
@@ -1386,7 +1475,12 @@
       "skip": "暫時略過",
       "openSettings": "開啟系統設定"
     },
-    "filters": { "all": "全部", "enabled": "已啟用", "disabled": "已停用", "leftover": "殘留項目" },
+    "filters": {
+      "all": "全部",
+      "enabled": "已啟用",
+      "disabled": "已停用",
+      "leftover": "殘留項目"
+    },
     "sourceKinds": {
       "registryRun": "登錄檔啟動",
       "startupFolder": "啟動資料夾",
@@ -3384,7 +3478,7 @@
     "locationUnavailable": "無法取得檔案位置",
     "revealFailed": "無法顯示此項目，檔案可能已移動或刪除",
     "autostartHint": "登入電腦時自動啟動 MangoDisk",
-    "autostart": "開機啟動",
+    "autostart": "登入時自動啟動",
     "openMain": "開啟 MangoDisk",
     "title": "系統監測",
     "memory": "記憶體",
@@ -3398,11 +3492,7 @@
     "processCount": "{count} 個程序",
     "refresh": "重新整理",
     "unavailable": "暫時無法更新，已顯示的資料來自上次成功取樣",
-    "paused": "監測已暫停",
-    "loading": "正在讀取系統記憶體…",
     "settings": "設定",
-    "enabled": "背景執行",
-    "enabledHint": "關閉視窗後繼續執行，可從選單列或系統匣開啟",
     "settingsFailed": "無法讀取或儲存監測設定",
     "release": "釋放",
     "releasing": "釋放中",
@@ -3421,5 +3511,65 @@
     "releaseButtonBusy": "進行中",
     "releaseButtonCancelled": "已取消",
     "releaseButtonUnsupported": "不支援"
+  },
+  "systemStatus": {
+    "menuBarTitle": "選單列",
+    "trayTitle": "狀態顯示",
+    "showIcon": "Logo",
+    "displayItems": "顯示內容",
+    "dragToReorder": "拖曳排序",
+    "cpuShort": "CPU",
+    "cpu": "CPU",
+    "memory": "記憶體",
+    "network": "網路",
+    "disk": "磁碟",
+    "loading": "正在取得…",
+    "ready": "已更新",
+    "stale": "資料已過期",
+    "disconnected": "未連線",
+    "unsupported": "此裝置暫不支援",
+    "failed": "暫時無法取得",
+    "details": "系統狀態",
+    "openMain": "開啟 MangoDisk",
+    "settings": "設定",
+    "quit": "結束",
+    "upload": "上傳",
+    "download": "下載",
+    "interface": "網路介面",
+    "automatic": "自動選擇",
+    "volume": "磁碟",
+    "systemDisk": "系統磁碟",
+    "savedDisconnected": "已選裝置 · 未連線",
+    "saveFailed": "無法儲存，請重試",
+    "catalogueFailed": "無法取得裝置列表",
+    "reorder": "調整 {name} 的順序",
+    "moveAnnouncement": "{name}，第 {position} 項，共 {count} 項",
+    "available": "可用",
+    "lastMinute": "最近一分鐘",
+    "networkScope": "所選介面的流量，包含區域網路傳輸",
+    "taskbarBackground": "顯示背景",
+    "taskbarCompact": "精簡模式",
+    "taskbarPosition": "優先位置",
+    "taskbarAuto": "自動",
+    "taskbarLeft": "靠左",
+    "taskbarRight": "靠右",
+    "displayMode": "顯示區域",
+    "trayMode": "系統匣",
+    "taskbarMode": "工作列",
+    "taskbarNoSpace": "此位置空間不足，已暫用系統匣圖示。可開啟精簡模式或減少顯示內容",
+    "taskbarUnsupported": "目前工作列尺寸不足，已使用系統匣顯示",
+    "taskbarUnavailable": "正在等候工作列就緒，暫時顯示系統匣圖示",
+    "menuBarEnabled": "在選單列顯示",
+    "displayEnabled": "顯示資源狀態",
+    "menuBarHint": "關閉主視窗後，仍可在選單列查看狀態",
+    "displayHint": "關閉主視窗後，仍可查看資源狀態",
+    "overview": "概覽",
+    "memoryDetails": "查看應用程式",
+    "idle": "閒置",
+    "minutePeak": "分鐘峰值",
+    "write": "寫入",
+    "read": "讀取",
+    "allDisks": "全部磁碟",
+    "diskActivityHistory": "全部區塊儲存裝置：上方寫入，下方讀取 · 最近一分鐘"
   }
 }

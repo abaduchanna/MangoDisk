@@ -1,3 +1,4 @@
+import type { MetricId } from '@/lib/models/system-resources';
 import { invoke } from '@tauri-apps/api/core';
 import { listen, type UnlistenFn } from '@tauri-apps/api/event';
 import { getCurrentWindow } from '@tauri-apps/api/window';
@@ -6,11 +7,18 @@ import type {
   ApplicationQuitStatus,
   MemoryReleaseResult,
   ResidentDestination,
+  ResidentDisplayStatus,
   ResidentPreferences,
   ResidentReading,
 } from '@/lib/models/resident';
 
 export class ResidentService {
+  static displayStatus(): Promise<ResidentDisplayStatus> {
+    return invoke('resident_get_display_status');
+  }
+  static onDisplayStatus(callback: (status: ResidentDisplayStatus) => void): Promise<UnlistenFn> {
+    return listen<ResidentDisplayStatus>('resident-display-status', event => callback(event.payload));
+  }
   static reading(): Promise<ResidentReading> {
     return invoke('monitoring_get_reading');
   }
@@ -26,8 +34,20 @@ export class ResidentService {
   static preferences(): Promise<ResidentPreferences> {
     return invoke('resident_get_preferences');
   }
-  static savePreferences(preferences: ResidentPreferences): Promise<void> {
+  static savePreferences(preferences: ResidentPreferences): Promise<ResidentPreferences> {
     return invoke('resident_save_preferences', { preferences });
+  }
+  static catalogue(): Promise<ResidentReading> {
+    return invoke('resident_get_catalogue');
+  }
+  static panelMetric(): Promise<MetricId> {
+    return invoke('resident_get_panel_metric');
+  }
+  static selectMetric(metric: MetricId): Promise<void> {
+    return invoke('resident_select_metric', { metric });
+  }
+  static onPanelMetric(handler: (metric: MetricId) => void): Promise<UnlistenFn> {
+    return listen<MetricId>('resident-panel-metric', event => handler(event.payload));
   }
   static autostartEnabled(): Promise<boolean> {
     return invoke('resident_get_autostart');
@@ -51,7 +71,9 @@ export class ResidentService {
     return invoke('resident_quit');
   }
   static onReading(handler: (reading: ResidentReading) => void): Promise<UnlistenFn> {
-    return listen<ResidentReading>('resident-reading', event => handler(event.payload));
+    // Scope high-frequency samples to this window; global listeners also receive
+    // events targeted at another window and keep hidden pages updating.
+    return getCurrentWindow().listen<ResidentReading>('resident-reading', event => handler(event.payload));
   }
   static onNavigate(handler: (destination: ResidentDestination) => void): Promise<UnlistenFn> {
     return listen<ResidentDestination>('resident-open-page', event => handler(event.payload));

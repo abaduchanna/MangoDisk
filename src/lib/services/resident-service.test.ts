@@ -1,14 +1,16 @@
+import { preferencesFixture } from '@/tests/fixtures/resident';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { ResidentService } from './resident-service';
 
-const { invoke, listen, onFocusChanged } = vi.hoisted(() => ({
+const { invoke, listen, windowListen, onFocusChanged } = vi.hoisted(() => ({
   invoke: vi.fn(),
   listen: vi.fn(),
+  windowListen: vi.fn(),
   onFocusChanged: vi.fn(),
 }));
 vi.mock('@tauri-apps/api/core', () => ({ invoke }));
 vi.mock('@tauri-apps/api/event', () => ({ listen }));
-vi.mock('@tauri-apps/api/window', () => ({ getCurrentWindow: () => ({ onFocusChanged }) }));
+vi.mock('@tauri-apps/api/window', () => ({ getCurrentWindow: () => ({ onFocusChanged, listen: windowListen }) }));
 
 describe('resident desktop protocol', () => {
   beforeEach(() => vi.clearAllMocks());
@@ -29,7 +31,7 @@ describe('resident desktop protocol', () => {
   });
 
   it('passes typed preferences and navigation without accepting process names or paths', async () => {
-    const preferences = { schemaVersion: 1, enabled: false, showMemory: true } as const;
+    const preferences = { ...preferencesFixture(), enabled: false };
     await ResidentService.savePreferences(preferences);
     await ResidentService.openMain('applications');
     expect(invoke.mock.calls).toEqual([
@@ -59,13 +61,16 @@ describe('resident desktop protocol', () => {
   it('unwraps event payloads and preserves listener disposal', async () => {
     const dispose = vi.fn();
     listen.mockResolvedValue(dispose);
+    windowListen.mockResolvedValue(dispose);
     onFocusChanged.mockResolvedValue(dispose);
     const handler = vi.fn();
     expect(await ResidentService.onReading(handler)).toBe(dispose);
-    listen.mock.calls[0]?.[1]({ payload: { revision: 2 } });
+    expect(listen).not.toHaveBeenCalled();
+    expect(windowListen).toHaveBeenCalledWith('resident-reading', expect.any(Function));
+    windowListen.mock.calls[0]?.[1]({ payload: { revision: 2 } });
     expect(handler).toHaveBeenLastCalledWith({ revision: 2 });
     expect(await ResidentService.onNavigate(handler)).toBe(dispose);
-    listen.mock.calls[1]?.[1]({ payload: 'settings' });
+    listen.mock.calls[0]?.[1]({ payload: 'settings' });
     expect(handler).toHaveBeenLastCalledWith('settings');
     expect(await ResidentService.onFocus(handler)).toBe(dispose);
     handler.mockClear();

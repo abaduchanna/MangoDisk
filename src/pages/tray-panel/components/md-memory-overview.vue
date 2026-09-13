@@ -3,7 +3,8 @@ import { computed } from 'vue';
 import MdIcon from '@/components/icons/md-icon.vue';
 import { ICON_NAMES } from '@/lib/models/ui';
 import { useI18n } from 'vue-i18n';
-import type { MemoryOverview, MemoryReleaseResult } from '@/lib/models/resident';
+import type { MemoryReleaseResult } from '@/lib/models/resident';
+import type { MemoryOverview } from '@/lib/models/system-resources';
 import { ByteSizeService } from '@/lib/services/byte-size-service';
 
 const props = defineProps<{

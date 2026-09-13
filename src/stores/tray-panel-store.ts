@@ -1,3 +1,5 @@
+import { emptyReadings } from '@/lib/utils/system-resources';
+import type { MetricId } from '@/lib/models/system-resources';
 import { defineStore } from 'pinia';
 
 import type { MemoryReleaseResult, ResidentReading } from '@/lib/models/resident';
@@ -6,7 +8,8 @@ import { LoggerService } from '@/lib/services/logger-service';
 
 export const useTrayPanelStore = defineStore('tray-panel', {
   state: () => ({
-    reading: { revision: 0, status: 'loading', snapshot: null } as ResidentReading,
+    reading: { revision: 0, ...emptyReadings() } as ResidentReading,
+    selectedMetric: 'cpu' as MetricId,
     error: false,
     refreshing: false,
     releasing: false,
@@ -16,13 +19,13 @@ export const useTrayPanelStore = defineStore('tray-panel', {
     accept(reading: ResidentReading) {
       // A cached IPC response can arrive after a newer native event. Never move
       // backwards or show an incompatible protocol as a plausible measurement.
-      if (reading.snapshot && reading.snapshot.schemaVersion !== 1) {
+      if (reading.schemaVersion !== 3 || (reading.memory.value && reading.memory.value.schemaVersion !== 1)) {
         this.error = true;
         return;
       }
       if (reading.revision < this.reading.revision) return;
       this.reading = reading;
-      this.error = reading.status === 'unavailable';
+      this.error = false;
       this.refreshing = false;
     },
     async load() {

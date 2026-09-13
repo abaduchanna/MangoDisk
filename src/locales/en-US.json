@@ -148,7 +148,12 @@
     },
     "completedTitle": "Privacy cleanup completed",
     "completedDescription": "Cleared and verified {count} privacy traces",
-    "timeRanges": { "lastHour": "Last hour", "today": "Today", "lastSevenDays": "Last 7 days", "allTime": "All time" },
+    "timeRanges": {
+      "lastHour": "Last hour",
+      "today": "Today",
+      "lastSevenDays": "Last 7 days",
+      "allTime": "All time"
+    },
     "selectionMode": {
       "label": "Selection",
       "smart": "Smart recommendation",
@@ -477,11 +482,21 @@
     },
     "modes": {
       "label": "Optimization profile",
-      "unchanged": { "name": "Keep current settings" },
-      "smart": { "name": "Smart recommended" },
-      "performance": { "name": "Performance" },
-      "privacy": { "name": "Privacy" },
-      "manual": { "name": "Custom" }
+      "unchanged": {
+        "name": "Keep current settings"
+      },
+      "smart": {
+        "name": "Smart recommended"
+      },
+      "performance": {
+        "name": "Performance"
+      },
+      "privacy": {
+        "name": "Privacy"
+      },
+      "manual": {
+        "name": "Custom"
+      }
     },
     "statuses": {
       "pendingEnable": "Will enable",
@@ -1460,7 +1475,12 @@
       "skip": "Not Now",
       "openSettings": "Open System Settings"
     },
-    "filters": { "all": "All", "enabled": "Enabled", "disabled": "Disabled", "leftover": "Leftovers" },
+    "filters": {
+      "all": "All",
+      "enabled": "Enabled",
+      "disabled": "Disabled",
+      "leftover": "Leftovers"
+    },
     "sourceKinds": {
       "registryRun": "Registry startup",
       "startupFolder": "Startup folder",
@@ -3472,11 +3492,7 @@
     "processCount": "{count} processes",
     "refresh": "Refresh",
     "unavailable": "Unable to update. Any values shown are from the last successful reading",
-    "paused": "Monitoring paused",
-    "loading": "Reading system memory…",
     "settings": "Settings",
-    "enabled": "Run in background",
-    "enabledHint": "Keep running when the window closes, with access from the menu bar or system tray",
     "settingsFailed": "Could not save or load monitoring settings",
     "release": "Release",
     "releasing": "Releasing",
@@ -3495,5 +3511,65 @@
     "releaseButtonBusy": "In progress",
     "releaseButtonCancelled": "Cancelled",
     "releaseButtonUnsupported": "Unavailable"
+  },
+  "systemStatus": {
+    "menuBarTitle": "Menu bar",
+    "trayTitle": "Status display",
+    "showIcon": "Logo",
+    "displayItems": "Display items",
+    "dragToReorder": "Drag to reorder",
+    "cpuShort": "CPU",
+    "cpu": "CPU",
+    "memory": "Memory",
+    "network": "Network",
+    "disk": "Disk",
+    "loading": "Loading…",
+    "ready": "Up to date",
+    "stale": "Data is out of date",
+    "disconnected": "Disconnected",
+    "unsupported": "Not available on this device",
+    "failed": "Unable to read data",
+    "details": "System status",
+    "openMain": "Open MangoDisk",
+    "settings": "Settings",
+    "quit": "Quit",
+    "upload": "Upload",
+    "download": "Download",
+    "interface": "Network interface",
+    "automatic": "Automatic",
+    "volume": "Volume",
+    "systemDisk": "System disk",
+    "savedDisconnected": "Saved device · disconnected",
+    "saveFailed": "Could not save. Retry",
+    "catalogueFailed": "Could not read devices",
+    "reorder": "Reorder {name}",
+    "moveAnnouncement": "{name}, position {position} of {count}",
+    "available": "Available",
+    "lastMinute": "Last minute",
+    "networkScope": "Selected interface traffic, including local network transfers",
+    "taskbarBackground": "Show background",
+    "taskbarCompact": "Compact mode",
+    "taskbarPosition": "Preferred position",
+    "taskbarAuto": "Auto",
+    "taskbarLeft": "Left",
+    "taskbarRight": "Right",
+    "displayMode": "Display in",
+    "trayMode": "System tray",
+    "taskbarMode": "Taskbar",
+    "taskbarNoSpace": "Not enough space at this position. Using tray icons; try compact mode or fewer items",
+    "taskbarUnsupported": "The taskbar is too small; using tray icons",
+    "taskbarUnavailable": "Waiting for the taskbar. Showing tray icons temporarily",
+    "menuBarEnabled": "Show in menu bar",
+    "displayEnabled": "Show resource status",
+    "menuBarHint": "Keep viewing system status in the menu bar after closing the main window",
+    "displayHint": "Keep resource status visible after closing the main window",
+    "overview": "Overview",
+    "memoryDetails": "View apps",
+    "idle": "Idle",
+    "minutePeak": "Peak · 1 min",
+    "write": "Write",
+    "read": "Read",
+    "allDisks": "All disks",
+    "diskActivityHistory": "All block devices: write above, read below · last minute"
   }
 }

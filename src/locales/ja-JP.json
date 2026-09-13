@@ -482,11 +482,21 @@
     },
     "modes": {
       "label": "最適化プラン",
-      "unchanged": { "name": "現在の設定を維持" },
-      "smart": { "name": "スマート推奨" },
-      "performance": { "name": "パフォーマンス優先" },
-      "privacy": { "name": "プライバシー優先" },
-      "manual": { "name": "カスタム" }
+      "unchanged": {
+        "name": "現在の設定を維持"
+      },
+      "smart": {
+        "name": "スマート推奨"
+      },
+      "performance": {
+        "name": "パフォーマンス優先"
+      },
+      "privacy": {
+        "name": "プライバシー優先"
+      },
+      "manual": {
+        "name": "カスタム"
+      }
     },
     "statuses": {
       "pendingEnable": "有効化予定",
@@ -666,7 +676,10 @@
         "name": "USB 上の .DS_Store を抑止",
         "description": "外部ドライブの macOS メタデータを減らします"
       },
-      "macos_dock_auto-hide": { "name": "Dock を自動的に隠す", "description": "必要なときだけ Dock を表示します" },
+      "macos_dock_auto-hide": {
+        "name": "Dock を自動的に隠す",
+        "description": "必要なときだけ Dock を表示します"
+      },
       "macos_dock_hide-recent-apps": {
         "name": "最近使った App を Dock から隠す",
         "description": "Dock 末尾の最近使った App を表示しません"
@@ -1462,7 +1475,12 @@
       "skip": "今はしない",
       "openSettings": "システム設定を開く"
     },
-    "filters": { "all": "すべて", "enabled": "有効", "disabled": "無効", "leftover": "残存項目" },
+    "filters": {
+      "all": "すべて",
+      "enabled": "有効",
+      "disabled": "無効",
+      "leftover": "残存項目"
+    },
     "sourceKinds": {
       "registryRun": "レジストリ起動",
       "startupFolder": "スタートアップフォルダー",
@@ -3460,7 +3478,7 @@
     "locationUnavailable": "ファイルの場所を取得できません",
     "revealFailed": "この項目を表示できません。移動または削除された可能性があります",
     "autostartHint": "パソコンへのログイン時に MangoDisk を自動で起動します",
-    "autostart": "ログイン時に起動",
+    "autostart": "ログイン時に自動起動",
     "openMain": "MangoDisk を開く",
     "title": "システムモニター",
     "memory": "メモリ",
@@ -3474,11 +3492,7 @@
     "processCount": "{count} プロセス",
     "refresh": "更新",
     "unavailable": "更新できません。表示中の値は前回の取得結果です",
-    "paused": "監視を一時停止中",
-    "loading": "システムメモリを読み込み中…",
     "settings": "設定",
-    "enabled": "バックグラウンドで実行",
-    "enabledHint": "ウィンドウを閉じても実行を続け、メニューバーやシステムトレイから開けます",
     "settingsFailed": "監視設定を読み込みまたは保存できませんでした",
     "release": "解放",
     "releasing": "解放中",
@@ -3497,5 +3511,65 @@
     "releaseButtonBusy": "処理中",
     "releaseButtonCancelled": "取消済み",
     "releaseButtonUnsupported": "非対応"
+  },
+  "systemStatus": {
+    "menuBarTitle": "メニューバー",
+    "trayTitle": "ステータス表示",
+    "showIcon": "Logo",
+    "displayItems": "表示項目",
+    "dragToReorder": "ドラッグで並べ替え",
+    "cpuShort": "CPU",
+    "cpu": "CPU",
+    "memory": "メモリ",
+    "network": "ネットワーク",
+    "disk": "ディスク",
+    "loading": "取得中…",
+    "ready": "更新済み",
+    "stale": "データが古くなっています",
+    "disconnected": "未接続",
+    "unsupported": "このデバイスでは利用できません",
+    "failed": "データを取得できません",
+    "details": "システムの状態",
+    "openMain": "MangoDisk を開く",
+    "settings": "設定",
+    "quit": "終了",
+    "upload": "アップロード",
+    "download": "ダウンロード",
+    "interface": "ネットワークインターフェイス",
+    "automatic": "自動選択",
+    "volume": "ボリューム",
+    "systemDisk": "システムディスク",
+    "savedDisconnected": "選択済みデバイス · 未接続",
+    "saveFailed": "保存できませんでした。再試行してください",
+    "catalogueFailed": "デバイス一覧を取得できません",
+    "reorder": "{name} の順序を変更",
+    "moveAnnouncement": "{name}、{count} 項目中 {position} 番目",
+    "available": "空き容量",
+    "lastMinute": "直近1分間",
+    "networkScope": "選択したインターフェイスの通信量です。LAN 内の転送も含みます",
+    "taskbarBackground": "背景を表示",
+    "taskbarCompact": "コンパクト表示",
+    "taskbarPosition": "優先位置",
+    "taskbarAuto": "自動",
+    "taskbarLeft": "左側",
+    "taskbarRight": "右側",
+    "displayMode": "表示先",
+    "trayMode": "システムトレイ",
+    "taskbarMode": "タスクバー",
+    "taskbarNoSpace": "この位置の空き領域が不足しています。トレイアイコンを使用中です。コンパクト表示にするか表示項目を減らしてください",
+    "taskbarUnsupported": "タスクバーが小さすぎるため、トレイに表示しています",
+    "taskbarUnavailable": "タスクバーの準備を待っています。一時的にトレイアイコンを表示します",
+    "menuBarEnabled": "メニューバーに表示",
+    "displayEnabled": "リソース状況を表示",
+    "menuBarHint": "メインウィンドウを閉じても、メニューバーで状態を確認できます",
+    "displayHint": "メインウィンドウを閉じてもリソース状況を表示します",
+    "overview": "概要",
+    "memoryDetails": "アプリを表示",
+    "idle": "アイドル",
+    "minutePeak": "1分間のピーク",
+    "write": "書込",
+    "read": "読込",
+    "allDisks": "全ディスク",
+    "diskActivityHistory": "全ブロックデバイス：上は書き込み、下は読み取り · 直近1分間"
   }
 }

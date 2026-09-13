@@ -1,44 +1,20 @@
-export interface MemoryOverview {
-  totalBytes: number;
-  usedBytes: number;
-  freeBytes: number;
-  swapUsedBytes: number;
-  usedPercent: number;
-}
+import type { MetricId, ResourceReadings } from '@/lib/models/system-resources';
 
-export interface ApplicationMemory {
-  id: string;
-  name: string;
-  residentBytes: number;
-  processCount: number;
-  iconPath: string | null;
-  isBundle: boolean;
-  canQuit: boolean;
-}
-
-export interface ProcessMemorySummary {
-  applications: ApplicationMemory[];
-  readableProcessCount: number;
-  omittedProcessCount: number;
-}
-
-export interface SystemResourceSnapshot {
-  schemaVersion: 1;
-  sampledAtMs: number;
-  memory: MemoryOverview;
-  processes: ProcessMemorySummary | null;
-}
-
-export interface ResidentReading {
+export interface ResidentReading extends ResourceReadings {
   revision: number;
-  status: 'loading' | 'ready' | 'unavailable' | 'paused';
-  snapshot: SystemResourceSnapshot | null;
 }
-
 export interface ResidentPreferences {
-  schemaVersion: 1;
+  schemaVersion: 7;
+  revision: number;
   enabled: boolean;
-  showMemory: boolean;
+  showIcon: boolean;
+  windowsDisplayMode: 'tray' | 'taskbar';
+  taskbarPosition: 'auto' | 'left' | 'right';
+  taskbarBackground: boolean;
+  taskbarCompact: boolean;
+  metrics: { id: MetricId; enabled: boolean }[];
+  networkInterface: string | null;
+  diskVolume: string | null;
 }
 
 export type ResidentDestination = 'main' | 'cleanup' | 'applications' | 'settings' | 'about';
@@ -50,3 +26,5 @@ export interface MemoryReleaseResult {
 }
 
 export type ApplicationQuitStatus = 'requested' | 'unavailable' | 'unsupported';
+
+export type ResidentDisplayStatus = 'tray' | 'taskbar' | 'noSpace' | 'unsupportedLayout' | 'shellUnavailable';

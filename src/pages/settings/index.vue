@@ -2,7 +2,8 @@
 import { useI18n } from 'vue-i18n';
 import { computed, nextTick, onMounted, reactive, ref, watch } from 'vue';
 
-import MdResidentSettings from '@/pages/settings/components/md-resident-settings.vue';
+import MdStatusDisplaySettings from '@/pages/settings/components/md-status-display-settings.vue';
+import MdAutostartSettings from '@/pages/settings/components/md-autostart-settings.vue';
 import MdPageShell from '@/components/custom/md-page-shell.vue';
 import MdStatusBadge from '@/components/custom/md-status-badge.vue';
 import MdIcon from '@/components/icons/md-icon.vue';
@@ -190,9 +191,11 @@ function updateTheme(value: unknown) {
             </SelectContent>
           </Select>
         </div>
-        <MdResidentSettings />
+        <MdAutostartSettings />
       </Card>
     </section>
+
+    <MdStatusDisplaySettings :is-mac-os="isMacOs" />
 
     <section class="settings-section">
       <h2>{{ t('ai.settingsTitle') }}</h2>

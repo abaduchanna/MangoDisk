@@ -2551,11 +2551,14 @@ version = "1.1.0"
 dependencies = [
  "base64 0.22.1",
  "blake3",
+ "block2",
  "icns",
  "log",
  "mangodisk-core",
  "mangodisk-platform",
+ "objc2",
  "objc2-app-kit",
+ "objc2-foundation",
  "plist",
  "reqwest",
  "serde",
@@ -2576,6 +2579,7 @@ dependencies = [
  "tauri-plugin-window-state",
  "tokio",
  "uuid",
+ "windows",
  "windows-sys 0.61.2",
  "zip",
 ]
@@ -2625,6 +2629,7 @@ version = "1.1.0"
 dependencies = [
  "base64 0.22.1",
  "blake3",
+ "core-foundation 0.9.4",
  "dirs 6.0.0",
  "dispatch2",
  "getrandom 0.3.4",
@@ -2642,6 +2647,7 @@ dependencies = [
  "serde",
  "serde_json",
  "sysinfo",
+ "system-configuration",
  "windows",
  "windows-core 0.61.2",
  "windows-sys 0.61.2",

@@ -1,11 +1,71 @@
 use std::sync::{atomic::Ordering, Arc};
 
-use tauri::{Manager, PhysicalPosition, WebviewUrl, WebviewWindowBuilder, WindowEvent};
+use mangodisk_core::system_resources::metrics::MetricId;
+use tauri::{Emitter, Manager, PhysicalPosition, WebviewUrl, WebviewWindowBuilder, WindowEvent};
 
-use super::{runtime::ResidentState, PANEL_LABEL, TRAY_ID};
+use super::{runtime::ResidentState, PANEL_LABEL};
 
 const WIDTH: f64 = 390.0;
 const HEIGHT: f64 = 610.0;
+
+pub const METRIC_EVENT: &str = "resident-panel-metric";
+
+pub fn select_metric(app: &tauri::AppHandle, metric: MetricId) {
+    let state = app.state::<Arc<ResidentState>>();
+    *state
+        .panel_metric
+        .lock()
+        .unwrap_or_else(|error| error.into_inner()) = metric;
+    let _ = app.emit_to(PANEL_LABEL, METRIC_EVENT, metric);
+    state.wake();
+}
+
+pub fn toggle_from(
+    app: &tauri::AppHandle,
+    source: &str,
+    metric: Option<MetricId>,
+) -> tauri::Result<()> {
+    let state = app.state::<Arc<ResidentState>>();
+    let _action = state
+        .panel_action
+        .lock()
+        .unwrap_or_else(|error| error.into_inner());
+    let same = state
+        .panel_source
+        .lock()
+        .unwrap_or_else(|error| error.into_inner())
+        .as_str()
+        == source;
+    if state.panel_open.load(Ordering::Relaxed) && same {
+        hide(app);
+        return Ok(());
+    }
+    *state
+        .panel_source
+        .lock()
+        .unwrap_or_else(|error| error.into_inner()) = source.into();
+    let was_open = state.panel_open.load(Ordering::Relaxed);
+    let previous = *state
+        .panel_metric
+        .lock()
+        .unwrap_or_else(|error| error.into_inner());
+    let selected = entry_selection(previous, metric, was_open);
+    if selected != previous {
+        select_metric(app, selected);
+    }
+    log::info!("resident_panel_entry source={source} switching={was_open} metric={selected:?}");
+    open(app)
+}
+
+fn entry_selection(previous: MetricId, requested: Option<MetricId>, is_open: bool) -> MetricId {
+    // Reopening resumes the user's tab. Explicit metric shortcuts can still
+    // navigate an already open panel, without resetting the next visit to CPU.
+    if is_open {
+        requested.unwrap_or(previous)
+    } else {
+        previous
+    }
+}
 
 pub fn open(app: &tauri::AppHandle) -> tauri::Result<()> {
     let state = app.state::<Arc<ResidentState>>();
@@ -21,11 +81,15 @@ pub fn open(app: &tauri::AppHandle) -> tauri::Result<()> {
         state.panel_ready.load(Ordering::Relaxed)
     );
     state.panel_open.store(true, Ordering::Relaxed);
-    ensure_created(app)?;
     // Showing never waits for Vue, preference I/O, samples, or icon resolution.
     // Usually startup has already prepared the hidden WebView; an early click
     // still reveals its first frame while frontend initialization completes.
-    show(app)?;
+    if let Err(error) = ensure_created(app).and_then(|()| show(app)) {
+        // Failed native creation/positioning must not retain open intent: it
+        // would keep detailed sampling active and consume the next click as hide.
+        hide(app);
+        return Err(error);
+    }
     state.wake();
     Ok(())
 }
@@ -143,21 +207,24 @@ fn tray_owns_focus(app: &tauri::AppHandle) -> bool {
     let Some(window) = app.get_webview_window(PANEL_LABEL) else {
         return false;
     };
-    let Some(rect) = app
-        .tray_by_id(TRAY_ID)
-        .and_then(|tray| tray.rect().ok().flatten())
-    else {
-        return false;
-    };
     let Ok(cursor) = window.cursor_position() else {
         return false;
     };
-    let position = rect.position.to_physical::<f64>(1.0);
-    let size = rect.size.to_physical::<f64>(1.0);
-    if !contains(
-        (cursor.x, cursor.y),
-        (position.x, position.y, size.width, size.height),
-    ) {
+    let over_entry = super::tray_display::format::DisplayId::ALL
+        .into_iter()
+        .any(|id| {
+            app.tray_by_id(id.tray_id())
+                .and_then(|tray| tray.rect().ok().flatten())
+                .is_some_and(|rect| {
+                    let position = rect.position.to_physical::<f64>(1.0);
+                    let size = rect.size.to_physical::<f64>(1.0);
+                    contains(
+                        (cursor.x, cursor.y),
+                        (position.x, position.y, size.width, size.height),
+                    )
+                })
+        });
+    if !over_entry && !super::taskbar_display::contains_point(app, cursor.x, cursor.y) {
         return false;
     }
     // Cursor position alone is insufficient: Alt+Tab must still dismiss the
@@ -217,8 +284,13 @@ fn show(app: &tauri::AppHandle) -> tauri::Result<()> {
     let Some(window) = app.get_webview_window(PANEL_LABEL) else {
         return Ok(());
     };
+    let source = state
+        .panel_source
+        .lock()
+        .unwrap_or_else(|error| error.into_inner())
+        .clone();
     let anchor = app
-        .tray_by_id(TRAY_ID)
+        .tray_by_id(&source)
         .and_then(|tray| tray.rect().ok().flatten());
     let anchor = anchor.map(|rect| {
         let position = rect.position.to_physical::<f64>(1.0);
@@ -228,6 +300,8 @@ fn show(app: &tauri::AppHandle) -> tauri::Result<()> {
             position.y + size.height / 2.0,
         )
     });
+    #[cfg(windows)]
+    let anchor = super::taskbar_display::anchor(app, &source).or(anchor);
     // Tray rectangles are physical pixels. On macOS monitor_from_point uses
     // logical screen points, so match against physical monitor bounds ourselves.
     let monitor = match anchor {
@@ -253,6 +327,7 @@ fn show(app: &tauri::AppHandle) -> tauri::Result<()> {
         let scale = monitor.scale_factor();
         let width = (WIDTH * scale).min(area.size.width as f64);
         let height = (HEIGHT * scale).min(area.size.height as f64);
+        #[cfg(not(windows))]
         window.set_size(tauri::LogicalSize::new(width / scale, height / scale))?;
         let work = (
             area.position.x as f64,
@@ -263,6 +338,14 @@ fn show(app: &tauri::AppHandle) -> tauri::Result<()> {
         let anchor = anchor.unwrap_or((work.0 + work.2 - width / 2.0, work.1));
         let (x, y) = position(anchor, work, (width, height), 6.0 * scale);
         window.set_position(PhysicalPosition::new(x.round() as i32, y.round() as i32))?;
+        // A hidden Windows panel can retain the previous display's DPI. Move
+        // first, then apply the target monitor's physical size so logical-size
+        // conversion cannot clip the WebView after a scale/display change.
+        #[cfg(windows)]
+        window.set_size(tauri::PhysicalSize::new(
+            width.round() as u32,
+            height.round() as u32,
+        ))?;
         log::info!(
             "resident_panel_positioned scale={scale} x={x} y={y} width={width} height={height}"
         );
@@ -309,6 +392,17 @@ fn position(
     gap: f64,
 ) -> (f64, f64) {
     let (left, top, width, height) = area;
+    // Side-taskbar anchors lie outside the work area horizontally. Center the
+    // panel on the clicked metric while keeping the entire panel on the desktop.
+    if (anchor.0 < left || anchor.0 >= left + width) && anchor.1 >= top && anchor.1 < top + height {
+        let x = if anchor.0 < left {
+            left + gap
+        } else {
+            left + width - size.0 - gap
+        };
+        let y = (anchor.1 - size.1 / 2.0).clamp(top, top + (height - size.1).max(0.0));
+        return (x.clamp(left, left + (width - size.0).max(0.0)), y);
+    }
     let x = (anchor.0 - size.0 / 2.0).clamp(left, left + (width - size.0).max(0.0));
     let y = if anchor.1 < top + height / 2.0 {
         top + gap
@@ -323,11 +417,59 @@ mod tests {
     use super::*;
 
     #[test]
+    fn reopening_remembers_the_tab_while_open_metric_shortcuts_still_navigate() {
+        for previous in [MetricId::Cpu, MetricId::Memory] {
+            for requested in [
+                None,
+                Some(MetricId::Cpu),
+                Some(MetricId::Memory),
+                Some(MetricId::Network),
+            ] {
+                assert_eq!(entry_selection(previous, requested, false), previous);
+            }
+        }
+        assert_eq!(
+            entry_selection(MetricId::Memory, None, true),
+            MetricId::Memory
+        );
+        assert_eq!(
+            entry_selection(MetricId::Memory, Some(MetricId::Cpu), true),
+            MetricId::Cpu
+        );
+        assert_eq!(
+            entry_selection(MetricId::Cpu, Some(MetricId::Memory), true),
+            MetricId::Memory
+        );
+    }
+
+    #[test]
     fn physical_monitor_selection_handles_retina_edges_and_negative_origins() {
         assert!(contains((2248.0, 24.0), (0.0, 0.0, 3840.0, 2160.0)));
         assert!(!contains((3840.0, 24.0), (0.0, 0.0, 3840.0, 2160.0)));
         assert!(contains((-100.0, 24.0), (-1920.0, 0.0, 1920.0, 1080.0)));
         assert!(!contains((0.0, -1.0), (0.0, 0.0, 3840.0, 2160.0)));
+    }
+
+    #[test]
+    fn side_taskbar_panels_open_inside_the_work_area_at_the_selected_metric() {
+        assert_eq!(
+            position(
+                (40.0, 500.0),
+                (80.0, 0.0, 1840.0, 1080.0),
+                (390.0, 610.0),
+                6.0
+            ),
+            (86.0, 195.0)
+        );
+        assert_eq!(
+            position(
+                (1880.0, 500.0),
+                (0.0, 0.0, 1840.0, 1080.0),
+                (390.0, 610.0),
+                6.0
+            ),
+            (1444.0, 195.0)
+        );
     }
 
     #[test]

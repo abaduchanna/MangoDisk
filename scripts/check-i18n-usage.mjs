@@ -28,6 +28,8 @@ const commandErrorCodes = [
   'taskJoinFailed',
 ];
 const dynamicKeyGroups = {
+  // Native resident menus resolve these keys through Rust's Labels adapter.
+  systemStatus: ['openMain', 'settings', 'quit'],
   navigation: [
     'system-optimization',
     'system-maintenance',

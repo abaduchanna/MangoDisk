@@ -1,9 +1,14 @@
 <script setup lang="ts">
 import {
+  Cpu,
+  MemoryStick,
+  Network,
+  GripVertical,
   ArrowDown,
   ArrowUp,
   ArrowUpDown,
   AppWindow,
+  AppWindowMac,
   BrainCircuit,
   BrushCleaning,
   Bug,
@@ -74,6 +79,7 @@ import {
 } from '@lucide/vue';
 import {
   IconApps,
+  IconLayoutBottombarFilled,
   IconAutomation,
   IconBinary,
   IconBrain,
@@ -184,6 +190,10 @@ const iconMap: Record<IconName, IconDefinition> = {
   history: lucide(History),
   settings: lucide(Settings),
   hardDrive: lucide(HardDrive),
+  cpu: lucide(Cpu),
+  memory: lucide(MemoryStick),
+  network: lucide(Network),
+  grip: lucide(GripVertical),
   chevronDown: lucide(ChevronDown),
   chevronUp: lucide(ChevronUp),
   chevronLeft: lucide(ChevronLeft),
@@ -226,6 +236,8 @@ const iconMap: Record<IconName, IconDefinition> = {
   code: lucide(CodeXml),
   brainCircuit: lucide(BrainCircuit),
   application: lucide(AppWindow),
+  menuBar: lucide(AppWindowMac),
+  taskbar: tabler(IconLayoutBottombarFilled),
   circleUserRound: lucide(CircleUserRound),
   cleanupSystemCache: tabler(IconDatabaseCog),
   cleanupUserCache: tabler(IconFolders),

@@ -1,3 +1,4 @@
+import { readingFixture as reading } from '@/tests/fixtures/resident';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { createPinia, setActivePinia } from 'pinia';
 import { useTrayPanelStore } from './tray-panel-store';
@@ -8,19 +9,6 @@ vi.mock('@/lib/services/resident-service', () => ({
   ResidentService: { reading: vi.fn(), refresh: vi.fn(), releaseMemory: vi.fn() },
 }));
 vi.mock('@/lib/services/logger-service', () => ({ LoggerService: { warn: vi.fn() } }));
-
-function reading(revision: number): ResidentReading {
-  return {
-    revision,
-    status: 'ready',
-    snapshot: {
-      schemaVersion: 1,
-      sampledAtMs: revision,
-      memory: { totalBytes: 100, usedBytes: 40, freeBytes: 60, usedPercent: 40, swapUsedBytes: 0 },
-      processes: null,
-    },
-  };
-}
 
 describe('tray panel snapshots', () => {
   beforeEach(() => {
@@ -41,9 +29,10 @@ describe('tray panel snapshots', () => {
     finish(reading(2));
     await pending;
     expect(store.reading.revision).toBe(3);
-    store.accept({ ...reading(4), status: 'unavailable' });
-    expect(store.error).toBe(true);
-    expect(store.reading.snapshot).not.toBeNull();
+    store.accept({ ...reading(4), memory: { ...reading(4).memory, status: 'failed' } });
+    expect(store.reading.memory.status).toBe('failed');
+    expect(store.error).toBe(false);
+    expect(store.reading.memory.value).not.toBeNull();
     store.accept(reading(5));
     expect(store.error).toBe(false);
   });
@@ -51,13 +40,13 @@ describe('tray panel snapshots', () => {
   it('does not render unsupported schema versions or turn failures into zero readings', async () => {
     const store = useTrayPanelStore();
     const future = reading(1);
-    Object.assign(future.snapshot!, { schemaVersion: 2 });
+    Object.assign(future, { schemaVersion: 99 });
     store.accept(future);
     expect(store.error).toBe(true);
-    expect(store.reading.snapshot).toBeNull();
+    expect(store.reading.memory.value).toBeNull();
     vi.mocked(ResidentService.reading).mockRejectedValueOnce(new Error('unavailable'));
     await store.load();
-    expect(store.reading.snapshot).toBeNull();
+    expect(store.reading.memory.value).toBeNull();
     expect(store.error).toBe(true);
   });
 

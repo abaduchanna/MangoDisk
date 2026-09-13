@@ -2,7 +2,7 @@
 import { computed, ref, watch } from 'vue';
 import { useI18n } from 'vue-i18n';
 import MdApplicationMemoryRow from './md-application-memory-row.vue';
-import type { ProcessMemorySummary } from '@/lib/models/resident';
+import type { ProcessMemorySummary } from '@/lib/models/system-resources';
 
 const props = defineProps<{ summary: ProcessMemorySummary | null }>();
 // Compare rows with the largest item, not system RAM: shared RSS cannot be summed

@@ -1,3 +1,4 @@
+use mangodisk_core::system_resources::metrics::MetricId;
 use std::sync::Arc;
 
 use super::error::{into_command_result, CommandResult};
@@ -27,6 +28,40 @@ pub fn monitoring_refresh(state: tauri::State<'_, Arc<ResidentState>>) {
 }
 
 #[tauri::command]
+pub fn resident_get_catalogue(
+    state: tauri::State<'_, Arc<ResidentState>>,
+) -> CommandResult<ResidentReading> {
+    state.request_catalogue();
+    into_command_result(
+        "resident_get_catalogue",
+        state
+            .reading
+            .lock()
+            .map(|value| value.clone())
+            .map_err(|_| "resource catalogue unavailable"),
+    )
+}
+
+#[tauri::command]
+pub fn resident_get_panel_metric(
+    state: tauri::State<'_, Arc<ResidentState>>,
+) -> CommandResult<MetricId> {
+    into_command_result(
+        "resident_get_panel_metric",
+        state
+            .panel_metric
+            .lock()
+            .map(|value| *value)
+            .map_err(|_| "panel metric unavailable"),
+    )
+}
+
+#[tauri::command]
+pub fn resident_select_metric(app: tauri::AppHandle, metric: MetricId) {
+    resident::panel::select_metric(&app, metric);
+}
+
+#[tauri::command]
 pub fn resident_get_preferences(
     state: tauri::State<'_, Arc<ResidentState>>,
 ) -> CommandResult<ResidentPreferences> {
@@ -35,7 +70,7 @@ pub fn resident_get_preferences(
         state
             .preferences
             .lock()
-            .map(|value| *value)
+            .map(|value| value.clone())
             .map_err(|_| "resident preferences unavailable"),
     )
 }
@@ -44,7 +79,7 @@ pub fn resident_get_preferences(
 pub async fn resident_save_preferences(
     app: tauri::AppHandle,
     preferences: ResidentPreferences,
-) -> CommandResult<()> {
+) -> CommandResult<ResidentPreferences> {
     into_command_result(
         "resident_save_preferences",
         resident::preferences::apply(&app, preferences),
@@ -125,4 +160,11 @@ pub async fn monitoring_quit_application(
     .await;
     state.wake();
     result
+}
+
+#[tauri::command]
+pub fn resident_get_display_status(
+    app: tauri::AppHandle,
+) -> resident::taskbar_display::DisplayStatus {
+    resident::taskbar_display::status(&app)
 }

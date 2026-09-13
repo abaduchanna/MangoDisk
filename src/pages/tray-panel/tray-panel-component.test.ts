@@ -1,3 +1,4 @@
+import { emptyReadings } from '@/lib/utils/system-resources';
 // @vitest-environment happy-dom
 import { flushPromises, mount } from '@vue/test-utils';
 import { createPinia } from 'pinia';
@@ -24,6 +25,9 @@ vi.mock('@/lib/services/resident-service', () => ({
   ResidentService: {
     onReading: vi.fn(),
     onFocus: vi.fn(),
+    onPanelMetric: vi.fn(),
+    panelMetric: vi.fn(),
+    selectMetric: vi.fn(),
     panelReady: vi.fn(),
     hidePanel: vi.fn(),
     openMain: vi.fn(),
@@ -45,25 +49,29 @@ vi.mock('@/lib/services/byte-size-service', () => ({ ByteSizeService: { memory: 
 const memory = { totalBytes: 100, usedBytes: 40, freeBytes: 60, swapUsedBytes: 2, usedPercent: 40 };
 const snapshot: ResidentReading = {
   revision: 1,
-  status: 'ready',
-  snapshot: {
-    schemaVersion: 1,
+  ...emptyReadings(),
+  memory: {
+    status: 'ready',
     sampledAtMs: 1,
-    memory,
-    processes: {
-      applications: [
-        {
-          id: 'browser',
-          name: 'Browser',
-          residentBytes: 20,
-          processCount: 3,
-          iconPath: '/Browser.app',
-          isBundle: true,
-          canQuit: true,
-        },
-      ],
-      readableProcessCount: 3,
-      omittedProcessCount: 1,
+    value: {
+      schemaVersion: 1,
+      sampledAtMs: 1,
+      memory,
+      processes: {
+        applications: [
+          {
+            id: 'browser',
+            name: 'Browser',
+            residentBytes: 20,
+            processCount: 3,
+            iconPath: '/Browser.app',
+            isBundle: true,
+            canQuit: true,
+          },
+        ],
+        readableProcessCount: 3,
+        omittedProcessCount: 1,
+      },
     },
   },
 };
@@ -77,6 +85,7 @@ function render(
   const pinia = createPinia();
   const wrapper = mount(component, {
     props,
+    attachTo: document.body,
     global: {
       plugins: [
         pinia,
@@ -102,11 +111,57 @@ describe('monitoring panel interactions', () => {
     vi.mocked(FileIconService.resolve).mockResolvedValue(null);
     vi.mocked(ResidentService.onReading).mockResolvedValue(vi.fn());
     vi.mocked(ResidentService.onFocus).mockResolvedValue(vi.fn());
+    vi.mocked(ResidentService.onPanelMetric).mockResolvedValue(vi.fn());
+    vi.mocked(ResidentService.panelMetric).mockResolvedValue('memory');
+    vi.mocked(ResidentService.selectMetric).mockResolvedValue();
     vi.mocked(ResidentService.reading).mockResolvedValue(snapshot);
   });
   afterEach(() => {
     wrappers.splice(0).forEach(wrapper => wrapper.unmount());
     vi.useRealTimers();
+  });
+
+  it('moves keyboard focus with the selected resource tab', async () => {
+    const { wrapper, store } = render();
+    await flushPromises();
+    expect(wrapper.get('[role="tabpanel"]').attributes('id')).toBe(
+      wrapper.get('#metric-tab-memory').attributes('aria-controls')
+    );
+    expect(wrapper.get('[role="tabpanel"]').attributes('aria-labelledby')).toBe('metric-tab-memory');
+    await wrapper.get('#metric-tab-memory').trigger('keydown', { key: 'ArrowRight' });
+    expect(wrapper.findAll('[role=tab]')).toHaveLength(2);
+    expect(wrapper.findAll('.resource-overview')).toHaveLength(4);
+    expect(store.selectedMetric).toBe('cpu');
+    expect(document.activeElement?.id).toBe('metric-tab-overview');
+    expect(ResidentService.selectMetric).toHaveBeenCalledWith('cpu');
+    expect(wrapper.get('[role="tabpanel"]').attributes('aria-labelledby')).toBe('metric-tab-overview');
+  });
+
+  it('retains the selected memory tab when the prewarmed panel is opened again', async () => {
+    const { wrapper, store } = render();
+    await flushPromises();
+    await wrapper.get('#metric-tab-memory').trigger('click');
+    expect(store.selectedMetric).toBe('memory');
+    const focus = vi.mocked(ResidentService.onFocus).mock.calls[0]![0];
+    focus();
+    await flushPromises();
+    expect(wrapper.get('#metric-tab-memory').attributes('aria-selected')).toBe('true');
+    expect(store.selectedMetric).toBe('memory');
+  });
+
+  it('keeps a newer native selection when the initial query arrives late', async () => {
+    let finish!: (metric: 'memory') => void;
+    vi.mocked(ResidentService.panelMetric).mockReturnValue(
+      new Promise(resolve => {
+        finish = resolve;
+      })
+    );
+    const { store } = render();
+    await flushPromises();
+    vi.mocked(ResidentService.onPanelMetric).mock.calls[0]![0]('disk');
+    finish('memory');
+    await flushPromises();
+    expect(store.selectedMetric).toBe('disk');
   });
 
   it('shows release feedback for three seconds after loading ends, then restores the action', async () => {
@@ -156,7 +211,9 @@ describe('monitoring panel interactions', () => {
     const focus = vi.mocked(ResidentService.onFocus).mock.calls[0]![0];
     store.releaseResult = { schemaVersion: 1, status: 'completed', observedReductionBytes: 1 };
     await flushPromises();
+    const cached = vi.spyOn(store, 'load');
     focus();
+    expect(cached).toHaveBeenCalledOnce();
     expect(store.releaseResult).toBeNull();
     store.releasing = true;
     focus();
@@ -256,9 +313,9 @@ describe('monitoring panel interactions', () => {
   it('keeps a stale reading visibly marked after sampling or action failure', async () => {
     const { wrapper, store } = render();
     await flushPromises();
-    store.accept({ ...snapshot, revision: 2, status: 'unavailable' });
+    store.accept({ ...snapshot, revision: 2, memory: { ...snapshot.memory, status: 'failed' } });
     await flushPromises();
-    expect(wrapper.get('[role="alert"]').text()).toContain('monitoring.unavailable');
+    expect(wrapper.get('.metric-stale').text()).toContain('systemStatus.failed');
     expect(wrapper.text()).toContain('Browser');
     vi.mocked(ResidentService.openMain).mockRejectedValueOnce(new Error('failed'));
     await wrapper.get('.open-main-shortcut').trigger('click');
@@ -334,7 +391,7 @@ describe('memory presentation', () => {
     expect(wrapper.get('.memory-share').attributes('style')).toContain('width: 0%');
   });
   it('keeps expanded details attached to an identity across ranking updates and closes exited rows', async () => {
-    const first = snapshot.snapshot!.processes!.applications[0]!;
+    const first = snapshot.memory.value!.processes!.applications[0]!;
     const second = { ...first, id: 'second', name: 'Second', iconPath: null, canQuit: false };
     const summary = { applications: [first, second], readableProcessCount: 4, omittedProcessCount: 0 };
     const { wrapper } = render(ApplicationList, { summary });
@@ -352,7 +409,7 @@ describe('memory presentation', () => {
   });
 
   it('reveals the selected image through the shared adapter and keeps errors local and retryable', async () => {
-    const { wrapper } = render(ApplicationList, { summary: snapshot.snapshot!.processes });
+    const { wrapper } = render(ApplicationList, { summary: snapshot.memory.value!.processes });
     await wrapper.get('.application-row').trigger('click');
     expect(wrapper.get('.application-row').attributes('aria-controls')).toBe(
       wrapper.get('.application-details').attributes('id')
@@ -383,7 +440,7 @@ describe('memory presentation', () => {
   });
 
   it('requests normal quit once while pending and retains the row until a fresh sample removes it', async () => {
-    const { wrapper } = render(ApplicationList, { summary: snapshot.snapshot!.processes }, false, enUS);
+    const { wrapper } = render(ApplicationList, { summary: snapshot.memory.value!.processes }, false, enUS);
     await wrapper.get('.application-row').trigger('click');
     expect(wrapper.text().match(/Browser/g)).toHaveLength(2); // Row name and executable path only.
     expect(wrapper.find('.detail-name').exists()).toBe(false);
@@ -410,7 +467,7 @@ describe('memory presentation', () => {
   });
 
   it('keeps rejected quit requests retryable and hides the action for ineligible rows', async () => {
-    const summary = snapshot.snapshot!.processes!;
+    const summary = snapshot.memory.value!.processes!;
     const { wrapper } = render(ApplicationList, { summary });
     await wrapper.get('.application-row').trigger('click');
     vi.mocked(ResidentService.quitApplication).mockRejectedValueOnce(new Error('OS failed'));

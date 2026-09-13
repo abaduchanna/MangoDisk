@@ -1,31 +1,11 @@
-use super::{
-    diagnostics::Failure,
-    runtime::{ReadingStatus, ResidentState},
-};
-use serde::{Deserialize, Serialize};
+use super::{diagnostics::Failure, runtime::ResidentState};
 use std::sync::Arc;
 use tauri::Manager;
 use tauri_plugin_store::StoreExt;
 
+use super::preference_schema::decode;
+pub use super::preference_schema::ResidentPreferences;
 const FILE: &str = "resident.json";
-
-#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
-#[serde(rename_all = "camelCase")]
-pub struct ResidentPreferences {
-    pub schema_version: u32,
-    pub enabled: bool,
-    pub show_memory: bool,
-}
-
-impl Default for ResidentPreferences {
-    fn default() -> Self {
-        Self {
-            schema_version: 1,
-            enabled: true,
-            show_memory: true,
-        }
-    }
-}
 
 pub fn load(app: &tauri::AppHandle) -> ResidentPreferences {
     let value = match app.store_builder(FILE).disable_auto_save().build() {
@@ -37,8 +17,8 @@ pub fn load(app: &tauri::AppHandle) -> ResidentPreferences {
     };
     match value {
         None => ResidentPreferences::default(),
-        Some(value) => match serde_json::from_value::<ResidentPreferences>(value) {
-            Ok(preferences) if preferences.schema_version == 1 => preferences,
+        Some(value) => match decode(value) {
+            Ok(preferences) => preferences,
             _ => {
                 log::warn!("resident_preferences_invalid");
                 ResidentPreferences::default()
@@ -47,8 +27,8 @@ pub fn load(app: &tauri::AppHandle) -> ResidentPreferences {
     }
 }
 
-fn save(app: &tauri::AppHandle, preferences: ResidentPreferences) -> Result<(), Failure> {
-    if preferences.schema_version != 1 {
+fn save(app: &tauri::AppHandle, preferences: &ResidentPreferences) -> Result<(), Failure> {
+    if preferences.schema_version != 7 {
         return Err(Failure::state("preferences_version"));
     }
     let store = app
@@ -57,6 +37,9 @@ fn save(app: &tauri::AppHandle, preferences: ResidentPreferences) -> Result<(), 
         .build()
         .map_err(|error| Failure::record("preferences_open", &error))?;
     let previous = store.get("preferences");
+    if let Some(value) = &previous {
+        decode(value.clone()).map_err(Failure::state)?;
+    }
     store.set(
         "preferences",
         serde_json::to_value(preferences)
@@ -76,15 +59,23 @@ fn save(app: &tauri::AppHandle, preferences: ResidentPreferences) -> Result<(), 
 }
 
 /// Desktop policy stays here; IPC only transports the requested preference value.
-pub fn apply(app: &tauri::AppHandle, preferences: ResidentPreferences) -> Result<(), Failure> {
+pub fn apply(
+    app: &tauri::AppHandle,
+    preferences: ResidentPreferences,
+) -> Result<ResidentPreferences, Failure> {
+    let mut preferences = preferences.normalize().map_err(Failure::state)?;
     let state = app.state::<Arc<ResidentState>>();
     let mut current = state
         .preferences
         .lock()
         .map_err(|_| Failure::state("preferences_lock"))?;
-    if preferences.schema_version != 1 {
-        return Err(Failure::state("preferences_version"));
+    if preferences.revision != current.revision {
+        return Err(Failure::state("preferences_conflict"));
     }
+    preferences.revision = current
+        .revision
+        .checked_add(1)
+        .ok_or_else(|| Failure::state("preferences_revision"))?;
     if !preferences.enabled {
         super::main_window::open(
             app,
@@ -93,27 +84,36 @@ pub fn apply(app: &tauri::AppHandle, preferences: ResidentPreferences) -> Result
         )
         .map_err(|error| Failure::record("preferences_foreground", &error))?;
     }
-    let tray = app
-        .tray_by_id(super::TRAY_ID)
-        .ok_or_else(|| Failure::state("preferences_tray_missing"))?;
-    // A rejected native update must not be reported as a persisted success.
-    tray.set_visible(preferences.enabled)
-        .map_err(|error| Failure::record("preferences_visibility", &error))?;
-    if let Err(error) = save(app, preferences) {
-        if let Err(rollback) = tray.set_visible(current.enabled) {
-            Failure::record("preferences_visibility_rollback", &rollback);
+    let reading = state
+        .reading
+        .lock()
+        .map_err(|_| Failure::state("preferences_reading"))?
+        .clone();
+    if let Err(error) = super::tray_display::apply_preferences(app, &preferences, &reading) {
+        if let Err(rollback) = super::tray_display::apply_preferences(app, &current, &reading) {
+            Failure::record("preferences_display_rollback", &rollback);
+            super::main_window::request(
+                app,
+                super::main_window::Destination::Main,
+                "display_rollback",
+            );
+        }
+        return Err(Failure::record("preferences_display", &error));
+    }
+    if let Err(error) = save(app, &preferences) {
+        if let Err(rollback) = super::tray_display::apply_preferences(app, &current, &reading) {
+            Failure::record("preferences_display_rollback", &rollback);
         }
         return Err(error);
     }
-    *current = preferences;
+    *current = preferences.clone();
     if !preferences.enabled {
         let mut reading = state
             .reading
             .lock()
             .map_err(|_| Failure::state("preferences_reading_lock"))?;
         reading.revision += 1;
-        reading.status = ReadingStatus::Paused;
-        reading.snapshot = None;
+        reading.resources = Default::default();
     }
     drop(current);
     if preferences.enabled {
@@ -123,27 +123,22 @@ pub fn apply(app: &tauri::AppHandle, preferences: ResidentPreferences) -> Result
     }
     state.wake();
     log::info!(
-        "resident_preferences_saved enabled={} show_memory={}",
+        "resident_preferences_saved enabled={} revision={} show_icon={} metrics={:?} mode={:?} position={:?} background={} compact={} network_manual={} disk_manual={}",
         preferences.enabled,
-        preferences.show_memory
+        preferences.revision,
+        preferences.effective_icon(),
+        preferences
+            .metrics
+            .iter()
+            .filter(|metric| metric.enabled)
+            .map(|metric| metric.id)
+            .collect::<Vec<_>>(),
+        preferences.windows_display_mode,
+        preferences.taskbar_position,
+        preferences.taskbar_background,
+        preferences.taskbar_compact,
+        preferences.network_interface.is_some(),
+        preferences.disk_volume.is_some()
     );
-    Ok(())
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn preferences_have_an_explicit_version_and_require_boolean_fields() {
-        let defaults = serde_json::to_value(ResidentPreferences::default()).unwrap();
-        assert_eq!(
-            defaults,
-            serde_json::json!({"schemaVersion":1,"enabled":true,"showMemory":true})
-        );
-        assert!(serde_json::from_value::<ResidentPreferences>(
-            serde_json::json!({"schemaVersion":1,"enabled":"true","showMemory":false})
-        )
-        .is_err());
-    }
+    Ok(preferences)
 }
