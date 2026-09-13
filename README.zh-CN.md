@@ -1,5 +1,5 @@
 <h1 align="center">
-  <img src="public/mangodisk.svg" width="40" alt="MangoDisk 应用图标"> MangoDisk
+  <img src="public/mangodisk.svg" width="40" alt="MangoDisk 应用图标"> MangoDisk-芒果磁盘清理
 </h1>
 
 <p align="center">面向 macOS 和 Windows 的磁盘清理、空间分析、隐私保护与系统优化工具</p>
