@@ -5,12 +5,16 @@ import type { TrendPoint } from '@/lib/models/system-resources';
 import { ResourceTrendTimeline } from './resource-trend-timeline';
 import { ResourceTrendScale } from './resource-trend-scale';
 
-const props = defineProps<{
-  metric: 'cpu' | 'memory' | 'network' | 'disk';
-  history: TrendPoint[];
-  observedAtMs: number;
-  label: string;
-}>();
+const props = withDefaults(
+  defineProps<{
+    metric: 'cpu' | 'memory' | 'network' | 'disk';
+    history: TrendPoint[];
+    observedAtMs: number;
+    label: string;
+    active?: boolean;
+  }>(),
+  { active: true }
+);
 const timeline = new ResourceTrendTimeline();
 const offset = ref(0);
 const points = shallowRef<TrendPoint[]>([]);
@@ -75,6 +79,10 @@ function paint() {
   amplitude.value = bidirectional.value ? scale.amplitude(clock) : 1;
 }
 function animate() {
+  if (props.active === false || document.hidden) {
+    stop();
+    return;
+  }
   paint();
   const last = points.value.at(-1);
   if (!last || timeline.position(last.sampledAtMs) + timeline.offset(performance.now()) < 0) {
@@ -89,7 +97,14 @@ function stop() {
   frame = 0;
 }
 function start() {
-  if (mounted && !document.hidden && !reducedMotion?.matches && !frame && points.value.length) {
+  if (
+    mounted &&
+    props.active !== false &&
+    !document.hidden &&
+    !reducedMotion?.matches &&
+    !frame &&
+    points.value.length
+  ) {
     frame = requestAnimationFrame(animate);
   }
 }
@@ -120,11 +135,12 @@ function sync() {
 }
 function resume() {
   stop();
-  if (document.hidden) return;
+  if (props.active === false || document.hidden) return;
   timeline.reset();
   scale.reset();
   sync();
 }
+watch(() => props.active, resume);
 watch(() => [props.history, props.observedAtMs, props.metric], sync, { immediate: true });
 onMounted(() => {
   mounted = true;

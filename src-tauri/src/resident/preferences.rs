@@ -63,12 +63,22 @@ pub fn apply(
     app: &tauri::AppHandle,
     preferences: ResidentPreferences,
 ) -> Result<ResidentPreferences, Failure> {
+    let started = std::time::Instant::now();
     let mut preferences = preferences.normalize().map_err(Failure::state)?;
     let state = app.state::<Arc<ResidentState>>();
-    let mut current = state
+    // Native calls and persistence may block. Serialize writers separately so
+    // samplers continue using the last committed settings throughout the update.
+    // Presentation takes this same gate before reading settings, preventing a
+    // queued refresh from restoring the old display after commit or rollback.
+    let _update = state
+        .preference_update
+        .lock()
+        .map_err(|_| Failure::state("preferences_update_lock"))?;
+    let current = state
         .preferences
         .lock()
-        .map_err(|_| Failure::state("preferences_lock"))?;
+        .map_err(|_| Failure::state("preferences_lock"))?
+        .clone();
     if preferences.revision != current.revision {
         return Err(Failure::state("preferences_conflict"));
     }
@@ -106,16 +116,23 @@ pub fn apply(
         }
         return Err(error);
     }
-    *current = preferences.clone();
-    if !preferences.enabled {
-        let mut reading = state
-            .reading
+    {
+        // Publish only after both native application and persistence succeed.
+        // No platform calls or file I/O may run while holding this snapshot lock.
+        let mut committed = state
+            .preferences
             .lock()
-            .map_err(|_| Failure::state("preferences_reading_lock"))?;
-        reading.revision += 1;
-        reading.resources = Default::default();
+            .unwrap_or_else(|error| error.into_inner());
+        *committed = preferences.clone();
+        if !preferences.enabled {
+            let mut reading = state
+                .reading
+                .lock()
+                .unwrap_or_else(|error| error.into_inner());
+            reading.revision += 1;
+            reading.resources = Default::default();
+        }
     }
-    drop(current);
     if preferences.enabled {
         super::panel::prewarm(app);
     } else {
@@ -123,7 +140,7 @@ pub fn apply(
     }
     state.wake();
     log::info!(
-        "resident_preferences_saved enabled={} revision={} show_icon={} metrics={:?} mode={:?} position={:?} background={} compact={} network_manual={} disk_manual={}",
+        "resident_preferences_saved enabled={} revision={} show_icon={} metrics={:?} mode={:?} position={:?} background={} compact={} network_manual={} disk_manual={} elapsed_ms={}",
         preferences.enabled,
         preferences.revision,
         preferences.effective_icon(),
@@ -138,7 +155,8 @@ pub fn apply(
         preferences.taskbar_background,
         preferences.taskbar_compact,
         preferences.network_interface.is_some(),
-        preferences.disk_volume.is_some()
+        preferences.disk_volume.is_some(),
+        started.elapsed().as_millis()
     );
     Ok(preferences)
 }

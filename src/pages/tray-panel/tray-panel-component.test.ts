@@ -14,6 +14,7 @@ import koKR from '@/locales/ko-KR.json';
 
 import TrayPanelPage from './index.vue';
 import MemoryOverview from './components/md-memory-overview.vue';
+import ResourceOverview from './components/md-resource-overview.vue';
 import ApplicationList from './components/md-application-memory-list.vue';
 import { FileManagerService } from '@/lib/services/file-manager-service';
 import { FileIconService } from '@/lib/services/file-icon-service';
@@ -24,7 +25,7 @@ import type { ResidentReading } from '@/lib/models/resident';
 vi.mock('@/lib/services/resident-service', () => ({
   ResidentService: {
     onReading: vi.fn(),
-    onFocus: vi.fn(),
+    onFocusChanged: vi.fn(),
     onPanelMetric: vi.fn(),
     panelMetric: vi.fn(),
     selectMetric: vi.fn(),
@@ -110,7 +111,7 @@ describe('monitoring panel interactions', () => {
     vi.mocked(FileIconService.peek).mockReturnValue('cached');
     vi.mocked(FileIconService.resolve).mockResolvedValue(null);
     vi.mocked(ResidentService.onReading).mockResolvedValue(vi.fn());
-    vi.mocked(ResidentService.onFocus).mockResolvedValue(vi.fn());
+    vi.mocked(ResidentService.onFocusChanged).mockResolvedValue(vi.fn());
     vi.mocked(ResidentService.onPanelMetric).mockResolvedValue(vi.fn());
     vi.mocked(ResidentService.panelMetric).mockResolvedValue('memory');
     vi.mocked(ResidentService.selectMetric).mockResolvedValue();
@@ -119,6 +120,21 @@ describe('monitoring panel interactions', () => {
   afterEach(() => {
     wrappers.splice(0).forEach(wrapper => wrapper.unmount());
     vi.useRealTimers();
+  });
+
+  it('stops overview animation on native blur even when the document stays visible', async () => {
+    vi.mocked(ResidentService.panelMetric).mockResolvedValue('cpu');
+    const { wrapper } = render();
+    await flushPromises();
+    expect(wrapper.findAllComponents(ResourceOverview)).toHaveLength(4);
+    const focus = vi.mocked(ResidentService.onFocusChanged).mock.calls[0]![0];
+    expect(wrapper.findAllComponents(ResourceOverview).every(card => card.props('active') === false)).toBe(true);
+    focus(true);
+    await flushPromises();
+    expect(wrapper.findAllComponents(ResourceOverview).every(card => card.props('active') === true)).toBe(true);
+    focus(false);
+    await flushPromises();
+    expect(wrapper.findAllComponents(ResourceOverview).every(card => card.props('active') === false)).toBe(true);
   });
 
   it('moves keyboard focus with the selected resource tab', async () => {
@@ -142,8 +158,8 @@ describe('monitoring panel interactions', () => {
     await flushPromises();
     await wrapper.get('#metric-tab-memory').trigger('click');
     expect(store.selectedMetric).toBe('memory');
-    const focus = vi.mocked(ResidentService.onFocus).mock.calls[0]![0];
-    focus();
+    const focus = vi.mocked(ResidentService.onFocusChanged).mock.calls[0]![0];
+    focus(true);
     await flushPromises();
     expect(wrapper.get('#metric-tab-memory').attributes('aria-selected')).toBe('true');
     expect(store.selectedMetric).toBe('memory');
@@ -208,15 +224,15 @@ describe('monitoring panel interactions', () => {
     vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] });
     const { wrapper, store } = render();
     await flushPromises();
-    const focus = vi.mocked(ResidentService.onFocus).mock.calls[0]![0];
+    const focus = vi.mocked(ResidentService.onFocusChanged).mock.calls[0]![0];
     store.releaseResult = { schemaVersion: 1, status: 'completed', observedReductionBytes: 1 };
     await flushPromises();
     const cached = vi.spyOn(store, 'load');
-    focus();
+    focus(true);
     expect(cached).toHaveBeenCalledOnce();
     expect(store.releaseResult).toBeNull();
     store.releasing = true;
-    focus();
+    focus(true);
     expect(store.releasing).toBe(true);
     store.releasing = false;
     store.releaseResult = { schemaVersion: 1, status: 'completed', observedReductionBytes: 2 };

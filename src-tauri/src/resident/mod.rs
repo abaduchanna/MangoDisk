@@ -6,6 +6,7 @@ pub mod memory_release;
 pub mod panel;
 mod preference_schema;
 pub mod preferences;
+mod presentation;
 pub mod runtime;
 mod sampling_schedule;
 mod sampling_workers;

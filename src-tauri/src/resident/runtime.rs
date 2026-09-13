@@ -11,13 +11,13 @@ use std::{
     },
     time::{Duration, Instant},
 };
-use tauri::{Emitter, Listener, Manager};
+use tauri::{Listener, Manager};
 
 use super::{
     preferences::ResidentPreferences,
     sampling_schedule::{Demand, SamplingSlot},
     sampling_workers::{self, Observation, SamplingEvent},
-    PANEL_LABEL, TRAY_ID,
+    TRAY_ID,
 };
 
 pub const READING_EVENT: &str = "resident-reading";
@@ -31,6 +31,9 @@ pub struct ResidentReading {
 }
 
 pub struct ResidentState {
+    // Serialize native preference transactions and periodic display refreshes.
+    // Sampling only reads the short-lived committed-preferences lock below.
+    pub preference_update: Mutex<()>,
     pub preferences: Mutex<ResidentPreferences>,
     pub panel_open: AtomicBool,
     pub panel_ready: AtomicBool,
@@ -83,11 +86,9 @@ impl ResidentState {
             .unwrap_or_else(|error| error.into_inner());
         let catalogue = self.catalogue.load(Ordering::Relaxed);
         MetricId::ALL.map(|metric| Demand {
-            active: (preferences.enabled
-                && (preferences.shows(metric)
-                    // Overview needs all base readings, while only the memory page requests processes.
-                    || (panel_open && (selected != MetricId::Memory || selected == metric))
-                    || (metric == MetricId::Memory && warm_icons)))
+            // Display choices only control native entries. Keep lightweight history
+            // for every overview metric while resident mode is enabled.
+            active: preferences.enabled
                 || (metric == MetricId::Network && catalogue & 1 != 0)
                 || (metric == MetricId::Disk && catalogue & 2 != 0),
             detailed: metric == MetricId::Memory
@@ -104,6 +105,7 @@ impl ResidentState {
 pub fn start(app: &tauri::AppHandle, preferences: ResidentPreferences) -> Arc<ResidentState> {
     let (sender, events) = mpsc::sync_channel(8);
     let state = Arc::new(ResidentState {
+        preference_update: Mutex::new(()),
         preferences: Mutex::new(preferences),
         panel_open: AtomicBool::new(false),
         panel_ready: AtomicBool::new(false),
@@ -122,7 +124,7 @@ pub fn start(app: &tauri::AppHandle, preferences: ResidentPreferences) -> Arc<Re
     // Publish state before any worker can call a desktop adapter that looks it up.
     app.manage(state.clone());
     let locale_state = state.clone();
-    // Store notifications wake an otherwise dormant brand-only configuration.
+    // Store notifications immediately refresh native labels after locale changes.
     // The listener only queues work: reading the store inside its own mutation
     // callback would contend with the plugin's cache lock.
     app.listen("store://change", move |event| {
@@ -136,6 +138,7 @@ pub fn start(app: &tauri::AppHandle, preferences: ResidentPreferences) -> Arc<Re
     let worker = state.clone();
     let app = app.clone();
     std::thread::spawn(move || {
+        let presentation = super::presentation::Presentation::start(app.clone(), worker.clone());
         let origin = Instant::now();
         let jobs =
             MetricId::ALL.map(|metric| sampling_workers::start(metric, origin, sender.clone()));
@@ -151,9 +154,27 @@ pub fn start(app: &tauri::AppHandle, preferences: ResidentPreferences) -> Arc<Re
         let mut dropped = 0u64;
         let mut cpu_baseline = None;
         let mut cpu_retries = 0u8;
+        let mut loop_at = Instant::now();
+        let mut was_active = worker.enabled();
+        let mut loop_max_ms = 0u128;
+        let mut loop_delayed = false;
         let mut display_pending: Option<Instant> = None;
         let mut display_updated = Instant::now() - Duration::from_secs(1);
         loop {
+            let loop_ms = loop_at.elapsed().as_millis();
+            loop_at = Instant::now();
+            loop_max_ms = loop_max_ms.max(loop_ms);
+            // An idle disabled service can sleep indefinitely; that is intentional.
+            // While active, the coordinator should wake at least once per second.
+            let active = worker.enabled();
+            let delayed = was_active && active && loop_ms > 2000;
+            was_active = active;
+            if delayed && !loop_delayed {
+                log::warn!("resident_sampling_delayed loop_ms={loop_ms}");
+            } else if loop_delayed && !delayed {
+                log::info!("resident_sampling_recovered");
+            }
+            loop_delayed = delayed;
             let demands = worker.demands(warm_icons);
             if disk_slot.update(worker.disk_activity_demand()) {
                 cache.stop_disk_io();
@@ -216,12 +237,7 @@ pub fn start(app: &tauri::AppHandle, preferences: ResidentPreferences) -> Arc<Re
                 }
             };
             if matches!(event, Some(SamplingEvent::Wake)) {
-                let reading = worker
-                    .reading
-                    .lock()
-                    .unwrap_or_else(|error| error.into_inner())
-                    .clone();
-                update_tray(&app, &worker, &reading);
+                presentation.display();
                 display_updated = Instant::now();
                 display_pending = None;
             }
@@ -419,11 +435,7 @@ pub fn start(app: &tauri::AppHandle, preferences: ResidentPreferences) -> Arc<Re
             }
             previous_status = statuses;
             if changed {
-                let preferences = worker
-                    .preferences
-                    .lock()
-                    .unwrap_or_else(|error| error.into_inner());
-                let reading = {
+                {
                     let mut reading = worker
                         .reading
                         .lock()
@@ -448,9 +460,7 @@ pub fn start(app: &tauri::AppHandle, preferences: ResidentPreferences) -> Arc<Re
                     }
                     reading.revision += 1;
                     reading.resources = resources;
-                    reading.clone()
-                };
-                drop(preferences);
+                }
                 // Independent workers commonly finish within a few milliseconds.
                 // Native status-bar layout is expensive. Limit periodic display
                 // refreshes to once per second without delaying IPC readings or
@@ -459,26 +469,10 @@ pub fn start(app: &tauri::AppHandle, preferences: ResidentPreferences) -> Arc<Re
                     (Instant::now() + Duration::from_millis(50))
                         .max(display_updated + Duration::from_secs(1))
                 });
-                if worker.panel_open.load(Ordering::Relaxed) {
-                    let _ = app.emit_to(PANEL_LABEL, READING_EVENT, &reading);
-                }
-                // Hidden WebViews must remain idle. Tauri can still evaluate an
-                // event script when its target has no matching JS listeners.
-                // Visible pages fetch the cached reading when they regain focus.
-                if app
-                    .get_webview_window(crate::MAIN_WINDOW_LABEL)
-                    .is_some_and(|window| window.is_visible().unwrap_or(false))
-                {
-                    let _ = app.emit_to(crate::MAIN_WINDOW_LABEL, READING_EVENT, &reading);
-                }
+                presentation.reading();
             }
             if display_pending.is_some_and(|deadline| Instant::now() >= deadline) {
-                let reading = worker
-                    .reading
-                    .lock()
-                    .unwrap_or_else(|error| error.into_inner())
-                    .clone();
-                update_tray(&app, &worker, &reading);
+                presentation.display();
                 display_updated = Instant::now();
                 display_pending = None;
             }
@@ -492,14 +486,15 @@ pub fn start(app: &tauri::AppHandle, preferences: ResidentPreferences) -> Arc<Re
                 };
                 let renders = app
                     .state::<Mutex<super::tray_display::DisplayState>>()
-                    .lock()
-                    .map(|state| state.renders)
-                    .unwrap_or(0);
+                    .try_lock()
+                    .ok()
+                    .map(|state| state.renders);
                 let handles = super::tray_display::format::DisplayId::ALL
                     .iter()
                     .filter(|id| app.tray_by_id(id.tray_id()).is_some())
                     .count();
-                log::info!("resident_sample_summary samples={} p50_ms={} p95_ms={} discarded={} tray_renders={} tray_handles={}", durations.len(), percentile(50), percentile(95), dropped, renders, handles);
+                log::info!("resident_sample_summary samples={} p50_ms={} p95_ms={} discarded={} tray_renders={:?} tray_handles={} loop_max_ms={loop_max_ms}", durations.len(), percentile(50), percentile(95), dropped, renders, handles);
+                loop_max_ms = 0;
                 durations.clear();
                 dropped = 0;
                 summary_at = Instant::now();
@@ -509,27 +504,18 @@ pub fn start(app: &tauri::AppHandle, preferences: ResidentPreferences) -> Arc<Re
     state
 }
 
-fn update_tray(app: &tauri::AppHandle, state: &ResidentState, reading: &ResidentReading) {
-    let preferences = state
-        .preferences
-        .lock()
-        .unwrap_or_else(|error| error.into_inner())
-        .clone();
-    super::tray_display::refresh(app, &preferences, reading);
-}
-
 #[cfg(test)]
 mod overview_tests {
     use super::*;
 
-    #[test]
-    fn overview_limits_process_work_and_keeps_resident_disk_history() {
+    fn test_state() -> ResidentState {
         let (wake, _) = mpsc::sync_channel(1);
         let mut preferences = ResidentPreferences::default();
         for metric in &mut preferences.metrics {
             metric.enabled = false;
         }
-        let state = ResidentState {
+        ResidentState {
+            preference_update: Mutex::new(()),
             preferences: Mutex::new(preferences),
             panel_open: AtomicBool::new(true),
             panel_ready: AtomicBool::new(true),
@@ -544,7 +530,43 @@ mod overview_tests {
             }),
             catalogue: AtomicU8::new(0),
             wake,
-        };
+        }
+    }
+
+    #[test]
+    fn stalled_preference_update_does_not_block_sampling_demand() {
+        let state = Arc::new(test_state());
+        let update = state.preference_update.lock().unwrap();
+        let sampler = state.clone();
+        let (sampled, samples) = mpsc::channel();
+        let (committed, commit) = mpsc::channel();
+        let thread = std::thread::spawn(move || {
+            sampled
+                .send((sampler.demands(false), sampler.disk_activity_demand()))
+                .unwrap();
+            commit.recv().unwrap();
+            (sampler.demands(false), sampler.disk_activity_demand())
+        });
+        // Keep the same gate held by native application/save/rollback. The
+        // sampler must finish before it is released, even with every entry off.
+        // Release before asserting so a regression cannot strand a test thread.
+        let before = samples.recv_timeout(Duration::from_secs(2));
+        state.preferences.lock().unwrap().enabled = false;
+        drop(update);
+        committed.send(()).unwrap();
+        let (after, disk_after) = thread.join().unwrap();
+        let (before, disk_before) = before.expect("sampling waited for the preference transaction");
+        assert!(before
+            .iter()
+            .all(|demand| demand.active && !demand.detailed));
+        assert!(disk_before.active);
+        assert!(after.iter().all(|demand| !demand.active));
+        assert!(!disk_after.active);
+    }
+
+    #[test]
+    fn overview_limits_process_work_and_keeps_resident_disk_history() {
+        let state = test_state();
         for selected in [MetricId::Cpu, MetricId::Network, MetricId::Disk] {
             *state.panel_metric.lock().unwrap() = selected;
             assert!(state.disk_activity_demand().active);
@@ -556,11 +578,15 @@ mod overview_tests {
         *state.panel_metric.lock().unwrap() = MetricId::Memory;
         assert!(state.disk_activity_demand().active);
         for (metric, demand) in MetricId::ALL.into_iter().zip(state.demands(false)) {
-            assert_eq!(demand.active, metric == MetricId::Memory);
+            assert!(demand.active);
             assert_eq!(demand.detailed, metric == MetricId::Memory);
         }
         state.panel_open.store(false, Ordering::Relaxed);
         assert!(state.disk_activity_demand().active);
+        assert!(state
+            .demands(false)
+            .iter()
+            .all(|demand| demand.active && !demand.detailed));
         state.preferences.lock().unwrap().enabled = false;
         assert!(!state.disk_activity_demand().active);
         assert!(state

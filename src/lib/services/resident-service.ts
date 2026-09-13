@@ -78,9 +78,22 @@ export class ResidentService {
   static onNavigate(handler: (destination: ResidentDestination) => void): Promise<UnlistenFn> {
     return listen<ResidentDestination>('resident-open-page', event => handler(event.payload));
   }
-  static onFocus(handler: () => void): Promise<UnlistenFn> {
-    return getCurrentWindow().onFocusChanged(event => {
-      if (event.payload) handler();
+  static async onFocusChanged(handler: (focused: boolean) => void): Promise<UnlistenFn> {
+    const current = getCurrentWindow();
+    let receivedEvent = false;
+    const dispose = await current.onFocusChanged(event => {
+      receivedEvent = true;
+      handler(event.payload);
     });
+    try {
+      // The first native focus event can precede listener registration. Seed the
+      // current state, but never let an older query overwrite a newer focus event.
+      const focused = await current.isFocused();
+      if (!receivedEvent) handler(focused);
+      return dispose;
+    } catch (error) {
+      dispose();
+      throw error;
+    }
   }
 }

@@ -2,18 +2,44 @@ import { preferencesFixture } from '@/tests/fixtures/resident';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { ResidentService } from './resident-service';
 
-const { invoke, listen, windowListen, onFocusChanged } = vi.hoisted(() => ({
+const { invoke, listen, windowListen, onFocusChanged, isFocused } = vi.hoisted(() => ({
   invoke: vi.fn(),
   listen: vi.fn(),
   windowListen: vi.fn(),
   onFocusChanged: vi.fn(),
+  isFocused: vi.fn().mockResolvedValue(false),
 }));
 vi.mock('@tauri-apps/api/core', () => ({ invoke }));
 vi.mock('@tauri-apps/api/event', () => ({ listen }));
-vi.mock('@tauri-apps/api/window', () => ({ getCurrentWindow: () => ({ onFocusChanged, listen: windowListen }) }));
+vi.mock('@tauri-apps/api/window', () => ({
+  getCurrentWindow: () => ({ onFocusChanged, isFocused, listen: windowListen }),
+}));
 
 describe('resident desktop protocol', () => {
   beforeEach(() => vi.clearAllMocks());
+
+  it('seeds missed initial focus and preserves an event received during the query', async () => {
+    const dispose = vi.fn();
+    onFocusChanged.mockResolvedValue(dispose);
+    isFocused.mockResolvedValueOnce(true);
+    const handler = vi.fn();
+    const stop = await ResidentService.onFocusChanged(handler);
+    expect(handler).toHaveBeenLastCalledWith(true);
+    stop();
+    let resolve: (value: boolean) => void = () => {};
+    isFocused.mockReturnValueOnce(
+      new Promise<boolean>(done => {
+        resolve = done;
+      })
+    );
+    handler.mockClear();
+    const pending = ResidentService.onFocusChanged(handler);
+    await Promise.resolve();
+    onFocusChanged.mock.calls.at(-1)![0]({ payload: false });
+    resolve(true);
+    (await pending)();
+    expect(handler).toHaveBeenCalledExactlyOnceWith(false);
+  });
 
   it.each([
     ['reading', 'monitoring_get_reading'],
@@ -72,11 +98,11 @@ describe('resident desktop protocol', () => {
     expect(await ResidentService.onNavigate(handler)).toBe(dispose);
     listen.mock.calls[0]?.[1]({ payload: 'settings' });
     expect(handler).toHaveBeenLastCalledWith('settings');
-    expect(await ResidentService.onFocus(handler)).toBe(dispose);
+    expect(await ResidentService.onFocusChanged(handler)).toBe(dispose);
     handler.mockClear();
     onFocusChanged.mock.calls[0]?.[0]({ payload: false });
-    expect(handler).not.toHaveBeenCalled();
+    expect(handler).toHaveBeenLastCalledWith(false);
     onFocusChanged.mock.calls[0]?.[0]({ payload: true });
-    expect(handler).toHaveBeenCalledOnce();
+    expect(handler).toHaveBeenLastCalledWith(true);
   });
 });

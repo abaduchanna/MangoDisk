@@ -18,6 +18,9 @@ const { t } = useI18n({ useScope: 'global' });
 const store = useTrayPanelStore();
 const appStore = useAppStore();
 const panel = ref<HTMLElement | null>(null);
+// Native popup hiding does not consistently update document.hidden in WebView2.
+// A prewarmed, unfocused panel must not start chart animation loops.
+const panelFocused = ref(false);
 // The native metric remains the entry context; only memory opens a dedicated page.
 const selectedTab = computed(() => (store.selectedMetric === 'memory' ? 'memory' : 'overview'));
 const tabs = ['overview', 'memory'] as const;
@@ -97,7 +100,10 @@ async function connect() {
       );
       if (!disposed)
         pending.push(
-          await ResidentService.onFocus(() => {
+          await ResidentService.onFocusChanged(focused => {
+            if (disposed) return;
+            panelFocused.value = focused;
+            if (!focused) return;
             // A prewarmed WebView survives closing. Do not present an old result
             // as a new action's state when the user returns to the panel.
             if (!store.releasing) store.releaseResult = null;
@@ -187,6 +193,7 @@ onBeforeUnmount(() => {
         <MdResourceOverview
           v-for="metric in overviewMetrics"
           :key="metric"
+          :active="panelFocused"
           :metric="metric"
           :reading="store.reading"
           @cleanup="navigate('cleanup')"

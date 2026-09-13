@@ -11,6 +11,33 @@ afterEach(() => {
 });
 
 describe('resource trend rendering', () => {
+  it('cancels native-hidden animation and resumes from updated history', async () => {
+    const request = vi.fn(() => 1);
+    const cancel = vi.fn();
+    vi.stubGlobal('requestAnimationFrame', request);
+    vi.stubGlobal('cancelAnimationFrame', cancel);
+    vi.spyOn(document, 'hidden', 'get').mockReturnValue(false);
+    const wrapper = mount(Trend, {
+      props: { metric: 'cpu', label: 'CPU', active: false, observedAtMs: 60000, history: [point(58000), point(60000)] },
+    });
+    await nextTick();
+    expect(request).not.toHaveBeenCalled();
+    await wrapper.setProps({ active: true });
+    await nextTick();
+    expect(request).toHaveBeenCalledOnce();
+    await wrapper.setProps({ active: false });
+    expect(cancel).toHaveBeenCalledWith(1);
+    request.mockClear();
+    await wrapper.setProps({ observedAtMs: 62000, history: [point(60000), point(62000)] });
+    await nextTick();
+    expect(request).not.toHaveBeenCalled();
+    await wrapper.setProps({ active: true });
+    await nextTick();
+    expect(request).toHaveBeenCalledOnce();
+    expect(wrapper.get('path[stroke]').attributes('d')).not.toContain('NaN');
+    wrapper.unmount();
+  });
+
   it('animates only the scale group when a new rate peak changes the range', async () => {
     let clock = 0;
     let animate: FrameRequestCallback = () => {};

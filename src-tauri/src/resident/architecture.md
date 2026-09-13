@@ -11,7 +11,8 @@ application termination, or memory-reclamation algorithms.
 | Platform `system_resources` | Native counters, interface identity, local volume identity and capacity |
 | Core `system_resources` | CPU/network/disk I/O deltas, selection policy, freshness, bounded trends and memory use cases |
 | `sampling_workers` / `sampling_schedule` | One bounded worker per metric, demand, deadlines and generation checks |
-| `runtime` | Cached snapshots, status transitions, visible-window publication and brief native-update coalescing |
+| `runtime` | Cached snapshots, status transitions and sampling coordination |
+| `presentation` | Bounded, coalesced visible-window publication and native display updates |
 | `tray_display` | Shared formatting, localization, native entries and Windows bitmap ownership |
 | `taskbar_display` | Windows native window, read-only shell geometry, placement, painting and fallback |
 | `preferences` / `preference_schema` | Version migration, revision conflicts, native application and persistence rollback |
@@ -46,23 +47,34 @@ versions are rejected for writes. Memory snapshots and release results retain
 their separate version 1 contract.
 
 CPU samples every 2 seconds, memory every 3, network every 1 and disk every 30.
-Their freshness limits are respectively 5, 10, 5 and 90 seconds. Disabled metrics
-are sampled for the open overview or an explicit device-catalogue request.
+Their freshness limits are respectively 5, 10, 5 and 90 seconds. All base metrics
+remain active while resident display is enabled, regardless of the selected native
+entries or panel visibility. Disabling resident mode stops periodic collection;
+explicit device-catalogue requests may still read network and disk metadata.
 The panel has an overview of all four base readings and a separate memory page.
 Process details are requested only by the memory page or startup icon warming;
 opening the overview does not enumerate processes. Reopening preserves the last
 selected tab within the application session; a new process defaults to overview.
 A different metric entry can navigate an already open panel.
 CPU and network require two valid observations; unavailable values remain `—`.
-Each trend is bounded to 61 points and 60 seconds. `observedAtMs` anchors the time
+Each native trend retains at most 96 points over 80 seconds for the 60-second viewport. `observedAtMs` anchors the time
 axis even when the latest valid sample is older than the current snapshot.
 
 A slow native query stays in flight until it returns. Changing demand invalidates
-its generation without spawning replacement threads. Hidden WebViews receive no
-periodic reading events and reload the native cache when opened. Native display
+its generation without spawning replacement threads. Native panel focus explicitly stops chart animation even when WebView2 leaves
+`document.hidden` false. Hidden WebViews receive no periodic reading events and reload the native cache when opened. Native display
 updates from one completion burst are coalesced over 50 ms and periodic native
-refreshes are limited to once per second; sampling and preference changes are
-unchanged.
+refreshes are limited to once per second. A separate presentation worker uses one
+bounded wake slot and reads the latest cached snapshot; a slow native UI operation
+cannot block sampling or accumulate old snapshots. Preference changes and periodic
+native refreshes share a separate transaction gate; sampling only briefly reads
+the committed settings snapshot. Native application, persistence and rollback do
+not hold that snapshot lock. Refreshes read settings after acquiring the gate so
+an older refresh cannot overwrite a committed display. Failed updates retain the
+previous settings, and successful updates log their elapsed time.
+`resident_presentation_delayed` and
+`resident_sampling_delayed` distinguish UI waits from coordinator stalls; recovery
+is logged once, and the periodic sample summary includes maximum loop latency.
 
 macOS interface names and physical-interface classification are cached for at
 most 10 seconds, with immediate invalidation when interface topology changes.

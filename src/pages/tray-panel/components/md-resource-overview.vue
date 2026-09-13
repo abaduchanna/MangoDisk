@@ -10,7 +10,9 @@ import {
 } from '@/lib/models/system-resources';
 import { ByteSizeService } from '@/lib/services/byte-size-service';
 
-const props = defineProps<{ metric: MetricId; reading: ResourceReadings }>();
+const props = withDefaults(defineProps<{ metric: MetricId; reading: ResourceReadings; active?: boolean }>(), {
+  active: true,
+});
 defineEmits<{ cleanup: []; memory: [] }>();
 const { t } = useI18n({ useScope: 'global' });
 const current = computed(() => props.reading[props.metric]);
@@ -145,6 +147,7 @@ const rates = computed(() =>
     <MdResourceTrend
       :key="metric === 'network' ? reading.network.value?.interface.id : metric"
       :metric="metric"
+      :active="active"
       :history="history"
       :observed-at-ms="reading.observedAtMs"
       :label="t(metric === 'disk' ? 'systemStatus.diskActivityHistory' : 'systemStatus.lastMinute')"
