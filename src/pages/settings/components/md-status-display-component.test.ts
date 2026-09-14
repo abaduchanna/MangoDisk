@@ -27,6 +27,9 @@ vi.mock('@/lib/services/logger-service', () => ({ LoggerService: { warn: vi.fn()
 vi.mock('@/lib/services/byte-size-service', () => ({ ByteSizeService: { memory: (value: number) => `${value} B` } }));
 function global() {
   return {
+    // Reka's Teleport wrapper shares Vue's stub name. Preserve its slot so
+    // dialog content remains testable without replacing the dialog behavior.
+    renderStubDefaultSlot: true,
     stubs: { teleport: true },
     plugins: [
       createPinia(),
@@ -35,7 +38,7 @@ function global() {
   };
 }
 async function openConfiguration(wrapper: ReturnType<typeof mount>) {
-  const configure = wrapper.find('.status-settings .settings-list button[aria-haspopup="dialog"]');
+  const configure = wrapper.find('#resident-configure');
   if (configure.exists()) {
     await configure.trigger('click');
     await flushPromises();
@@ -421,7 +424,9 @@ describe('status display interactions', () => {
       expect(wrapper.findAll('.metric-row')[0]!.attributes('data-metric')).toBe('memory');
       expect(ResidentService.savePreferences).not.toHaveBeenCalled();
       window.dispatchEvent(
-        cancellation === 'Escape' ? new KeyboardEvent('keydown', { key: 'Escape' }) : new Event(cancellation)
+        cancellation === 'Escape'
+          ? new KeyboardEvent('keydown', { key: 'Escape', cancelable: true })
+          : new Event(cancellation)
       );
       await flushPromises();
       expect(wrapper.findAll('.metric-heading label')[0]!.text()).toBe('systemStatus.cpuShort');
@@ -473,7 +478,7 @@ describe('status display interactions', () => {
     });
     const wrapper = mount(Settings, {
       props: { isMacOs: false },
-      global: { plugins: [createPinia(), i18n], stubs: { teleport: true } },
+      global: { ...global(), plugins: [createPinia(), i18n] },
     });
     wrappers.push(wrapper);
     await flushPromises();
