@@ -87,6 +87,14 @@ Fix common problems like missing search results, incorrect icons, no sound, or n
 
 Keep a clear record of every cleanup and system change. See how much space you recovered, what completed successfully, and whether anything still needs your attention.
 
+## Resource Usage and Memory Management
+
+> Available since version 1.1.1
+
+Check CPU and memory usage, network speeds, and disk activity at a glance. See which apps use the most memory and free up memory with a click when resources are running low.
+
+Keep these details in your menu bar, taskbar, or system tray—no need to open the main window.
+
 ## AI Explanations
 
 > Available since version 1.1.0
