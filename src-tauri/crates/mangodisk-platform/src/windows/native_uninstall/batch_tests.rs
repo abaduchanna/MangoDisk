@@ -105,11 +105,28 @@ fn registered_batch_evidence_tracks_kind_arguments_and_precise_rejections() {
 #[test]
 #[ignore = "launches disposable batch uninstallers and removes only their own HKCU registrations"]
 fn registered_batch_fixture_executes_and_verifies_native_removal() {
+    struct FixtureLogger;
+    impl log::Log for FixtureLogger {
+        fn enabled(&self, _: &log::Metadata<'_>) -> bool {
+            true
+        }
+        fn log(&self, record: &log::Record<'_>) {
+            eprintln!("{}", record.args());
+        }
+        fn flush(&self) {}
+    }
+    static LOGGER: FixtureLogger = FixtureLogger;
+    let _ = log::set_logger(&LOGGER);
+    log::set_max_level(log::LevelFilter::Info);
     // The same path and parameter hazards occur in vendor registrations. Exercise
     // the real Shell boundary instead of replacing it with a process mock.
-    for (extension, exit_code, removes_record) in
-        [("bat", 0, true), ("cmd", 7, true), ("bat", 0, false)]
-    {
+    for (extension, exit_code, removes_record, delayed_child, short_lived_children) in [
+        ("bat", 0, true, false, false),
+        ("cmd", 7, true, false, false),
+        ("bat", 0, false, false, false),
+        ("bat", 0, true, true, false),
+        ("bat", 0, true, false, true),
+    ] {
         let fixture = BatchFixture::new();
         let script = fixture.directory.join(format!("uninstall.{extension}"));
         let key_path = format!(r"{UNINSTALL_PATH}\{}", fixture.key_name);
@@ -118,8 +135,24 @@ fn registered_batch_fixture_executes_and_verifies_native_removal() {
         } else {
             "rem Leave the fixture registered to verify that exit zero is insufficient.".to_string()
         };
+        // A vendor launcher can exit before its worker removes registration.
+        // Verification must wait for that worker even after the launcher exits.
+        let removal = if delayed_child {
+            let worker = fixture.directory.join("worker.ps1");
+            fs::write(&worker, format!("Start-Sleep -Seconds 2\r\nRemove-Item -LiteralPath 'HKCU:\\{key_path}' -Force -ErrorAction Stop\r\n")).unwrap();
+            "start \"\" /b \"%SystemRoot%\\System32\\WindowsPowerShell\\v1.0\\powershell.exe\" -NoProfile -NonInteractive -ExecutionPolicy Bypass -File \"%~dp0worker.ps1\"\r\nping -n 2 127.0.0.1 >nul".to_string()
+        } else {
+            removal
+        };
+        // Exercise natural snapshot/open races without a production test hook.
+        // A final pause keeps the root active after its short-lived helpers exit.
+        let helpers = if short_lived_children {
+            "for /l %%i in (1,1,200) do \"%SystemRoot%\\System32\\cmd.exe\" /d /c exit 0\r\nping -n 2 127.0.0.1 >nul\r\n"
+        } else {
+            ""
+        };
         let contents = format!(
-            "@echo off\r\n> \"%~dp0args.txt\" echo %1\r\n{removal}\r\nexit /b {exit_code}\r\n"
+            "@echo off\r\n> \"%~dp0args.txt\" echo %1\r\n{helpers}{removal}\r\nexit /b {exit_code}\r\n"
         );
         fs::write(&script, contents).unwrap();
         let command = format!(
@@ -150,7 +183,7 @@ fn registered_batch_fixture_executes_and_verifies_native_removal() {
         if !removes_record {
             assert_eq!(
                 result,
-                Err(ApplicationUninstallPlatformError::RegistrationChanged)
+                Err(ApplicationUninstallPlatformError::RemovalUnconfirmed)
             );
         } else if exit_code == 0 {
             assert_eq!(result, Ok(ApplicationUninstallExecutionOutcome::Completed));

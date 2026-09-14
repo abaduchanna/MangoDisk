@@ -172,4 +172,14 @@ describe.each(Object.keys(messages) as (keyof typeof messages)[])('uninstall res
     );
     wrapper.unmount();
   });
+  it('explains an unconfirmed removal without inviting another uninstall', async () => {
+    const wrapper = render(locale);
+    const batch = result(['failed']);
+    batch.results[0]!.actions[0]!.reason = 'removalUnconfirmed';
+    await wrapper.setProps({ lastResult: batch });
+    expect(vi.mocked(toast.warning).mock.lastCall?.[1]?.description).toContain(
+      messages[locale].history.applicationUninstallReasons.removalUnconfirmed
+    );
+    wrapper.unmount();
+  });
 });

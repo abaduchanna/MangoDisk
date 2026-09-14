@@ -296,6 +296,8 @@ pub enum ApplicationUninstallPlatformError {
     RequiresElevation,
     UserCancelled,
     RegistrationChanged,
+    /// Execution ended, but the exact installation could not be confirmed absent.
+    RemovalUnconfirmed,
     NativeFailure(u32),
     /// The vendor failed, but postflight verified that this exact registration is absent.
     NativeFailureAfterRemoval(u32),
@@ -308,6 +310,7 @@ impl ApplicationUninstallPlatformError {
             Self::RequiresElevation => "requires_elevation",
             Self::UserCancelled => "user_cancelled",
             Self::RegistrationChanged => "registration_changed",
+            Self::RemovalUnconfirmed => "removal_unconfirmed",
             Self::NativeFailure(_) => "native_failure",
             Self::NativeFailureAfterRemoval(_) => "native_failure_after_removal",
         }

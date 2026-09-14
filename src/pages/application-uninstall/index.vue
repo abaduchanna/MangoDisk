@@ -527,6 +527,12 @@ watch(
     ) {
       details.push(t('history.applicationUninstallReasons.nativeInstallerFailedAfterRemoval'));
     }
+    if (
+      result.results.length === 1 &&
+      result.results[0]?.actions.some(action => action.reason === 'removalUnconfirmed')
+    ) {
+      details.push(t('history.applicationUninstallReasons.removalUnconfirmed'));
+    }
     if (result.restartRequired) details.push(t('applicationUninstall.restartRequired'));
     const options = { ...(details.length ? { description: details.join(' · ') } : {}), id: UNINSTALL_RESULT_TOAST_ID };
     if (hasFailures) toast.warning(title, options);

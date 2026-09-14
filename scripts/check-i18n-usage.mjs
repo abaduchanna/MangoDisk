@@ -313,6 +313,7 @@ const dynamicKeyGroups = {
     'permanentDeleteFailed',
     'recoveryRequired',
     'nativeInstallerFailed',
+    'removalUnconfirmed',
     'nativeInstallerFailedAfterRemoval',
     'verificationFailed',
   ],

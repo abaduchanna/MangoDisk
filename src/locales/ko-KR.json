@@ -2112,7 +2112,7 @@
     "confirmBatchDescription": "선택한 앱과 임시 데이터가 영구 삭제되며 복구할 수 없습니다",
     "confirmBatchWithDataDescription": "선택한 앱과 확인된 관련 데이터가 영구 삭제되며 복구할 수 없습니다. 설정이나 로컬 파일이 포함될 수 있습니다",
     "confirmNativeBatchTitle": "선택한 앱 {count}개를 제거하시겠습니까?",
-    "confirmNativeBatchDescription": "Windows가 선택한 앱을 하나씩 제거합니다. 추가 확인 창이나 진행 창이 표시될 수 있습니다",
+    "confirmNativeBatchDescription": "선택한 앱의 제거 프로그램을 차례로 실행합니다. 앱 자체 창이 열리면 안내에 따라 제거를 완료하세요",
     "preparingBatchSummary": "선택한 앱 확인 중",
     "confirmBatchSummary": "{count}개 제거 준비됨",
     "validatingBatch": "선택한 앱 검증 중",
@@ -2125,7 +2125,7 @@
     "uninstallItemList": "앱 제거 진행 상황",
     "uninstallItemPending": "제거 대기 중",
     "uninstallItemActive": "제거 중",
-    "uninstallItemInteractive": "앱 제거 창에서 남은 단계를 완료하세요",
+    "uninstallItemInteractive": "이 앱의 자체 제거 프로그램 창에서 작업을 완료해 주세요",
     "uninstallItemCompleted": "제거 완료",
     "uninstallItemCancelled": "시작 전 건너뜀",
     "uninstallItemFailed": "완료되지 않음",
@@ -2310,7 +2310,8 @@
       "recoveryRequired": "제거가 깔끔하게 끝나지 않았습니다. 다시 시도하기 전에 앱을 점검하거나 복원하세요",
       "nativeInstallerFailed": "제거 프로그램이 제거를 완료하지 못했습니다",
       "nativeInstallerFailedAfterRemoval": "설치 기록은 제거되었지만 제거 프로그램이 오류를 보고했습니다",
-      "verificationFailed": "MangoDisk가 결과를 확인할 수 없습니다"
+      "verificationFailed": "MangoDisk가 결과를 확인할 수 없습니다",
+      "removalUnconfirmed": "제거 프로그램이 종료되었지만 제거 완료를 확인하지 못했습니다. 앱 목록을 새로 고침하여 확인해 주세요"
     }
   },
   "settings": {

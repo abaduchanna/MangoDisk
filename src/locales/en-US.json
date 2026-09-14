@@ -2112,7 +2112,7 @@
     "confirmBatchDescription": "The selected apps and temporary data will be deleted permanently and cannot be recovered",
     "confirmBatchWithDataDescription": "The selected apps and confirmed related data will be deleted permanently and cannot be recovered. This may include settings or local files",
     "confirmNativeBatchTitle": "Uninstall the selected {count} apps?",
-    "confirmNativeBatchDescription": "Windows will uninstall each selected app. You may see additional confirmation or progress windows",
+    "confirmNativeBatchDescription": "The selected apps’ uninstallers will run in sequence. If an app opens its own window, follow its steps to uninstall",
     "preparingBatchSummary": "Checking selected apps",
     "confirmBatchSummary": "{count} ready to uninstall",
     "validatingBatch": "Validating the selected applications",
@@ -2125,7 +2125,7 @@
     "uninstallItemList": "Application uninstall progress",
     "uninstallItemPending": "Waiting to uninstall",
     "uninstallItemActive": "Uninstalling",
-    "uninstallItemInteractive": "Complete the steps in the application's uninstall window",
+    "uninstallItemInteractive": "Complete removal in this app’s own uninstaller window",
     "uninstallItemCompleted": "Uninstall completed",
     "uninstallItemCancelled": "Skipped before starting",
     "uninstallItemFailed": "Did not finish",
@@ -2310,7 +2310,8 @@
       "recoveryRequired": "Uninstall did not finish cleanly; inspect or restore the application before retrying",
       "nativeInstallerFailed": "The uninstaller could not complete the uninstall",
       "nativeInstallerFailedAfterRemoval": "The installation record was removed, but the uninstaller reported an error",
-      "verificationFailed": "MangoDisk could not confirm the result"
+      "verificationFailed": "MangoDisk could not confirm the result",
+      "removalUnconfirmed": "The uninstaller has finished, but removal could not be confirmed. Refresh the app list to check"
     }
   },
   "settings": {

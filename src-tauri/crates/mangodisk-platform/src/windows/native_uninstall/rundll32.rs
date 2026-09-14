@@ -266,7 +266,7 @@ mod tests {
                         ApplicationUninstallPlatformError::NativeFailureAfterRemoval(0xE0E0_0001),
                     ),
                     "reboot" => Ok(ApplicationUninstallExecutionOutcome::RestartRequired),
-                    _ => Err(ApplicationUninstallPlatformError::RegistrationChanged),
+                    _ => Err(ApplicationUninstallPlatformError::RemovalUnconfirmed),
                 };
                 assert_eq!(
                     execute_registration(&registration),

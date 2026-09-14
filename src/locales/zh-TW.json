@@ -2112,7 +2112,7 @@
     "confirmBatchDescription": "所選應用程式和暫存資料將被永久刪除，無法復原",
     "confirmBatchWithDataDescription": "所選應用程式和已確認的相關資料將被永久刪除，無法復原，其中可能包含設定或本機檔案",
     "confirmNativeBatchTitle": "要解除安裝選取的 {count} 個應用程式嗎？",
-    "confirmNativeBatchDescription": "Windows 將逐一解除安裝所選應用程式，期間可能顯示額外的確認或進度視窗",
+    "confirmNativeBatchDescription": "將依序呼叫所選軟體的解除安裝程式；若彈出軟體自己的視窗，請依提示完成解除安裝",
     "preparingBatchSummary": "正在檢查所選應用程式",
     "confirmBatchSummary": "{count} 個應用程式已檢查，可以解除安裝",
     "validatingBatch": "正在再次確認所選應用程式",
@@ -2125,7 +2125,7 @@
     "uninstallItemList": "解除安裝應用程式進度",
     "uninstallItemPending": "等待解除安裝",
     "uninstallItemActive": "正在解除安裝",
-    "uninstallItemInteractive": "請在解除安裝應用程式視窗中完成操作",
+    "uninstallItemInteractive": "請在此軟體自帶的解除安裝視窗中完成操作",
     "uninstallItemCompleted": "解除安裝完成",
     "uninstallItemCancelled": "已在開始前跳過",
     "uninstallItemFailed": "未能完成",
@@ -2310,7 +2310,8 @@
       "recoveryRequired": "解除安裝未完整結束，請檢查或還原應用程式後再重試",
       "nativeInstallerFailed": "解除安裝程式未能完成解除安裝",
       "nativeInstallerFailedAfterRemoval": "安裝記錄已移除，但解除安裝程式回報了錯誤",
-      "verificationFailed": "MangoDisk 無法確認解除安裝結果"
+      "verificationFailed": "MangoDisk 無法確認解除安裝結果",
+      "removalUnconfirmed": "解除安裝程式已結束，但尚未確認完成。請重新整理應用程式清單確認"
     }
   },
   "settings": {

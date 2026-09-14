@@ -2112,7 +2112,7 @@
     "confirmBatchDescription": "選択したアプリと一時データは完全に削除され、復元できません",
     "confirmBatchWithDataDescription": "選択したアプリと確認済みの関連データは完全に削除され、復元できません。設定やローカルファイルが含まれる場合があります",
     "confirmNativeBatchTitle": "選択した {count} 個のアプリをアンインストールしますか？",
-    "confirmNativeBatchDescription": "Windows が選択したアプリを順番にアンインストールします。追加の確認画面や進行状況画面が表示される場合があります",
+    "confirmNativeBatchDescription": "選択したアプリのアンインストーラーを順番に実行します。アプリ独自の画面が開いた場合は、その案内に従ってアンインストールしてください",
     "preparingBatchSummary": "選択したアプリを確認中",
     "confirmBatchSummary": "{count} 個のアプリをアンインストールできます",
     "validatingBatch": "選択したアプリを確認中",
@@ -2125,7 +2125,7 @@
     "uninstallItemList": "アプリのアンインストール進行状況",
     "uninstallItemPending": "アンインストール待機中",
     "uninstallItemActive": "アンインストール中",
-    "uninstallItemInteractive": "アプリのアンインストール画面で操作を完了してください",
+    "uninstallItemInteractive": "このアプリのアンインストーラー画面で操作を完了してください",
     "uninstallItemCompleted": "アンインストール完了",
     "uninstallItemCancelled": "開始前にスキップ",
     "uninstallItemFailed": "完了しませんでした",
@@ -2310,7 +2310,8 @@
       "recoveryRequired": "アンインストールが正常に完了しませんでした。再試行する前にアプリを確認または復元してください",
       "nativeInstallerFailed": "アンインストーラーが処理を完了できませんでした",
       "nativeInstallerFailedAfterRemoval": "インストール情報は削除されましたが、アンインストーラーがエラーを報告しました",
-      "verificationFailed": "MangoDisk が結果を確認できませんでした"
+      "verificationFailed": "MangoDisk が結果を確認できませんでした",
+      "removalUnconfirmed": "アンインストーラーは終了しましたが、削除を確認できませんでした。アプリ一覧を更新して確認してください"
     }
   },
   "settings": {

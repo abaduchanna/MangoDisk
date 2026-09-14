@@ -196,6 +196,9 @@ fn map_platform_error(
         ApplicationUninstallPlatformError::RegistrationChanged => {
             ApplicationUninstallActionReason::ComponentChanged
         }
+        ApplicationUninstallPlatformError::RemovalUnconfirmed => {
+            ApplicationUninstallActionReason::RemovalUnconfirmed
+        }
         ApplicationUninstallPlatformError::NativeFailureAfterRemoval(_) => {
             ApplicationUninstallActionReason::NativeInstallerFailedAfterRemoval
         }

@@ -266,6 +266,7 @@ export type ApplicationUninstallActionReason =
   | 'permanentDeleteFailed'
   | 'recoveryRequired'
   | 'nativeInstallerFailed'
+  | 'removalUnconfirmed'
   | 'nativeInstallerFailedAfterRemoval'
   | 'verificationFailed';
 

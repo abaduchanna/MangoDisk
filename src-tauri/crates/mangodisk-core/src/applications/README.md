@@ -167,3 +167,27 @@ logs retain the application reference and differ from UAC cancellation. Full sca
 log each system classification; execution preflight logs classification totals only.
 
 Reference: [NVIDIA Installer 2.0 Command Line Guide, return codes (page 9)](https://cdck-file-uploads-global.s3.dualstack.us-west-2.amazonaws.com/nvidia/original/3X/e/e/eefd529f360cd00050d5c2b0798a3b8c5c721ce3.pdf).
+
+Successful MSI/registered uninstaller exits with a still-present or unqueryable registration return
+`removalUnconfirmed`; preflight identity changes remain `componentChanged`.
+Neither result authorizes a retry or associated-file deletion. MSI diagnostics
+include the correlated application reference, scope, preflight/postflight state,
+raw exit code, and duration. Code 1603 remains a generic installer failure;
+1602 is cancellation, and a nonzero exit after verified removal preserves both facts.
+
+WinGet export enriches the registry/AppX catalog with optional package metadata.
+Its five-second budget bounds source-matching waits without installing packages.
+`windows_winget_inventory_unavailable` distinguishes timeout, launch/exit failure,
+and invalid or unreadable export data. The registry/AppX catalog remains usable,
+while `complete=false` preserves the missing metadata evidence. Chocolatey's
+existing budget is unchanged; no failed query proves that an application is absent.
+
+Native process tracking validates creation times before following a parent PID,
+which may have belonged to an older launcher. Retained process handles prevent
+tracked IDs from being recycled while descendants finish. Unreadable process
+identity fails conservatively instead of certifying removal. If a helper exits
+between snapshot capture and opening its handle, a fresh snapshot must confirm
+its absence before tracking retries. Completion logs count these recovered races;
+a stale snapshot never counts toward the settled completion polls. A single
+`windows_uninstaller_process_tree_waiting` event after 30 seconds distinguishes
+an active root from remaining descendants; completion reports count and duration.

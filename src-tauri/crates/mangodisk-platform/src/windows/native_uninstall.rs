@@ -6,12 +6,13 @@ mod rundll32;
 use command::split_registered_command;
 
 use std::{
-    collections::HashSet,
+    collections::HashMap,
     env,
     ffi::{c_void, OsString},
     fs, iter,
     os::windows::{
         ffi::{OsStrExt, OsStringExt},
+        io::AsRawHandle,
         process::{CommandExt, ExitStatusExt},
     },
     path::{Path, PathBuf},
@@ -22,9 +23,10 @@ use std::{
 
 use windows_sys::Win32::{
     Foundation::{
-        CloseHandle, GetLastError, ERROR_CANCELLED, ERROR_GEN_FAILURE, ERROR_NO_MORE_FILES,
-        ERROR_SUCCESS, ERROR_SUCCESS_REBOOT_INITIATED, ERROR_SUCCESS_REBOOT_REQUIRED, HANDLE,
-        INVALID_HANDLE_VALUE, WAIT_OBJECT_0, WAIT_TIMEOUT,
+        CloseHandle, GetLastError, ERROR_CANCELLED, ERROR_GEN_FAILURE, ERROR_INVALID_PARAMETER,
+        ERROR_NO_MORE_FILES, ERROR_SUCCESS, ERROR_SUCCESS_REBOOT_INITIATED,
+        ERROR_SUCCESS_REBOOT_REQUIRED, FILETIME, HANDLE, INVALID_HANDLE_VALUE, WAIT_OBJECT_0,
+        WAIT_TIMEOUT,
     },
     Security::{
         GetTokenInformation, TokenElevation, TOKEN_ASSIGN_PRIMARY, TOKEN_DUPLICATE,
@@ -45,7 +47,7 @@ use windows_sys::Win32::{
         SystemServices::IO_REPARSE_TAG_APPEXECLINK,
         Threading::{
             CreateProcessWithTokenW, GetCurrentProcess, GetExitCodeProcess, GetProcessId,
-            OpenProcess, OpenProcessToken, WaitForSingleObject, CREATE_NO_WINDOW,
+            GetProcessTimes, OpenProcess, OpenProcessToken, WaitForSingleObject, CREATE_NO_WINDOW,
             CREATE_UNICODE_ENVIRONMENT, LOGON_WITH_PROFILE, PROCESS_INFORMATION,
             PROCESS_QUERY_LIMITED_INFORMATION, STARTUPINFOW,
         },
@@ -611,10 +613,19 @@ fn execute_registered_uninstaller(
         }
         error => error,
     })?;
-    if observed_state? != ApplicationUninstallRegistrationState::Absent {
-        return Err(ApplicationUninstallPlatformError::RegistrationChanged);
-    }
+    verify_removal(observed_state)?;
     Ok(outcome)
+}
+
+/// Postflight uncertainty is distinct from a preflight identity change. Never
+/// relaunch the vendor or remove its files merely because exit zero left a record.
+fn verify_removal(
+    observed: Result<ApplicationUninstallRegistrationState, ApplicationUninstallPlatformError>,
+) -> Result<(), ApplicationUninstallPlatformError> {
+    match observed {
+        Ok(ApplicationUninstallRegistrationState::Absent) => Ok(()),
+        _ => Err(ApplicationUninstallPlatformError::RemovalUnconfirmed),
+    }
 }
 
 /// Interpret NVIDIA results only for NVI2.DLL's UninstallPackage convention.
@@ -1184,33 +1195,64 @@ fn execute_command_process_tree(
 ) -> Result<ExitStatus, ApplicationUninstallPlatformError> {
     let mut child = command.spawn().map_err(io_error)?;
     let root_process_id = child.id();
-    wait_for_process_tree(root_process_id, || child.try_wait().map_err(io_error))
+    wait_for_process_tree(child.as_raw_handle(), root_process_id, || {
+        child.try_wait().map_err(io_error)
+    })
 }
 
 fn wait_for_process_tree<T>(
+    root_handle: HANDLE,
     root_process_id: u32,
     mut poll_root: impl FnMut() -> Result<Option<T>, ApplicationUninstallPlatformError>,
 ) -> Result<T, ApplicationUninstallPlatformError> {
     let started = Instant::now();
-    let mut tracked_process_ids = HashSet::from([root_process_id]);
+    // Parent PIDs in Toolhelp snapshots can name an older, exited process whose
+    // ID was reused by this uninstaller. Creation times reject those unrelated
+    // children; retained handles prevent IDs from being recycled while tracked.
+    let mut tracked_process_ids =
+        HashMap::from([(root_process_id, process_creation_time(root_handle)?)]);
+    let mut observed_handles = HashMap::new();
+    let mut slow_wait_logged = false;
+    let mut vanished_before_tracking_count = 0_u64;
     let mut root_result = None;
     let mut settled_polls = 0_u8;
 
     loop {
         let processes = process_parent_snapshot()?;
-        extend_process_tree(&mut tracked_process_ids, &processes);
+        let snapshot_current =
+            extend_process_tree(&mut tracked_process_ids, &processes, |process_id| {
+                if let Some((created, _handle)) = observed_handles.get(&process_id) {
+                    return Ok(Some(*created));
+                }
+                let Some(handle) = open_process_for_tracking(process_id)? else {
+                    vanished_before_tracking_count += 1;
+                    return Ok(None);
+                };
+                let created = process_creation_time(handle.0)?;
+                observed_handles.insert(process_id, (created, handle));
+                Ok(Some(created))
+            })?;
         if root_result.is_none() {
             root_result = poll_root()?;
         }
         let descendants_active = processes.iter().any(|(process_id, _)| {
-            *process_id != root_process_id && tracked_process_ids.contains(process_id)
+            *process_id != root_process_id && tracked_process_ids.contains_key(process_id)
         });
-        if root_result.is_some() && !descendants_active {
+        if !slow_wait_logged && started.elapsed() >= Duration::from_secs(30) {
+            slow_wait_logged = true;
+            log::warn!("windows_uninstaller_process_tree_waiting root_pid={} root_exited={} tracked_descendant_count={} active_descendant_count={} elapsed_ms={}",
+                root_process_id, root_result.is_some(), tracked_process_ids.len().saturating_sub(1),
+                processes.iter().filter(|(pid, _)| *pid != root_process_id && tracked_process_ids.contains_key(pid)).count(),
+                started.elapsed().as_millis());
+        }
+        if snapshot_current && root_result.is_some() && !descendants_active {
             settled_polls = settled_polls.saturating_add(1);
             if settled_polls >= PROCESS_TREE_SETTLED_POLLS {
-                log::debug!(
-                    "windows_uninstaller_process_tree_finished descendant_count={} elapsed_ms={}",
+                log::info!(
+                    "windows_uninstaller_process_tree_finished descendant_count={} ignored_preexisting_count={} vanished_before_tracking_count={} elapsed_ms={}",
                     tracked_process_ids.len().saturating_sub(1),
+                    observed_handles.len().saturating_sub(tracked_process_ids.len().saturating_sub(1)),
+                    vanished_before_tracking_count,
                     started.elapsed().as_millis()
                 );
                 return root_result.ok_or(ApplicationUninstallPlatformError::NativeFailure(
@@ -1228,7 +1270,7 @@ fn wait_for_native_process_tree(
     process_handle: HANDLE,
     process_id: u32,
 ) -> Result<u32, ApplicationUninstallPlatformError> {
-    wait_for_process_tree(process_id, || {
+    wait_for_process_tree(process_handle, process_id, || {
         match unsafe { WaitForSingleObject(process_handle, 0) } {
             WAIT_TIMEOUT => Ok(None),
             WAIT_OBJECT_0 => {
@@ -1243,16 +1285,65 @@ fn wait_for_native_process_tree(
     })
 }
 
-fn extend_process_tree(tracked_process_ids: &mut HashSet<u32>, processes: &[(u32, u32)]) {
+fn process_creation_time(handle: HANDLE) -> Result<u64, ApplicationUninstallPlatformError> {
+    let (mut created, mut exited, mut kernel, mut user) = (
+        FILETIME::default(),
+        FILETIME::default(),
+        FILETIME::default(),
+        FILETIME::default(),
+    );
+    if unsafe { GetProcessTimes(handle, &mut created, &mut exited, &mut kernel, &mut user) } == 0 {
+        return Err(last_native_error());
+    }
+    Ok((u64::from(created.dwHighDateTime) << 32) | u64::from(created.dwLowDateTime))
+}
+
+/// A short-lived helper may exit after Toolhelp captured it. Only a missing
+/// PID confirmed by a fresh snapshot is recoverable; access denial and other
+/// identity failures must still fail closed. Callers retry the whole snapshot.
+fn open_process_for_tracking(
+    process_id: u32,
+) -> Result<Option<OwnedHandle>, ApplicationUninstallPlatformError> {
+    let handle = unsafe { OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, 0, process_id) };
+    if !handle.is_null() {
+        return Ok(Some(OwnedHandle(handle)));
+    }
+    let code = unsafe { GetLastError() };
+    if code == ERROR_INVALID_PARAMETER
+        && !process_parent_snapshot()?
+            .iter()
+            .any(|(pid, _)| *pid == process_id)
+    {
+        return Ok(None);
+    }
+    Err(ApplicationUninstallPlatformError::NativeFailure(code))
+}
+
+/// Return whether every candidate in this snapshot could still be inspected.
+fn extend_process_tree(
+    tracked: &mut HashMap<u32, u64>,
+    processes: &[(u32, u32)],
+    mut creation_time: impl FnMut(u32) -> Result<Option<u64>, ApplicationUninstallPlatformError>,
+) -> Result<bool, ApplicationUninstallPlatformError> {
     loop {
-        let previous_count = tracked_process_ids.len();
-        for (process_id, parent_process_id) in processes {
-            if process_id != parent_process_id && tracked_process_ids.contains(parent_process_id) {
-                tracked_process_ids.insert(*process_id);
+        let previous_count = tracked.len();
+        for &(process_id, parent_process_id) in processes {
+            if tracked.contains_key(&process_id) {
+                continue;
+            }
+            if let Some(&parent_created) = tracked.get(&parent_process_id) {
+                let Some(child_created) = creation_time(process_id)? else {
+                    // Do not certify completion from an outdated snapshot or assign
+                    // a guessed creation time to a PID that can already be reused.
+                    return Ok(false);
+                };
+                if child_created >= parent_created {
+                    tracked.insert(process_id, child_created);
+                }
             }
         }
-        if tracked_process_ids.len() == previous_count {
-            return;
+        if tracked.len() == previous_count {
+            return Ok(true);
         }
     }
 }
@@ -1991,13 +2082,60 @@ mod tests {
 
     #[test]
     fn process_tree_tracker_keeps_descendants_after_intermediate_exit() {
-        let mut tracked = HashSet::from([10]);
-        extend_process_tree(&mut tracked, &[(20, 10), (30, 20), (40, 99)]);
+        let mut tracked = HashMap::from([(10, 100)]);
+        extend_process_tree(&mut tracked, &[(20, 10), (30, 20), (40, 99)], |pid| {
+            Ok(Some(100 + u64::from(pid)))
+        })
+        .unwrap();
+        assert_eq!(tracked, HashMap::from([(10, 100), (20, 120), (30, 130)]));
+        extend_process_tree(&mut tracked, &[(30, 20), (50, 30)], |pid| {
+            Ok(Some(100 + u64::from(pid)))
+        })
+        .unwrap();
+        assert!(tracked.contains_key(&50));
+        assert!(!tracked.contains_key(&40));
+    }
 
-        assert_eq!(tracked, HashSet::from([10, 20, 30]));
-        extend_process_tree(&mut tracked, &[(30, 20), (50, 30)]);
-        assert!(tracked.contains(&50));
-        assert!(!tracked.contains(&40));
+    #[test]
+    fn process_tree_rejects_children_of_a_previous_owner_of_the_parent_pid() {
+        let mut tracked = HashMap::from([(10, 100)]);
+        // PID 10 used to belong to an older launcher. Its old children must
+        // never make the new uninstaller wait for unrelated apps (or itself).
+        extend_process_tree(&mut tracked, &[(20, 10), (30, 20), (40, 10)], |pid| {
+            Ok(Some(if pid == 40 { 110 } else { 90 }))
+        })
+        .unwrap();
+        assert_eq!(tracked, HashMap::from([(10, 100), (40, 110)]));
+    }
+
+    #[test]
+    fn process_tree_retries_a_stale_snapshot_without_losing_tracked_descendants() {
+        let mut tracked = HashMap::from([(10, 100)]);
+        let current = extend_process_tree(&mut tracked, &[(20, 10), (30, 10)], |pid| {
+            Ok((pid == 20).then_some(110))
+        })
+        .unwrap();
+        assert!(
+            !current,
+            "a vanished helper must invalidate the completion observation"
+        );
+        assert_eq!(tracked, HashMap::from([(10, 100), (20, 110)]));
+        assert!(extend_process_tree(&mut tracked, &[(40, 20)], |_| Ok(Some(120))).unwrap());
+        assert!(
+            tracked.contains_key(&40),
+            "known descendants remain tracked after refresh"
+        );
+    }
+
+    #[test]
+    fn process_tree_does_not_certify_completion_when_identity_cannot_be_read() {
+        let mut tracked = HashMap::from([(10, 100)]);
+        assert_eq!(
+            extend_process_tree(&mut tracked, &[(20, 10)], |_| Err(
+                ApplicationUninstallPlatformError::NativeFailure(5)
+            )),
+            Err(ApplicationUninstallPlatformError::NativeFailure(5))
+        );
     }
 
     #[test]

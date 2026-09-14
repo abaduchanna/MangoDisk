@@ -375,6 +375,7 @@ pub enum ApplicationUninstallActionReason {
     PermanentDeleteFailed,
     RecoveryRequired,
     NativeInstallerFailed,
+    RemovalUnconfirmed,
     NativeInstallerFailedAfterRemoval,
     VerificationFailed,
 }
@@ -394,6 +395,7 @@ impl ApplicationUninstallActionReason {
             Self::PermanentDeleteFailed => "permanent_delete_failed",
             Self::RecoveryRequired => "recovery_required",
             Self::NativeInstallerFailed => "native_installer_failed",
+            Self::RemovalUnconfirmed => "removal_unconfirmed",
             Self::NativeInstallerFailedAfterRemoval => "native_installer_failed_after_removal",
             Self::VerificationFailed => "verification_failed",
         }
@@ -480,5 +482,26 @@ mod tests {
             serde_json::to_string(&reason).expect("current action reason must serialize"),
             "\"permanentDeleteFailed\""
         );
+    }
+
+    #[test]
+    fn postflight_reason_round_trips_without_changing_preflight_history() {
+        for (reason, wire) in [
+            (
+                ApplicationUninstallActionReason::RemovalUnconfirmed,
+                "removalUnconfirmed",
+            ),
+            (
+                ApplicationUninstallActionReason::ComponentChanged,
+                "componentChanged",
+            ),
+        ] {
+            let json = serde_json::to_string(&reason).unwrap();
+            assert_eq!(json, format!("\"{wire}\""));
+            assert_eq!(
+                serde_json::from_str::<ApplicationUninstallActionReason>(&json).unwrap(),
+                reason
+            );
+        }
     }
 }
