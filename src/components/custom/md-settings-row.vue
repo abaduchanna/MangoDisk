@@ -10,7 +10,14 @@ withDefaults(
     titleId?: string;
     descriptionId?: string;
   }>(),
-  { as: 'div', disabled: false, controls: 'inline' }
+  {
+    as: 'div',
+    disabled: false,
+    controls: 'inline',
+    labelFor: undefined,
+    titleId: undefined,
+    descriptionId: undefined,
+  }
 );
 </script>
 
