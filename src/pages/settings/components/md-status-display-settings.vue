@@ -5,7 +5,14 @@ import { useI18n } from 'vue-i18n';
 import MdSwitch from '@/components/custom/md-switch.vue';
 import MdIcon from '@/components/icons/md-icon.vue';
 import MdIconMangodisk from '@/components/icons/md-icon-mangodisk.vue';
-import { Card } from '@/components/ui/card';
+import MdSettingsGroup from '@/components/custom/md-settings-group.vue';
+import MdSettingsRow from '@/components/custom/md-settings-row.vue';
+import { Button } from '@/components/ui/button';
+import { Dialog, DialogTitle, DialogDescription } from '@/components/ui/dialog';
+import MdDialogContent from '@/components/custom/md-dialog-content.vue';
+import MdDialogHeader from '@/components/custom/md-dialog-header.vue';
+import MdDialogFooter from '@/components/custom/md-dialog-footer.vue';
+import MdWindowsDisplayFeedback from './md-windows-display-feedback.vue';
 import { Select, SelectContent, SelectItem } from '@/components/ui/select';
 import { SelectTrigger } from 'reka-ui';
 import MdWindowsDisplayMode from './md-windows-display-mode.vue';
@@ -39,6 +46,7 @@ function enableIcon(enabled: boolean) {
   if (!enabled && selectionLocked(showIcon.value)) return;
   void settings.change({ showIcon: enabled });
 }
+const settingsOpen = ref(false);
 const expandedSelection = ref<'network' | 'disk' | null>(null);
 // Keep the native switch and collapsed content on the committed state. Failed
 // writes must not hide the user's controls or leave a misleading enabled state.
@@ -50,10 +58,31 @@ async function setDisplayEnabled(enabled: boolean) {
 }
 watch(displayEnabled, enabled => {
   if (!enabled) {
+    settingsOpen.value = false;
     cancelDrag();
     expandedSelection.value = null;
   }
 });
+watch(settingsOpen, open => {
+  if (open) void loadCatalogue();
+  else {
+    // A dismissed editor must not leave a floating drag preview or a pending
+    // reorder that could be committed after reopening. Saved choices stay intact.
+    cancelDrag();
+    expandedSelection.value = null;
+  }
+});
+function handleDialogEscape(event: KeyboardEvent) {
+  if (dragging.value) {
+    event.preventDefault();
+    cancelDrag();
+  }
+}
+function restoreConfigurationFocus(event: Event) {
+  if (disposed) return;
+  event.preventDefault();
+  document.getElementById(displayEnabled.value ? 'resident-configure' : 'resident-enabled')?.focus();
+}
 function setSelectionOpen(id: MetricId, open: boolean) {
   if (id !== 'network' && id !== 'disk') return;
   if (open) expandedSelection.value = id;
@@ -190,8 +219,8 @@ function pointerDown(event: PointerEvent, id: MetricId) {
     root,
     row,
     bounds: row.getBoundingClientRect(),
-    // Hit-test stable grid slots, not the animated cards passing under the pointer.
-    // This also handles wrapped rows without oscillating between adjacent items.
+    // Hit-test stable list slots, not the animated rows passing under the pointer,
+    // so adjacent items cannot repeatedly swap while making room for the drop.
     slots: [...root.querySelectorAll<HTMLElement>('.metric-row')].map(item => item.getBoundingClientRect()),
   };
   // Native Tauri file drops must stay enabled for cleanup pages. Pointer events
@@ -261,12 +290,17 @@ function key(event: KeyboardEvent, id: MetricId) {
   } else if (dragging.value && ['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(event.key)) {
     event.preventDefault();
     const index = rows.value.findIndex(row => row.id === dragging.value);
-    // Left/right follows the compact item order; retain up/down for existing keyboard users.
+    // Up/down follows the visible list; retain left/right as equivalent shortcuts.
     const next = rows.value[index + (event.key === 'ArrowUp' || event.key === 'ArrowLeft' ? -1 : 1)];
     if (next) move(next.id);
   }
 }
+let catalogueLoading = false;
 async function loadCatalogue() {
+  // Reopening while the initial subscription is pending must not create a
+  // second listener whose cleanup handle would overwrite the first one.
+  if (catalogueLoading) return;
+  catalogueLoading = true;
   catalogueError.value = false;
   try {
     // A retry must restore the live subscription as well as the cached catalogue.
@@ -281,11 +315,12 @@ async function loadCatalogue() {
     accept(await ResidentService.catalogue());
   } catch {
     if (!disposed) catalogueError.value = true;
+  } finally {
+    catalogueLoading = false;
   }
 }
 onMounted(() => {
   if (!settings.preferences) void settings.load();
-  void loadCatalogue();
 });
 onBeforeUnmount(() => {
   disposed = true;
@@ -295,220 +330,230 @@ onBeforeUnmount(() => {
 </script>
 
 <template>
-  <section class="status-settings" :class="{ windows: !isMacOs }">
-    <h2>{{ t(isMacOs ? 'systemStatus.menuBarTitle' : 'systemStatus.trayTitle') }}</h2>
-    <Card class="status-card">
-      <div class="display-toggle-row">
-        <span class="display-toggle-icon" aria-hidden="true"
-          ><MdIcon :name="isMacOs ? ICON_NAMES.menuBar : ICON_NAMES.taskbar"
-        /></span>
-        <label for="resident-enabled" class="display-toggle-copy">
-          <strong>{{ t(isMacOs ? 'systemStatus.menuBarEnabled' : 'systemStatus.displayEnabled') }}</strong>
-          <small>{{ t(isMacOs ? 'systemStatus.menuBarHint' : 'systemStatus.displayHint') }}</small>
-        </label>
+  <div class="status-settings">
+    <MdSettingsGroup :title="t(isMacOs ? 'systemStatus.menuBarTitle' : 'systemStatus.trayTitle')">
+      <MdSettingsRow
+        :title="t(isMacOs ? 'systemStatus.menuBarEnabled' : 'systemStatus.displayEnabled')"
+        :description="t(isMacOs ? 'systemStatus.menuBarHint' : 'systemStatus.displayHint')"
+        title-id="resident-enabled-label"
+        description-id="resident-enabled-hint"
+      >
+        <template #icon><MdIcon :name="isMacOs ? ICON_NAMES.menuBar : ICON_NAMES.taskbar" /></template>
+        <Button
+          v-if="displayEnabled"
+          id="resident-configure"
+          variant="ghost"
+          size="sm"
+          class="text-muted-foreground"
+          :disabled="settings.loading || settings.saving"
+          aria-haspopup="dialog"
+          @click="settingsOpen = true"
+          >{{ t('systemStatus.configureAction') }}</Button
+        >
         <MdSwitch
           id="resident-enabled"
           :model-value="displayEnabled"
           :disabled="settings.loading || settings.saving || !settings.preferences"
-          aria-controls="resident-display-options"
+          aria-labelledby="resident-enabled-label"
+          aria-describedby="resident-enabled-hint"
           @update:model-value="setDisplayEnabled"
         />
-      </div>
-      <div v-if="displayEnabled" id="resident-display-options" class="display-options">
-        <MdWindowsDisplayMode
-          v-if="!isMacOs && settings.draft"
-          :preferences="settings.draft"
-          @position="settings.change({ taskbarPosition: $event })"
-          @background="settings.change({ taskbarBackground: $event })"
-          @compact="settings.change({ taskbarCompact: $event })"
-          @change="
-            cancelDrag();
-            settings.change({ windowsDisplayMode: $event });
-          "
-        />
-        <div class="status-controls">
-          <div class="controls-heading">
-            <span>{{ t('systemStatus.displayItems') }}</span>
-            <span v-if="canReorder">{{ t('systemStatus.dragToReorder') }}</span>
-          </div>
-          <div ref="metricRowsElement" @keydown.esc="cancelDrag">
-            <TransitionGroup name="metric-sort" tag="div" class="metric-rows">
-              <div key="logo" class="status-item" :class="{ selected: showIcon }">
-                <label class="logo-label" for="status-app-icon">
-                  <input
-                    id="status-app-icon"
-                    type="checkbox"
-                    :checked="showIcon"
-                    :disabled="selectionLocked(showIcon)"
-                    @change="enableIcon(($event.target as HTMLInputElement).checked)"
-                  />
-                  <MdIconMangodisk :size="18" class="shrink-0" />
-                  {{ t('systemStatus.showIcon') }}
-                </label>
-              </div>
-              <div
-                v-for="row in rows"
-                :key="row.id"
-                class="status-item metric-row"
-                :class="{
-                  moving: dragging === row.id,
-                  'pointer-moving': pointerDragging && dragging === row.id,
-                  selected: row.enabled,
-                }"
-                :data-metric="row.id"
-              >
-                <div class="metric-heading">
-                  <button
-                    v-if="canReorder"
-                    class="drag-handle"
-                    :aria-label="t('systemStatus.reorder', { name: t(METRIC_LABEL_KEYS[row.id]) })"
-                    :aria-pressed="dragging === row.id"
-                    @pointerdown="pointerDown($event, row.id)"
-                    @dragstart.prevent
-                    @keydown="key($event, row.id)"
-                  >
-                    <MdIcon :name="ICON_NAMES.grip" :size="15" />
-                  </button>
-                  <label :for="`status-${row.id}`">
-                    <input
-                      :id="`status-${row.id}`"
-                      type="checkbox"
-                      :checked="row.enabled"
-                      :disabled="selectionLocked(row.enabled)"
-                      @change="enable(row.id, ($event.target as HTMLInputElement).checked)"
-                    />
-                    {{
-                      row.id === 'cpu'
-                        ? t('systemStatus.cpuShort')
-                        : row.id === 'disk'
-                          ? t('systemStatus.volume')
-                          : t(METRIC_LABEL_KEYS[row.id])
-                    }}
-                  </label>
-                  <Select
-                    v-if="row.id === 'network' || row.id === 'disk'"
-                    :disabled="!row.enabled"
-                    :open="expandedSelection === row.id"
-                    :model-value="
-                      row.id === 'network'
-                        ? (settings.draft?.networkInterface ?? 'automatic')
-                        : (settings.draft?.diskVolume ?? 'system')
-                    "
-                    @update:open="setSelectionOpen(row.id, $event)"
-                    @update:model-value="
-                      row.id === 'network'
-                        ? settings.change({ networkInterface: $event === 'automatic' ? null : String($event) })
-                        : settings.change({ diskVolume: $event === 'system' ? null : String($event) })
-                    "
-                  >
-                    <SelectTrigger as-child>
-                      <button
-                        type="button"
-                        class="selection-toggle"
-                        :aria-label="
-                          row.id === 'network'
-                            ? `${t('systemStatus.interface')}: ${selectedInterfaceLabel}`
-                            : `${t('systemStatus.volume')}: ${selectedVolumeLabel}`
-                        "
-                        :title="row.id === 'network' ? selectedInterfaceLabel : selectedVolumeLabel"
-                      >
-                        <MdIcon
-                          :name="expandedSelection === row.id ? ICON_NAMES.chevronUp : ICON_NAMES.chevronDown"
-                          :size="14"
-                        />
-                      </button>
-                    </SelectTrigger>
-                    <SelectContent align="end" class="max-w-[min(20rem,calc(100vw-2rem))]">
-                      <template v-if="row.id === 'network'">
-                        <SelectItem value="automatic">{{ t('systemStatus.automatic') }}</SelectItem>
-                        <SelectItem v-for="item in interfaces" :key="item.id" :value="item.id" class="break-all">
-                          {{ item.name }}{{ item.connected ? '' : ` · ${t('systemStatus.disconnected')}` }}
-                        </SelectItem>
-                        <SelectItem v-if="missingInterface" :value="settings.draft!.networkInterface!">{{
-                          t('systemStatus.savedDisconnected')
-                        }}</SelectItem>
-                      </template>
-                      <template v-else>
-                        <SelectItem value="system">{{ t('systemStatus.systemDisk') }}</SelectItem>
-                        <SelectItem v-for="item in volumes" :key="item.id" :value="item.id" class="break-all">{{
-                          item.name
-                        }}</SelectItem>
-                        <SelectItem v-if="missingVolume" :value="settings.draft!.diskVolume!">{{
-                          t('systemStatus.savedDisconnected')
-                        }}</SelectItem>
-                      </template>
-                    </SelectContent>
-                  </Select>
-                </div>
-              </div>
-            </TransitionGroup>
-          </div>
-          <span class="sr-only" aria-live="polite">{{ announcement }}</span>
-        </div>
-      </div>
-      <p v-if="settings.error || (displayEnabled && catalogueError)" class="settings-feedback" role="status">
-        <template v-if="settings.error"
-          >{{ t('systemStatus.saveFailed') }}
-          <button @click="settings.load()">{{ t('monitoring.refresh') }}</button></template
-        ><template v-else-if="catalogueError"
-          >{{ t('systemStatus.catalogueFailed') }}
-          <button @click="loadCatalogue">{{ t('monitoring.refresh') }}</button></template
-        >
+      </MdSettingsRow>
+      <MdWindowsDisplayFeedback
+        v-if="!isMacOs && settings.preferences"
+        class="display-feedback"
+        :preferences="settings.preferences"
+      />
+      <p v-if="settings.error && !settingsOpen" class="settings-feedback display-feedback" role="status">
+        {{ t('systemStatus.saveFailed') }}
+        <button @click="settings.load()">{{ t('monitoring.refresh') }}</button>
       </p>
-    </Card>
-  </section>
+    </MdSettingsGroup>
+    <Dialog :open="settingsOpen && displayEnabled" @update:open="settingsOpen = $event">
+      <MdDialogContent
+        class="flex min-h-0 flex-col"
+        @interact-outside.prevent
+        @escape-key-down="handleDialogEscape"
+        @close-auto-focus="restoreConfigurationFocus"
+      >
+        <MdDialogHeader class="flex-none border-b border-border/70">
+          <DialogTitle>{{
+            t(isMacOs ? 'systemStatus.menuBarSettingsTitle' : 'systemStatus.displaySettingsTitle')
+          }}</DialogTitle>
+        </MdDialogHeader>
+        <div class="min-h-0 overflow-y-auto p-5">
+          <div id="resident-display-options" class="display-options">
+            <MdWindowsDisplayMode
+              v-if="!isMacOs && settings.draft"
+              :preferences="settings.draft"
+              @position="settings.change({ taskbarPosition: $event })"
+              @background="settings.change({ taskbarBackground: $event })"
+              @compact="settings.change({ taskbarCompact: $event })"
+              @change="
+                cancelDrag();
+                settings.change({ windowsDisplayMode: $event });
+              "
+            />
+            <div class="status-controls">
+              <div class="controls-heading">
+                <h3>{{ t('systemStatus.displayItems') }}</h3>
+                <span v-if="canReorder">{{ t('systemStatus.dragToReorder') }}</span>
+              </div>
+              <div ref="metricRowsElement" @keydown.esc="cancelDrag">
+                <TransitionGroup name="metric-sort" tag="div" class="metric-rows">
+                  <div key="logo" class="status-item">
+                    <span v-if="canReorder" class="logo-marker" aria-hidden="true">
+                      <MdIconMangodisk :size="18" />
+                    </span>
+                    <label class="logo-label" for="status-app-icon">
+                      <input
+                        id="status-app-icon"
+                        type="checkbox"
+                        :checked="showIcon"
+                        :disabled="selectionLocked(showIcon)"
+                        @change="enableIcon(($event.target as HTMLInputElement).checked)"
+                      />
+                      <MdIconMangodisk v-if="!canReorder" :size="18" class="shrink-0" />
+                      {{ t('systemStatus.showIcon') }}
+                    </label>
+                  </div>
+                  <div
+                    v-for="row in rows"
+                    :key="row.id"
+                    class="status-item metric-row"
+                    :class="{
+                      moving: dragging === row.id,
+                      'pointer-moving': pointerDragging && dragging === row.id,
+                    }"
+                    :data-metric="row.id"
+                  >
+                    <div class="metric-heading">
+                      <button
+                        v-if="canReorder"
+                        class="drag-handle"
+                        :aria-label="t('systemStatus.reorder', { name: t(METRIC_LABEL_KEYS[row.id]) })"
+                        :aria-pressed="dragging === row.id"
+                        @pointerdown="pointerDown($event, row.id)"
+                        @dragstart.prevent
+                        @keydown="key($event, row.id)"
+                      >
+                        <MdIcon :name="ICON_NAMES.grip" :size="15" />
+                      </button>
+                      <label :for="`status-${row.id}`">
+                        <input
+                          :id="`status-${row.id}`"
+                          type="checkbox"
+                          :checked="row.enabled"
+                          :disabled="selectionLocked(row.enabled)"
+                          @change="enable(row.id, ($event.target as HTMLInputElement).checked)"
+                        />
+                        {{
+                          row.id === 'cpu'
+                            ? t('systemStatus.cpuShort')
+                            : row.id === 'disk'
+                              ? t('systemStatus.volume')
+                              : t(METRIC_LABEL_KEYS[row.id])
+                        }}
+                      </label>
+                      <Select
+                        v-if="row.id === 'network' || row.id === 'disk'"
+                        :disabled="!row.enabled"
+                        :open="expandedSelection === row.id"
+                        :model-value="
+                          row.id === 'network'
+                            ? (settings.draft?.networkInterface ?? 'automatic')
+                            : (settings.draft?.diskVolume ?? 'system')
+                        "
+                        @update:open="setSelectionOpen(row.id, $event)"
+                        @update:model-value="
+                          row.id === 'network'
+                            ? settings.change({ networkInterface: $event === 'automatic' ? null : String($event) })
+                            : settings.change({ diskVolume: $event === 'system' ? null : String($event) })
+                        "
+                      >
+                        <SelectTrigger as-child>
+                          <button
+                            type="button"
+                            class="selection-toggle"
+                            :aria-label="
+                              row.id === 'network'
+                                ? `${t('systemStatus.interface')}: ${selectedInterfaceLabel}`
+                                : `${t('systemStatus.volume')}: ${selectedVolumeLabel}`
+                            "
+                            :title="row.id === 'network' ? selectedInterfaceLabel : selectedVolumeLabel"
+                          >
+                            <span class="truncate">{{
+                              row.id === 'network' ? selectedInterfaceLabel : selectedVolumeLabel
+                            }}</span>
+                            <MdIcon
+                              :name="expandedSelection === row.id ? ICON_NAMES.chevronUp : ICON_NAMES.chevronDown"
+                              :size="14"
+                              class="shrink-0"
+                            />
+                          </button>
+                        </SelectTrigger>
+                        <SelectContent align="end" class="max-w-[min(20rem,calc(100vw-2rem))]">
+                          <template v-if="row.id === 'network'">
+                            <SelectItem value="automatic">{{ t('systemStatus.automatic') }}</SelectItem>
+                            <SelectItem v-for="item in interfaces" :key="item.id" :value="item.id" class="break-all">
+                              {{ item.name }}{{ item.connected ? '' : ` · ${t('systemStatus.disconnected')}` }}
+                            </SelectItem>
+                            <SelectItem v-if="missingInterface" :value="settings.draft!.networkInterface!">{{
+                              t('systemStatus.savedDisconnected')
+                            }}</SelectItem>
+                          </template>
+                          <template v-else>
+                            <SelectItem value="system">{{ t('systemStatus.systemDisk') }}</SelectItem>
+                            <SelectItem v-for="item in volumes" :key="item.id" :value="item.id" class="break-all">{{
+                              item.name
+                            }}</SelectItem>
+                            <SelectItem v-if="missingVolume" :value="settings.draft!.diskVolume!">{{
+                              t('systemStatus.savedDisconnected')
+                            }}</SelectItem>
+                          </template>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
+                </TransitionGroup>
+              </div>
+              <span class="sr-only" aria-live="polite">{{ announcement }}</span>
+            </div>
+          </div>
+          <p v-if="settings.error || (displayEnabled && catalogueError)" class="settings-feedback" role="status">
+            <template v-if="settings.error"
+              >{{ t('systemStatus.saveFailed') }}
+              <button @click="settings.load()">{{ t('monitoring.refresh') }}</button></template
+            ><template v-else-if="catalogueError"
+              >{{ t('systemStatus.catalogueFailed') }}
+              <button @click="loadCatalogue">{{ t('monitoring.refresh') }}</button></template
+            >
+          </p>
+        </div>
+        <MdDialogFooter align="between" class="flex-row flex-wrap">
+          <DialogDescription class="min-w-0 flex-1 text-content-secondary">{{
+            t('systemStatus.autoSaveHint')
+          }}</DialogDescription>
+          <Button :disabled="settings.saving" @click="settingsOpen = false">{{ t('systemStatus.done') }}</Button>
+        </MdDialogFooter>
+      </MdDialogContent>
+    </Dialog>
+  </div>
 </template>
 
 <style scoped>
 @reference "@assets/main.css";
-.status-settings h2 {
-  @apply text-muted-foreground;
-  font-size: 12px;
-  font-weight: 600;
-  margin: 0 0 10px 2px;
-}
-.status-card {
-  gap: 12px;
-  padding: 14px 16px;
-}
-.display-toggle-row {
-  display: grid;
-  grid-template-columns: 40px minmax(0, 1fr) auto;
-  align-items: center;
-  gap: 10px;
-}
-.display-toggle-icon {
-  @apply text-muted-foreground;
-  display: grid;
-  place-items: center;
-  width: 34px;
-  height: 34px;
-}
-.display-toggle-copy {
-  display: grid;
-  gap: 4px;
-  min-width: 0;
-  cursor: pointer;
-}
-.display-toggle-copy strong {
-  font-size: var(--font-content-primary);
-  font-weight: 600;
-}
-.display-toggle-copy small {
-  @apply text-muted-foreground;
-  font-size: var(--font-content-secondary);
-  line-height: 1.5;
+.display-feedback {
+  padding: 10px 14px;
 }
 .display-options {
-  @apply border-t border-border;
   display: grid;
-  gap: 12px;
-  padding-top: 12px;
+  gap: 20px;
   min-width: 0;
 }
-.windows .display-options {
-  /* Align child settings with the main label, leaving the icon in its own lane. */
-  padding-left: 50px;
+.windows-display-settings + .status-controls {
+  @apply border-t border-border/60;
+  padding-top: 16px;
 }
 .controls-heading {
   @apply text-muted-foreground;
@@ -517,38 +562,30 @@ onBeforeUnmount(() => {
   flex-wrap: wrap;
   gap: 4px 12px;
   margin-bottom: 8px;
-  font-size: 12px;
+  font-size: var(--font-content-secondary);
+  font-weight: 400;
+}
+.controls-heading h3 {
+  margin: 0;
+  font: inherit;
+  font-weight: 500;
 }
 .metric-rows {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(min(100%, 7.5rem), 1fr));
-  gap: 8px;
+  grid-template-columns: minmax(0, 1fr);
 }
 .status-item {
-  @apply border border-border/50 rounded-md bg-transparent;
+  @apply border-b border-border/50 bg-transparent;
   position: relative;
-  isolation: isolate;
   display: flex;
   align-items: center;
+  gap: 8px;
   min-width: 0;
-  min-height: 40px;
-  padding: 2px 6px;
+  min-height: 42px;
+  padding: 4px 0;
 }
-.status-item.selected {
-  @apply border-transparent;
-}
-.status-item.selected::before,
-.metric-row.pointer-moving::before {
-  /* A separate paint layer keeps the tint subtle on Monterey, where Tailwind's
-     color-mix fallback becomes opaque. Text and controls retain full contrast. */
-  content: '';
-  position: absolute;
-  inset: 0;
-  z-index: -1;
-  border-radius: inherit;
-  background: var(--accent);
-  opacity: 0.15;
-  pointer-events: none;
+.status-item:last-child {
+  border-bottom-color: transparent;
 }
 .metric-row.moving {
   outline: 2px solid var(--ring);
@@ -558,9 +595,8 @@ onBeforeUnmount(() => {
   transition: transform 200ms cubic-bezier(0.2, 0.8, 0.2, 1);
 }
 .metric-row.pointer-moving {
-  @apply border-primary/30;
-  border-style: dashed;
-  outline: none;
+  outline: 1px dashed var(--ring);
+  outline-offset: -1px;
   /* Keep the destination visible immediately; only neighbouring cards make way. */
   transition: none;
 }
@@ -568,7 +604,7 @@ onBeforeUnmount(() => {
   visibility: hidden;
 }
 .status-item.drag-preview {
-  @apply bg-card border-primary/40 shadow-lg;
+  @apply rounded-md bg-card border border-primary/40 shadow-lg;
   position: fixed;
   z-index: 100;
   margin: 0;
@@ -586,22 +622,26 @@ onBeforeUnmount(() => {
   align-items: center;
   width: 100%;
   min-width: 0;
-  gap: 2px;
+  gap: 8px;
 }
 .status-item label {
+  @apply text-foreground;
   display: flex;
   align-items: center;
   flex: 1;
-  gap: 7px;
+  gap: 10px;
   min-width: 0;
   min-height: 32px;
-  font-size: 12px;
-  font-weight: 500;
+  font-size: var(--font-content-body);
+  font-weight: 400;
   cursor: pointer;
   overflow-wrap: anywhere;
 }
-.logo-label {
-  padding-inline: 6px;
+.logo-marker {
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: 24px;
 }
 .status-item input {
   width: 14px;
@@ -615,18 +655,28 @@ onBeforeUnmount(() => {
 }
 .drag-handle,
 .selection-toggle {
+  @apply text-foreground;
   @apply text-muted-foreground rounded;
   display: grid;
   place-items: center;
   flex: none;
-  width: 24px;
   height: 32px;
   cursor: pointer;
 }
 .drag-handle {
+  width: 24px;
   touch-action: none;
   user-select: none;
   cursor: grab;
+}
+.selection-toggle {
+  display: flex;
+  gap: 6px;
+  min-width: 0;
+  max-width: 55%;
+  padding-inline: 8px;
+  font-size: var(--font-content-body);
+  font-weight: 400;
 }
 .drag-handle:active {
   cursor: grabbing;
@@ -639,24 +689,18 @@ onBeforeUnmount(() => {
 .selection-toggle:hover {
   @apply bg-accent text-foreground;
 }
-.selection-toggle[aria-expanded='true'] {
-  @apply text-primary;
-}
 .selection-toggle:disabled {
   opacity: 0.4;
   cursor: default;
 }
 @media (pointer: coarse) {
-  .metric-rows {
-    grid-template-columns: repeat(auto-fit, minmax(min(100%, 10rem), 1fr));
-  }
   .status-item label,
   .drag-handle,
   .selection-toggle {
     min-height: 44px;
   }
   .drag-handle,
-  .selection-toggle {
+  .logo-marker {
     width: 44px;
   }
 }

@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { onMounted, ref } from 'vue';
 import { useI18n } from 'vue-i18n';
+import MdSettingsRow from '@/components/custom/md-settings-row.vue';
 import MdSwitch from '@/components/custom/md-switch.vue';
 import MdIcon from '@/components/icons/md-icon.vue';
 import { ICON_NAMES } from '@/lib/models/ui';
@@ -46,19 +47,19 @@ onMounted(loadAutostart);
 
 <template>
   <div class="autostart-settings">
-    <div class="setting-row grid-cols-[40px_minmax(0,1fr)_auto] @2xl/settings:grid-cols-[42px_minmax(0,1fr)_auto]">
-      <span class="section-icon"><MdIcon :name="ICON_NAMES.startup" /></span>
-      <label class="setting-copy" for="resident-autostart"
-        ><strong>{{ t('monitoring.autostart') }}</strong
-        ><small>{{ t('monitoring.autostartHint') }}</small></label
-      >
+    <MdSettingsRow
+      :title="t('monitoring.autostart')"
+      :description="t('monitoring.autostartHint')"
+      label-for="resident-autostart"
+    >
+      <template #icon><MdIcon :name="ICON_NAMES.startup" /></template>
       <MdSwitch
         id="resident-autostart"
         :model-value="autostart ?? false"
         :disabled="autostartBusy || autostart === null"
         @update:model-value="saveAutostart"
       />
-    </div>
+    </MdSettingsRow>
     <div v-if="autostartError" class="autostart-settings-error" role="alert">
       {{ t('monitoring.settingsFailed') }} <button @click="loadAutostart">{{ t('monitoring.refresh') }}</button>
     </div>

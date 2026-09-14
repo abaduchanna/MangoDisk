@@ -42,6 +42,13 @@ withDefaults(
   line-height: 1.4286;
 }
 
+/* A title-only header uses balanced vertical padding so its text shares the
+   close button's center. Headers with descriptions keep their existing rhythm. */
+.md-dialog-header--standard:has(> [data-slot='dialog-title']):not(:has([data-slot='dialog-description'])) {
+  justify-content: center;
+  padding-block: 12px;
+}
+
 .md-dialog-header--alert {
   box-sizing: border-box;
   display: grid;

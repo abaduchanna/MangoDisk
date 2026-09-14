@@ -57,7 +57,7 @@ it.each(['zh-CN', 'zh-TW', 'en-US', 'ja-JP', 'ko-KR'] as const)(
       await flushPromises();
       expect(wrapper.get('#ai-enabled').attributes('aria-checked')).toBe('false');
       expect(toggle.get('.setting-copy strong').text()).toBe(i18n.global.t('ai.providerTitle'));
-      expect(toggle.get('#ai-enabled-hint').text()).toBe(i18n.global.t('ai.featureDisabledHint'));
+      expect(toggle.get('#ai-enabled-hint').text()).toBe(i18n.global.t('ai.settingsDescription'));
       expect(toggle.get('#ai-enabled').attributes('aria-label')).toBe(i18n.global.t('ai.enableFeature'));
       expect(toggle.find('button[aria-haspopup="dialog"]').exists()).toBe(false);
       expect(toggle.emitted('configure')).toHaveLength(1);

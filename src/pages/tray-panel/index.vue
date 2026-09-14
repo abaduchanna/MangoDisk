@@ -180,7 +180,7 @@ onBeforeUnmount(() => {
           @keydown.right.prevent="moveTab()"
           @keydown.left.prevent="moveTab()"
         >
-          {{ t(tab === 'overview' ? 'systemStatus.overview' : 'systemStatus.memory') }}
+          {{ t(tab === 'overview' ? 'systemStatus.overview' : 'systemStatus.memoryManagement') }}
         </button>
       </div>
       <section
@@ -252,16 +252,18 @@ onBeforeUnmount(() => {
 }
 .resource-tabs {
   @apply border-b border-border;
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  display: flex;
+  justify-content: flex-start;
+  gap: 24px;
   flex: none;
   height: 28px;
 }
 .resource-tabs button {
   @apply text-muted-foreground;
   position: relative;
-  padding: 0 8px 4px;
+  padding: 0 0 4px;
   font-size: 12px;
+  font-weight: 500;
   background: transparent;
 }
 .resource-tabs button:hover {
@@ -270,15 +272,14 @@ onBeforeUnmount(() => {
 }
 .resource-tabs button[aria-selected='true'] {
   @apply text-primary;
-  font-weight: 600;
 }
 .resource-tabs button[aria-selected='true']::after {
   /* Overlay the divider so switching tabs never changes the content height. */
   content: '';
   position: absolute;
   bottom: -1px;
-  left: calc(50% - 16px);
-  width: 32px;
+  left: 0;
+  right: 0;
   height: 2px;
   border-radius: 1px;
   background: var(--primary);

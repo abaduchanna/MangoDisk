@@ -148,7 +148,7 @@ describe('resident settings', () => {
     await flushPromises();
     expect(wrapper.find('#resident-memory').exists()).toBe(false);
     expect(wrapper.findAll('[role="switch"]')).toHaveLength(2);
-    expect(wrapper.find('.status-card #resident-enabled').exists()).toBe(true);
+    expect(wrapper.find('.status-settings .settings-list #resident-enabled').exists()).toBe(true);
     expect(wrapper.find('.autostart-settings #resident-autostart').exists()).toBe(true);
     expect(wrapper.find('.autostart-settings #resident-enabled').exists()).toBe(false);
     expect(wrapper.text()).not.toContain('monitoring.openPanel');

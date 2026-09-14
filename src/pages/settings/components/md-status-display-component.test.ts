@@ -5,6 +5,7 @@ import { createI18n } from 'vue-i18n';
 import { beforeEach, afterEach, describe, expect, it, vi } from 'vitest';
 import Settings from './md-status-display-settings.vue';
 import WindowsMode from './md-windows-display-mode.vue';
+import WindowsFeedback from './md-windows-display-feedback.vue';
 import { ResidentService } from '@/lib/services/resident-service';
 import { preferencesFixture, readingFixture } from '@/tests/fixtures/resident';
 
@@ -26,11 +27,19 @@ vi.mock('@/lib/services/logger-service', () => ({ LoggerService: { warn: vi.fn()
 vi.mock('@/lib/services/byte-size-service', () => ({ ByteSizeService: { memory: (value: number) => `${value} B` } }));
 function global() {
   return {
+    stubs: { teleport: true },
     plugins: [
       createPinia(),
       createI18n({ legacy: false, locale: 'en', messages: { en: {} }, missingWarn: false, fallbackWarn: false }),
     ],
   };
+}
+async function openConfiguration(wrapper: ReturnType<typeof mount>) {
+  const configure = wrapper.find('.status-settings .settings-list button[aria-haspopup="dialog"]');
+  if (configure.exists()) {
+    await configure.trigger('click');
+    await flushPromises();
+  }
 }
 const wrappers: ReturnType<typeof mount>[] = [];
 describe('status display interactions', () => {
@@ -51,6 +60,49 @@ describe('status display interactions', () => {
     vi.useRealTimers();
   });
 
+  it('keeps the page compact and saves dialog edits without toggling residency', async () => {
+    const wrapper = mount(Settings, { props: { isMacOs: true }, global: global() });
+    wrappers.push(wrapper);
+    await flushPromises();
+    expect(wrapper.find('#resident-display-options').exists()).toBe(false);
+    expect(ResidentService.catalogue).not.toHaveBeenCalled();
+    await wrapper.get('.setting-copy').trigger('click');
+    expect(ResidentService.savePreferences).not.toHaveBeenCalled();
+    await openConfiguration(wrapper);
+    expect(wrapper.find('#resident-display-options').exists()).toBe(true);
+    expect(ResidentService.savePreferences).not.toHaveBeenCalled();
+    await wrapper.get('#status-cpu').setValue(true);
+    await flushPromises();
+    expect(ResidentService.savePreferences).toHaveBeenLastCalledWith(expect.objectContaining({ enabled: true }));
+    const done = wrapper.findAll('button').find(button => button.text() === 'systemStatus.done');
+    expect(done).toBeDefined();
+    await done!.trigger('click');
+    await flushPromises();
+    expect(wrapper.find('#resident-display-options').exists()).toBe(false);
+    await openConfiguration(wrapper);
+    expect((wrapper.get('#status-cpu').element as HTMLInputElement).checked).toBe(true);
+    expect(ResidentService.savePreferences).toHaveBeenCalledTimes(1);
+  });
+
+  it('shows a Windows fallback on the main page without opening configuration', async () => {
+    vi.mocked(ResidentService.preferences).mockResolvedValue({
+      ...preferencesFixture(),
+      windowsDisplayMode: 'taskbar',
+    });
+    vi.mocked(ResidentService.displayStatus).mockResolvedValue('noSpace');
+    const wrapper = mount(Settings, { props: { isMacOs: false }, global: global() });
+    wrappers.push(wrapper);
+    await flushPromises();
+    expect(wrapper.get('.status-settings .settings-list [role="status"]').text()).toBe('systemStatus.taskbarNoSpace');
+    expect(wrapper.find('#resident-display-options').exists()).toBe(false);
+    expect(ResidentService.catalogue).not.toHaveBeenCalled();
+    await wrapper.get('#resident-enabled').trigger('click');
+    await flushPromises();
+    expect(wrapper.find('#resident-configure').exists()).toBe(false);
+    expect(wrapper.find('.status-settings .settings-list [role="status"]').exists()).toBe(false);
+    expect(wrapper.get('#resident-enabled-hint').text()).toBe('systemStatus.displayHint');
+  });
+
   it.each([true, false])('locks the last selected item with Logo=%s until another item is selected', async showIcon => {
     vi.mocked(ResidentService.preferences).mockResolvedValue({
       ...preferencesFixture(),
@@ -60,6 +112,7 @@ describe('status display interactions', () => {
     const wrapper = mount(Settings, { props: { isMacOs: true }, global: global() });
     wrappers.push(wrapper);
     await flushPromises();
+    await openConfiguration(wrapper);
     const last = wrapper.get(showIcon ? '#status-app-icon' : '#status-memory');
     expect(last.attributes('disabled')).toBeDefined();
     expect((last.element as HTMLInputElement).checked).toBe(true);
@@ -81,6 +134,7 @@ describe('status display interactions', () => {
     const wrapper = mount(Settings, { props: { isMacOs: true }, global: global() });
     wrappers.push(wrapper);
     await flushPromises();
+    await openConfiguration(wrapper);
     expect((wrapper.get('#status-app-icon').element as HTMLInputElement).checked).toBe(true);
     expect(wrapper.get('#status-app-icon').attributes('disabled')).toBeDefined();
     expect(ResidentService.savePreferences).not.toHaveBeenCalled();
@@ -97,12 +151,15 @@ describe('status display interactions', () => {
     const wrapper = mount(Settings, { props: { isMacOs: true }, global: global() });
     wrappers.push(wrapper);
     await flushPromises();
+    await openConfiguration(wrapper);
     await wrapper.get('#resident-enabled').trigger('click');
     await flushPromises();
     expect(wrapper.find('#resident-display-options').exists()).toBe(false);
     expect(ResidentService.savePreferences).toHaveBeenLastCalledWith({ ...saved, enabled: false });
     await wrapper.get('#resident-enabled').trigger('click');
     await flushPromises();
+    expect(wrapper.find('#resident-display-options').exists()).toBe(false);
+    await openConfiguration(wrapper);
     expect(wrapper.find('#resident-display-options').exists()).toBe(true);
     expect(ResidentService.savePreferences).toHaveBeenLastCalledWith({ ...saved, revision: 1 });
     expect(ResidentService.quit).not.toHaveBeenCalled();
@@ -113,6 +170,7 @@ describe('status display interactions', () => {
     const wrapper = mount(Settings, { props: { isMacOs: false }, global: global() });
     wrappers.push(wrapper);
     await flushPromises();
+    await openConfiguration(wrapper);
     vi.mocked(ResidentService.savePreferences).mockRejectedValueOnce(new Error('storage'));
     await wrapper.get('#resident-enabled').trigger('click');
     await flushPromises();
@@ -121,13 +179,15 @@ describe('status display interactions', () => {
     expect(wrapper.find('.settings-feedback button').exists()).toBe(true);
     await wrapper.get('#resident-enabled').trigger('click');
     await flushPromises();
+    expect(wrapper.find('#resident-display-options').exists()).toBe(false);
+    await openConfiguration(wrapper);
     expect(wrapper.find('#resident-display-options').exists()).toBe(true);
   });
 
   it('shows typed fallback feedback only for an active taskbar selection', async () => {
     vi.mocked(ResidentService.displayStatus).mockResolvedValue('noSpace');
     const preferences = { ...preferencesFixture(), windowsDisplayMode: 'taskbar' as const };
-    const wrapper = mount(WindowsMode, { props: { preferences }, global: global() });
+    const wrapper = mount(WindowsFeedback, { props: { preferences }, global: global() });
     wrappers.push(wrapper);
     await flushPromises();
     expect(wrapper.get('[role="status"]').text()).toBe('systemStatus.taskbarNoSpace');
@@ -145,7 +205,7 @@ describe('status display interactions', () => {
       listener('taskbar');
       return stop;
     });
-    const wrapper = mount(WindowsMode, {
+    const wrapper = mount(WindowsFeedback, {
       props: { preferences: { ...preferencesFixture(), windowsDisplayMode: 'taskbar' } },
       global: global(),
     });
@@ -161,6 +221,7 @@ describe('status display interactions', () => {
     const wrapper = mount(Settings, { props: { isMacOs: false }, global: global() });
     wrappers.push(wrapper);
     await flushPromises();
+    await openConfiguration(wrapper);
     expect(wrapper.findAll('.drag-handle')).toHaveLength(0);
     await wrapper.get('input[name="windows-display-mode"][value="taskbar"]').setValue(true);
     await flushPromises();
@@ -194,6 +255,7 @@ describe('status display interactions', () => {
     const wrapper = mount(Settings, { props: { isMacOs: false }, global: global() });
     wrappers.push(wrapper);
     await flushPromises();
+    await openConfiguration(wrapper);
     await wrapper.get('input[name="windows-display-mode"][value="taskbar"]').setValue(true);
     await flushPromises();
     await wrapper.get('#taskbar-compact').trigger('click');
@@ -212,6 +274,7 @@ describe('status display interactions', () => {
     const wrapper = mount(Settings, { props: { isMacOs: false }, global: global() });
     wrappers.push(wrapper);
     await flushPromises();
+    await openConfiguration(wrapper);
     expect(wrapper.find('#taskbar-background').exists()).toBe(false);
     wrapper.getComponent(WindowsMode).vm.$emit('change', 'taskbar');
     await flushPromises();
@@ -232,6 +295,7 @@ describe('status display interactions', () => {
     const wrapper = mount(Settings, { props: { isMacOs: true }, global: global(), attachTo: document.body });
     wrappers.push(wrapper);
     await flushPromises();
+    await openConfiguration(wrapper);
     const handle = wrapper.findAll('.drag-handle')[1]!;
     await handle.trigger('keydown', { key: ' ' });
     await handle.trigger('keydown', { key: 'ArrowUp' });
@@ -252,6 +316,7 @@ describe('status display interactions', () => {
     const wrapper = mount(Settings, { props: { isMacOs: false }, global: global() });
     wrappers.push(wrapper);
     await flushPromises();
+    await openConfiguration(wrapper);
     expect(wrapper.findAll('.drag-handle')).toHaveLength(0);
     await wrapper.get('#status-network').setValue(true);
     await flushPromises();
@@ -275,6 +340,7 @@ describe('status display interactions', () => {
     const wrapper = mount(Settings, { props: { isMacOs: true }, global: global(), attachTo: document.body });
     wrappers.push(wrapper);
     await flushPromises();
+    await openConfiguration(wrapper);
     const network = wrapper.get('[data-metric="network"] .selection-toggle');
     await network.trigger('keydown', { key: 'ArrowDown' });
     await flushPromises();
@@ -291,6 +357,7 @@ describe('status display interactions', () => {
     );
     expect(network.attributes('aria-expanded')).toBe('false');
     expect(network.attributes('title')).toBe('Wi-Fi');
+    expect(network.text()).toBe('Wi-Fi');
     await wrapper.get('#status-network').setValue(false);
     await flushPromises();
     expect(network.attributes('disabled')).toBeDefined();
@@ -303,7 +370,8 @@ describe('status display interactions', () => {
     const wrapper = mount(Settings, { props: { isMacOs: true }, global: global() });
     wrappers.push(wrapper);
     await flushPromises();
-    expect(wrapper.get('.logo-label img').attributes('src')).toBe('/mangodisk.svg');
+    await openConfiguration(wrapper);
+    expect(wrapper.get('.logo-marker img').attributes('src')).toBe('/mangodisk.svg');
     await wrapper.get('#status-app-icon').setValue(false);
     await flushPromises();
     expect(ResidentService.savePreferences).toHaveBeenLastCalledWith(
@@ -316,6 +384,7 @@ describe('status display interactions', () => {
     const wrapper = mount(Settings, { props: { isMacOs: true }, global: global() });
     wrappers.push(wrapper);
     await flushPromises();
+    await openConfiguration(wrapper);
     const retry = wrapper.findAll('button').find(button => button.text() === 'monitoring.refresh');
     expect(retry).toBeDefined();
     await retry!.trigger('click');
@@ -330,15 +399,16 @@ describe('status display interactions', () => {
       const wrapper = mount(Settings, { props: { isMacOs: true }, global: global() });
       wrappers.push(wrapper);
       await flushPromises();
+      await openConfiguration(wrapper);
       wrapper.findAll('.metric-row').forEach((row, index) => {
-        vi.spyOn(row.element, 'getBoundingClientRect').mockReturnValue(new DOMRect(index * 120, 0, 110, 40));
+        vi.spyOn(row.element, 'getBoundingClientRect').mockReturnValue(new DOMRect(0, index * 42, 400, 42));
       });
       const hit = vi.spyOn(document, 'elementFromPoint');
       const move = () =>
-        window.dispatchEvent(new PointerEvent('pointermove', { pointerId: 1, clientX: 5, clientY: 10 }));
+        window.dispatchEvent(new PointerEvent('pointermove', { pointerId: 1, clientX: 10, clientY: 10 }));
       await wrapper
         .findAll('.drag-handle')[1]!
-        .trigger('pointerdown', { pointerId: 1, button: 0, clientX: 125, clientY: 10 });
+        .trigger('pointerdown', { pointerId: 1, button: 0, clientX: 10, clientY: 55 });
       hit.mockReturnValue(wrapper.findAll('.metric-row')[0]!.element);
       move();
       await flushPromises();
@@ -358,10 +428,10 @@ describe('status display interactions', () => {
       expect(document.querySelector('.drag-preview')).toBeNull();
       await wrapper
         .findAll('.drag-handle')[1]!
-        .trigger('pointerdown', { pointerId: 1, button: 0, clientX: 125, clientY: 10 });
+        .trigger('pointerdown', { pointerId: 1, button: 0, clientX: 10, clientY: 55 });
       hit.mockReturnValue(wrapper.findAll('.metric-row')[0]!.element);
       move();
-      window.dispatchEvent(new PointerEvent('pointerup', { pointerId: 1, clientX: 5, clientY: 10 }));
+      window.dispatchEvent(new PointerEvent('pointerup', { pointerId: 1, clientX: 10, clientY: 10 }));
       hit.mockRestore();
       await flushPromises();
       expect(ResidentService.savePreferences).toHaveBeenCalledTimes(1);
@@ -379,6 +449,7 @@ describe('status display interactions', () => {
     const wrapper = mount(Settings, { props: { isMacOs: true }, global: global() });
     wrappers.push(wrapper);
     await flushPromises();
+    await openConfiguration(wrapper);
     expect(wrapper.get('[data-metric="network"] .selection-toggle').attributes('title')).toBe(
       'systemStatus.savedDisconnected'
     );
@@ -400,9 +471,13 @@ describe('status display interactions', () => {
       ...preferencesFixture(),
       metrics: preferencesFixture().metrics.map(metric => ({ ...metric, enabled: true })),
     });
-    const wrapper = mount(Settings, { props: { isMacOs: false }, global: { plugins: [createPinia(), i18n] } });
+    const wrapper = mount(Settings, {
+      props: { isMacOs: false },
+      global: { plugins: [createPinia(), i18n], stubs: { teleport: true } },
+    });
     wrappers.push(wrapper);
     await flushPromises();
+    await openConfiguration(wrapper);
     expect(wrapper.get('[data-metric="network"] .selection-toggle').attributes('title')).toBe('Automatic');
     expect(wrapper.get('[data-metric="disk"] .selection-toggle').attributes('title')).toBe('System disk');
 

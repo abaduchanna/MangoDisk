@@ -11,7 +11,8 @@ import MdFeedbackDialog from '@/pages/settings/components/md-feedback-dialog.vue
 import MdAiFeatureToggle from '@/pages/settings/components/md-ai-feature-toggle.vue';
 import MdAiSettingsDialog from '@/components/custom/md-ai-settings-dialog.vue';
 import MdIconMangodisk from '@/components/icons/md-icon-mangodisk.vue';
-import { Card } from '@/components/ui/card';
+import MdSettingsGroup from '@/components/custom/md-settings-group.vue';
+import MdSettingsRow from '@/components/custom/md-settings-row.vue';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { APP_UPDATE_STATUS_IDS } from '@/lib/models/app-update';
 import {
@@ -157,149 +158,118 @@ function updateTheme(value: unknown) {
 
 <template>
   <MdPageShell class="settings-page @container/settings" content-width="readable" :title="t('settings.title')">
-    <section class="settings-section">
-      <h2>{{ t('settings.generalSection') }}</h2>
-      <Card class="settings-list">
-        <div class="setting-row grid-cols-[40px_minmax(0,1fr)] @2xl/settings:grid-cols-[42px_minmax(0,1fr)_auto]">
-          <span class="section-icon"><MdIcon :name="ICON_NAMES.languages" /></span>
-          <span class="setting-copy"
-            ><strong>{{ t('settings.languageTitle') }}</strong
-            ><small class="whitespace-normal @2xl/settings:whitespace-nowrap">{{
-              t('settings.languageDescription')
-            }}</small></span
+    <MdSettingsGroup :title="t('settings.generalSection')">
+      <MdSettingsRow
+        :title="t('settings.languageTitle')"
+        :description="t('settings.languageDescription')"
+        controls="field"
+      >
+        <template #icon><MdIcon :name="ICON_NAMES.languages" /></template>
+        <Select :model-value="form.language" @update:model-value="updateLanguage">
+          <SelectTrigger
+            ><SelectValue>{{ languageLabel }}</SelectValue></SelectTrigger
           >
-          <Select :model-value="form.language" @update:model-value="updateLanguage">
-            <SelectTrigger class="setting-select col-start-2 w-full @2xl/settings:col-auto @2xl/settings:w-55"
-              ><SelectValue>{{ languageLabel }}</SelectValue></SelectTrigger
-            >
-            <SelectContent>
-              <SelectItem v-for="option in LANGUAGE_OPTIONS" :key="option.id" :value="option.id">
-                {{ t(option.labelKey) }}
-              </SelectItem>
-            </SelectContent>
-          </Select>
-        </div>
-        <div class="setting-row grid-cols-[40px_minmax(0,1fr)] @2xl/settings:grid-cols-[42px_minmax(0,1fr)_auto]">
-          <span class="section-icon"><MdIcon :name="ICON_NAMES.theme" /></span>
-          <span class="setting-copy"
-            ><strong>{{ t('settings.themeTitle') }}</strong
-            ><small class="whitespace-normal @2xl/settings:whitespace-nowrap">{{
-              t('settings.themeDescription')
-            }}</small></span
+          <SelectContent>
+            <SelectItem v-for="option in LANGUAGE_OPTIONS" :key="option.id" :value="option.id">
+              {{ t(option.labelKey) }}
+            </SelectItem>
+          </SelectContent>
+        </Select>
+      </MdSettingsRow>
+      <MdSettingsRow :title="t('settings.themeTitle')" :description="t('settings.themeDescription')" controls="field">
+        <template #icon><MdIcon :name="ICON_NAMES.theme" /></template>
+        <Select :model-value="form.theme" @update:model-value="updateTheme">
+          <SelectTrigger
+            ><SelectValue>{{ themeLabel }}</SelectValue></SelectTrigger
           >
-          <Select :model-value="form.theme" @update:model-value="updateTheme">
-            <SelectTrigger class="setting-select col-start-2 w-full @2xl/settings:col-auto @2xl/settings:w-55"
-              ><SelectValue>{{ themeLabel }}</SelectValue></SelectTrigger
-            >
-            <SelectContent>
-              <SelectItem :value="THEME_IDS.system">{{ t('settings.themeSystem') }}</SelectItem>
-              <SelectItem :value="THEME_IDS.light">{{ t('settings.themeLight') }}</SelectItem>
-              <SelectItem :value="THEME_IDS.dark">{{ t('settings.themeDark') }}</SelectItem>
-            </SelectContent>
-          </Select>
-        </div>
-        <MdAutostartSettings />
-      </Card>
-    </section>
+          <SelectContent>
+            <SelectItem :value="THEME_IDS.system">{{ t('settings.themeSystem') }}</SelectItem>
+            <SelectItem :value="THEME_IDS.light">{{ t('settings.themeLight') }}</SelectItem>
+            <SelectItem :value="THEME_IDS.dark">{{ t('settings.themeDark') }}</SelectItem>
+          </SelectContent>
+        </Select>
+      </MdSettingsRow>
+      <MdAutostartSettings />
+    </MdSettingsGroup>
 
     <MdStatusDisplaySettings :is-mac-os="isMacOs" />
 
-    <section class="settings-section">
-      <h2>{{ t('ai.sectionTitle') }}</h2>
-      <Card class="settings-list">
-        <MdAiFeatureToggle @configure="aiSettingsOpen = true" />
-      </Card>
-    </section>
+    <MdSettingsGroup :title="t('ai.sectionTitle')">
+      <MdAiFeatureToggle @configure="aiSettingsOpen = true" />
+    </MdSettingsGroup>
 
-    <section v-if="isMacOs" class="settings-section">
-      <h2>{{ t('settings.macosPermissionsSection') }}</h2>
-      <Card class="settings-list">
-        <button
-          class="setting-row action-row grid-cols-[40px_minmax(0,1fr)] @2xl/settings:grid-cols-[42px_minmax(0,1fr)_auto]"
-          type="button"
-          @click="openMacOsPrivacySettings(MACOS_PRIVACY_DESTINATION_IDS.fullDiskAccess)"
-        >
-          <span class="section-icon"><MdIcon :name="ICON_NAMES.hardDrive" /></span>
-          <span class="setting-copy"
-            ><strong>{{ t('settings.fullDiskAccessTitle') }}</strong
-            ><small class="whitespace-normal">{{ t('settings.fullDiskAccessDescription') }}</small></span
-          >
-          <span class="permission-actions col-start-2 @2xl/settings:col-auto">
-            <MdStatusBadge v-if="hasPermissionObservation" :tone="permissionObservationTone">
-              {{ permissionObservationLabel }}
-            </MdStatusBadge>
-            <span class="row-action">
-              {{ t('settings.openPrivacySettings') }}
-              <MdIcon :name="ICON_NAMES.external" :size="15" />
-            </span>
+    <MdSettingsGroup v-if="isMacOs" :title="t('settings.macosPermissionsSection')">
+      <MdSettingsRow
+        as="button"
+        controls="responsive"
+        :title="t('settings.fullDiskAccessTitle')"
+        :description="t('settings.fullDiskAccessDescription')"
+        @click="openMacOsPrivacySettings(MACOS_PRIVACY_DESTINATION_IDS.fullDiskAccess)"
+      >
+        <template #icon><MdIcon :name="ICON_NAMES.hardDrive" /></template>
+
+        <span class="permission-actions">
+          <MdStatusBadge v-if="hasPermissionObservation" :tone="permissionObservationTone">
+            {{ permissionObservationLabel }}
+          </MdStatusBadge>
+          <span class="row-action">
+            {{ t('settings.openPrivacySettings') }}
+            <MdIcon :name="ICON_NAMES.external" :size="15" />
           </span>
-        </button>
-      </Card>
-    </section>
+        </span>
+      </MdSettingsRow>
+    </MdSettingsGroup>
 
-    <section class="settings-section">
-      <h2>{{ t('settings.supportSection') }}</h2>
-      <Card class="settings-list">
-        <button
-          class="setting-row action-row grid-cols-[40px_minmax(0,1fr)] @2xl/settings:grid-cols-[42px_minmax(0,1fr)_auto]"
-          type="button"
-          @click="openApplicationLogs"
-        >
-          <span class="section-icon"><MdIcon :name="ICON_NAMES.cleanupDiagnosticLogs" /></span>
-          <span class="setting-copy"
-            ><strong>{{ t('settings.diagnosticLogsTitle') }}</strong
-            ><small class="whitespace-normal @2xl/settings:whitespace-nowrap">{{
-              t('settings.diagnosticLogsDescription')
-            }}</small></span
-          >
-          <span class="row-action col-start-2 @2xl/settings:col-auto"
-            >{{ t('settings.openLogFolderAction') }}<MdIcon :name="ICON_NAMES.external" :size="16"
-          /></span>
-        </button>
-        <button
-          class="setting-row action-row grid-cols-[40px_minmax(0,1fr)] @2xl/settings:grid-cols-[42px_minmax(0,1fr)_auto]"
-          type="button"
-          @click="feedbackOpen = true"
-        >
-          <span class="section-icon"><MdIcon :name="ICON_NAMES.help" /></span>
-          <span class="setting-copy"
-            ><strong>{{ t('settings.feedbackTitle') }}</strong
-            ><small class="whitespace-normal @2xl/settings:whitespace-nowrap">{{
-              t('settings.feedbackDescription')
-            }}</small></span
-          >
-          <span class="row-action col-start-2 @2xl/settings:col-auto"
-            >{{ t('settings.feedbackAction') }}<MdIcon :name="ICON_NAMES.chevronRight" :size="16"
-          /></span>
-        </button>
-      </Card>
-    </section>
+    <MdSettingsGroup :title="t('settings.supportSection')">
+      <MdSettingsRow
+        as="button"
+        controls="responsive"
+        :title="t('settings.diagnosticLogsTitle')"
+        :description="t('settings.diagnosticLogsDescription')"
+        @click="openApplicationLogs"
+      >
+        <template #icon><MdIcon :name="ICON_NAMES.cleanupDiagnosticLogs" /></template>
 
-    <section class="settings-section">
-      <h2>{{ t('settings.aboutSection') }}</h2>
-      <Card class="settings-list">
-        <button
-          ref="aboutRow"
-          class="setting-row action-row grid-cols-[40px_minmax(0,1fr)] @2xl/settings:grid-cols-[42px_minmax(0,1fr)_auto]"
-          type="button"
+        <span class="row-action"
+          >{{ t('settings.openLogFolderAction') }}<MdIcon :name="ICON_NAMES.external" :size="16"
+        /></span>
+      </MdSettingsRow>
+      <MdSettingsRow
+        as="button"
+        controls="responsive"
+        :title="t('settings.feedbackTitle')"
+        :description="t('settings.feedbackDescription')"
+        @click="feedbackOpen = true"
+      >
+        <template #icon><MdIcon :name="ICON_NAMES.help" /></template>
+
+        <span class="row-action"
+          >{{ t('settings.feedbackAction') }}<MdIcon :name="ICON_NAMES.chevronRight" :size="16"
+        /></span>
+      </MdSettingsRow>
+    </MdSettingsGroup>
+
+    <MdSettingsGroup :title="t('settings.aboutSection')">
+      <div ref="aboutRow">
+        <MdSettingsRow
+          as="button"
+          controls="responsive"
+          :title="t('settings.aboutTitle')"
+          :description="t('settings.aboutDescription')"
           @click="appUpdateStore.showAbout()"
         >
-          <span class="about-mark"><MdIconMangodisk :size="34" /></span>
-          <span class="setting-copy">
-            <strong class="update-title">
+          <template #icon><MdIconMangodisk :size="34" /></template>
+          <template #title
+            ><span class="update-title">
               {{ t('settings.aboutTitle') }}
               <span
                 v-if="appUpdateStore.updateNoticeUnread"
                 class="update-notice"
                 :aria-label="t('updates.navigationNotice')"
-              />
-            </strong>
-            <small class="whitespace-normal @2xl/settings:whitespace-nowrap">{{
-              t('settings.aboutDescription')
-            }}</small>
-          </span>
+              /> </span
+          ></template>
           <span
-            class="row-action update-action col-start-2 @2xl/settings:col-auto"
+            class="row-action update-action"
             :class="{ available: appUpdateStore.status === APP_UPDATE_STATUS_IDS.available }"
           >
             <span class="update-action-content" :class="{ downloading: aboutDownloading }">
@@ -321,9 +291,9 @@ function updateTheme(value: unknown) {
             </span>
             <MdIcon :name="ICON_NAMES.chevronRight" :size="17" />
           </span>
-        </button>
-      </Card>
-    </section>
+        </MdSettingsRow>
+      </div>
+    </MdSettingsGroup>
 
     <MdFeedbackDialog v-model:open="feedbackOpen" @error="emit('error', $event)" />
     <MdAiSettingsDialog
@@ -339,48 +309,6 @@ function updateTheme(value: unknown) {
 <style scoped>
 @reference "@assets/main.css";
 
-.settings-section > h2 {
-  margin: 1px 0 6px 2px;
-  @apply text-muted-foreground;
-  font-size: var(--font-content-body);
-  font-weight: 600;
-}
-
-.settings-list {
-  gap: 0;
-  overflow: hidden;
-  border-radius: 10px;
-  @apply border-border/70 bg-card shadow-none;
-}
-
-.settings-list :deep(.setting-row) {
-  display: grid;
-  width: 100%;
-  min-height: 60px;
-  align-items: center;
-  gap: 10px;
-  border: 0;
-  border-top-width: 1px;
-  padding: 7px 14px;
-  background: transparent;
-  text-align: left;
-  @apply border-border/60 text-card-foreground transition-colors duration-200 hover:bg-muted/50;
-}
-
-.settings-list :deep(.setting-row:first-child) {
-  border-top: 0;
-}
-
-.settings-list :deep(.setting-copy) {
-  display: flex;
-  min-width: 0;
-  flex-direction: column;
-  gap: 2px;
-}
-.settings-list :deep(.setting-copy strong) {
-  font-size: var(--font-content-primary);
-  font-weight: 650;
-}
 .update-title {
   display: inline-flex;
   align-items: center;
@@ -394,43 +322,12 @@ function updateTheme(value: unknown) {
   @apply bg-primary;
 }
 
-.settings-list :deep(.setting-copy small) {
-  overflow: hidden;
-  font-size: var(--font-content-secondary);
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  @apply text-muted-foreground;
-}
-.setting-select {
-  height: 36px;
-}
-
-.action-row {
-  font: inherit;
-  cursor: pointer;
-}
-
-.action-row:focus-visible {
-  position: relative;
-  z-index: 1;
-  @apply outline-none ring-2 ring-inset ring-ring/50;
-}
-
-.action-row:disabled {
-  cursor: default;
-  opacity: 0.6;
-}
-
 .row-action {
   display: flex;
   align-items: center;
   gap: 6px;
-  font-size: var(--font-content-body);
-  @apply text-muted-foreground transition-colors duration-200;
 }
 
-.action-row:hover .row-action,
-.action-row:focus-visible .row-action,
 .update-action.available {
   @apply text-primary;
 }
@@ -481,57 +378,12 @@ function updateTheme(value: unknown) {
   justify-content: flex-end;
   gap: 10px;
 }
-.settings-list :deep(.section-icon) {
-  display: grid;
-  width: 34px;
-  height: 34px;
-  flex: none;
-  place-items: center;
-  @apply text-muted-foreground;
-}
-
-.about-mark {
-  display: grid;
-  width: 34px;
-  height: 34px;
-  flex: none;
-  place-items: center;
-  overflow: hidden;
-  border-radius: 10px;
-}
-
 @keyframes settings-update-download {
   from {
     transform: translateX(-110%);
   }
   to {
     transform: translateX(310%);
-  }
-}
-
-/* Safari 15.6 predates container queries, so mirror the wide settings layout
- * with a viewport query. MangoDisk's desktop window has a 1000px minimum
- * width, which makes this fallback equivalent to the intended container rule.
- */
-@supports not (container-type: inline-size) {
-  @media (min-width: 900px) {
-    .settings-list :deep(.setting-row) {
-      grid-template-columns: 42px minmax(0, 1fr) auto;
-    }
-
-    .settings-list :deep(.setting-copy small) {
-      white-space: nowrap;
-    }
-
-    .setting-select {
-      grid-column: auto;
-      width: 13.75rem;
-    }
-
-    .permission-actions,
-    .row-action {
-      grid-column: auto;
-    }
   }
 }
 </style>

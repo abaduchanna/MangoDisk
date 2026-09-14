@@ -1,11 +1,8 @@
 <script setup lang="ts">
-import { computed, onBeforeUnmount, onMounted, ref } from 'vue';
 import { useI18n } from 'vue-i18n';
 import MdSwitch from '@/components/custom/md-switch.vue';
-import type { ResidentDisplayStatus, ResidentPreferences } from '@/lib/models/resident';
-import { ResidentService } from '@/lib/services/resident-service';
-import { LoggerService } from '@/lib/services/logger-service';
-const props = defineProps<{ preferences: ResidentPreferences }>();
+import type { ResidentPreferences } from '@/lib/models/resident';
+defineProps<{ preferences: ResidentPreferences }>();
 const emit = defineEmits<{
   change: [mode: ResidentPreferences['windowsDisplayMode']];
   position: [position: ResidentPreferences['taskbarPosition']];
@@ -13,48 +10,6 @@ const emit = defineEmits<{
   compact: [enabled: boolean];
 }>();
 const { t } = useI18n({ useScope: 'global' });
-const status = ref<ResidentDisplayStatus>('tray');
-const hint = computed(() => {
-  if (
-    !props.preferences.enabled ||
-    props.preferences.windowsDisplayMode !== 'taskbar' ||
-    !props.preferences.metrics.some(item => item.enabled)
-  )
-    return null;
-  return (
-    (
-      {
-        noSpace: 'systemStatus.taskbarNoSpace',
-        unsupportedLayout: 'systemStatus.taskbarUnsupported',
-        shellUnavailable: 'systemStatus.taskbarUnavailable',
-      } as Partial<Record<ResidentDisplayStatus, string>>
-    )[status.value] ?? null
-  );
-});
-let disposed = false;
-let unlisten: (() => void) | undefined;
-onMounted(async () => {
-  try {
-    let received = false;
-    const stop = await ResidentService.onDisplayStatus(value => {
-      received = true;
-      if (!disposed) status.value = value;
-    });
-    if (disposed) {
-      stop();
-      return;
-    }
-    unlisten = stop;
-    const value = await ResidentService.displayStatus();
-    if (!disposed && !received) status.value = value;
-  } catch {
-    LoggerService.warn('resident', 'display_status_load_failed');
-  }
-});
-onBeforeUnmount(() => {
-  disposed = true;
-  unlisten?.();
-});
 </script>
 <template>
   <div class="windows-display-settings">
@@ -74,6 +29,7 @@ onBeforeUnmount(() => {
       </div>
     </div>
     <div v-if="preferences.windowsDisplayMode === 'taskbar'" class="taskbar-options">
+      <h3>{{ t('systemStatus.taskbarSettingsTitle') }}</h3>
       <div class="display-field">
         <span id="taskbar-position-label" class="field-label">{{ t('systemStatus.taskbarPosition') }}</span>
         <div class="segmented-choice" role="radiogroup" aria-labelledby="taskbar-position-label">
@@ -114,34 +70,43 @@ onBeforeUnmount(() => {
         />
       </div>
     </div>
-    <p v-if="hint" role="status" class="text-muted-foreground text-xs">{{ t(hint) }}</p>
   </div>
 </template>
 
 <style scoped>
 @reference "@assets/main.css";
 .windows-display-settings {
+  @apply text-foreground;
   display: grid;
-  gap: 12px;
-  font-size: var(--font-content-secondary);
+  gap: 16px;
+  font-size: var(--font-content-body);
+  font-weight: 400;
 }
 .display-field,
 .background-field {
   display: flex;
   align-items: center;
+  justify-content: space-between;
+  min-height: 36px;
   gap: 12px;
 }
 .display-field {
   flex-wrap: wrap;
 }
 .field-label {
-  min-width: 6rem;
+  min-width: 0;
 }
 .taskbar-options {
-  display: flex;
-  align-items: center;
-  flex-wrap: wrap;
-  gap: 12px 24px;
+  @apply border-t border-border/60;
+  display: grid;
+  gap: 8px;
+  padding-top: 16px;
+}
+.taskbar-options h3 {
+  @apply text-muted-foreground;
+  margin: 0;
+  font-size: var(--font-content-secondary);
+  font-weight: 500;
 }
 .segmented-choice {
   @apply bg-muted rounded-lg;
@@ -149,6 +114,7 @@ onBeforeUnmount(() => {
   padding: 3px;
   gap: 2px;
   max-width: 100%;
+  margin-left: auto;
 }
 .segmented-choice label {
   position: relative;
@@ -174,10 +140,10 @@ onBeforeUnmount(() => {
 .segmented-choice label:hover span {
   @apply text-foreground;
 }
-/* Native radios retain arrow-key navigation and a single Tab stop. Keep the
-   selected surface neutral so this setting does not compete with resource chips. */
+/* Native radios retain arrow-key navigation and a single Tab stop. A neutral
+   selected surface keeps display choices secondary to the dialog's main action. */
 .segmented-choice input:checked + span {
-  @apply bg-card text-primary shadow-sm;
+  @apply bg-card text-foreground shadow-sm;
 }
 .segmented-choice input:focus-visible + span {
   outline: 2px solid var(--ring);
