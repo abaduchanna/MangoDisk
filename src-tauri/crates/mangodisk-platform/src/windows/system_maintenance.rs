@@ -1148,7 +1148,7 @@ mod tests {
     /// Runs one real maintenance task on a disposable or explicitly authorized Windows host.
     ///
     /// The environment variable keeps the destructive scope finite and makes each invocation
-    /// independently attributable in logs. `MANGODISK_TEST_MAINTENANCE_HELPER_EXE` must point to
+    /// independently attributable in logs. `MANGODISK_TEST_ELEVATION_HELPER_EXE` must point to
     /// the built MangoDisk executable because the Rust test harness cannot enter application
     /// helper mode. Keeping this test ignored prevents ordinary CI and contributor test runs from
     /// restarting Explorer, services, or long-running repair tools.

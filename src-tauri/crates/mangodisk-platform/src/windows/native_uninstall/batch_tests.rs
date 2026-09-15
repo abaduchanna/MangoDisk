@@ -3,14 +3,12 @@ use std::time::{SystemTime, UNIX_EPOCH};
 
 #[test]
 fn registered_batch_elevation_matches_the_registration_scope() {
-    assert_eq!(
-        registered_host_launch_mode(ApplicationInstallScope::Machine),
-        ShellLaunchMode::RequestElevation
-    );
-    assert_eq!(
-        registered_host_launch_mode(ApplicationInstallScope::CurrentUser),
-        ShellLaunchMode::Default
-    );
+    assert!(registered_host_requires_elevation(
+        ApplicationInstallScope::Machine
+    ));
+    assert!(!registered_host_requires_elevation(
+        ApplicationInstallScope::CurrentUser
+    ));
 }
 
 struct BatchFixture {

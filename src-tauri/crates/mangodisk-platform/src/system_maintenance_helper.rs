@@ -1,8 +1,7 @@
 use std::{
-    ffi::{OsStr, OsString},
+    ffi::OsString,
     io::{BufRead, BufReader, ErrorKind, Read, Write},
     net::{Ipv4Addr, SocketAddrV4, TcpListener, TcpStream},
-    os::windows::ffi::OsStrExt,
     ptr,
     sync::{Arc, Mutex, OnceLock},
     time::{Duration, Instant},
@@ -10,14 +9,10 @@ use std::{
 
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
 use windows_sys::Win32::{
-    Foundation::{CloseHandle, GetLastError, ERROR_CANCELLED, HANDLE, WAIT_FAILED, WAIT_OBJECT_0},
+    Foundation::{CloseHandle, HANDLE, WAIT_FAILED, WAIT_OBJECT_0},
     Security::{GetTokenInformation, TokenElevation, TOKEN_ELEVATION, TOKEN_QUERY},
     System::Threading::{
         GetCurrentProcess, GetExitCodeProcess, OpenProcessToken, WaitForSingleObject,
-    },
-    UI::{
-        Shell::{ShellExecuteExW, SEE_MASK_NOCLOSEPROCESS, SHELLEXECUTEINFOW},
-        WindowsAndMessaging::SW_HIDE,
     },
 };
 
@@ -31,7 +26,7 @@ pub(crate) mod step_diagnostics;
 
 use step_diagnostics::{log_step_diagnostics, MaintenanceStepDiagnostic};
 
-const HELPER_FLAG: &str = "--mangodisk-system-maintenance-helper-v3";
+pub(crate) const HELPER_FLAG: &str = "--mangodisk-system-maintenance-helper-v3";
 // The helper always comes from the running executable; reject mismatched schemas.
 const PROTOCOL: &str = "mangodisk-system-maintenance-helper-v3";
 const HELPER_START_TIMEOUT: Duration = Duration::from_secs(120);
@@ -852,46 +847,11 @@ fn helper_arguments(arguments: &[OsString]) -> PlatformResult<(u16, String)> {
 fn launch_elevated_helper(port: u16, token: &str, session_label: &str) -> PlatformResult<HANDLE> {
     #[cfg(test)]
     ELEVATION_LAUNCH_COUNT.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
-    let executable = helper_executable()?;
-    if !executable.is_absolute() || !executable.is_file() {
-        return Err(PlatformError::new(
-            PlatformErrorCode::InvalidPath,
-            "system maintenance helper executable is invalid",
-        ));
-    }
-    let executable = wide(executable.as_os_str());
-    let verb = wide(OsStr::new("runas"));
-    let parameters = wide(OsStr::new(&format!("{HELPER_FLAG} {port} {token}")));
-    let mut execution = SHELLEXECUTEINFOW {
-        cbSize: size_of::<SHELLEXECUTEINFOW>() as u32,
-        fMask: SEE_MASK_NOCLOSEPROCESS,
-        lpVerb: verb.as_ptr(),
-        lpFile: executable.as_ptr(),
-        lpParameters: parameters.as_ptr(),
-        nShow: SW_HIDE,
-        ..unsafe { std::mem::zeroed() }
-    };
-    log::info!("windows_system_maintenance_helper_elevation_started session_id={session_label}");
-    if unsafe { ShellExecuteExW(&mut execution) } == 0 {
-        let code = unsafe { GetLastError() };
-        log::warn!(
-            "windows_system_maintenance_helper_elevation_failed session_id={session_label} stage=launch error_code={code}"
-        );
-        return Err(PlatformError::new(
-            if code == ERROR_CANCELLED {
-                PlatformErrorCode::UserCancelled
-            } else {
-                PlatformErrorCode::OperationFailed
-            },
-            "system maintenance helper elevation request failed",
-        ));
-    }
-    if execution.hProcess.is_null() {
-        return Err(PlatformError::operation_failed(
-            "system maintenance helper process handle is unavailable",
-        ));
-    }
-    Ok(execution.hProcess)
+    log::info!("windows_system_maintenance_helper_launch_requested session_id={session_label}");
+    crate::elevation::launch_platform(crate::elevation::LaunchRequest::Maintenance {
+        port,
+        token: token.to_owned(),
+    })
 }
 
 #[cfg(test)]
@@ -907,26 +867,6 @@ pub(crate) fn reset_elevation_launch_count() {
 #[cfg(test)]
 pub(crate) fn elevation_launch_count() -> u64 {
     ELEVATION_LAUNCH_COUNT.load(std::sync::atomic::Ordering::Relaxed)
-}
-
-#[cfg(not(test))]
-fn helper_executable() -> PlatformResult<std::path::PathBuf> {
-    std::env::current_exe()
-        .map_err(|error| helper_io("resolve system maintenance helper executable", &error))
-}
-
-#[cfg(test)]
-fn helper_executable() -> PlatformResult<std::path::PathBuf> {
-    // A Rust test harness does not dispatch application helper flags. Explicit real-host tests
-    // therefore name a built MangoDisk executable, while production builds always use themselves.
-    std::env::var_os("MANGODISK_TEST_MAINTENANCE_HELPER_EXE")
-        .map(std::path::PathBuf::from)
-        .ok_or_else(|| {
-            PlatformError::new(
-                PlatformErrorCode::Unsupported,
-                "real maintenance tests require a built MangoDisk helper executable",
-            )
-        })
 }
 
 fn current_process_is_elevated() -> PlatformResult<bool> {
@@ -1061,10 +1001,6 @@ fn log_privileged_execution(
         diagnostics.steps.len(),
         diagnostics.elapsed_ms
     );
-}
-
-fn wide(value: &OsStr) -> Vec<u16> {
-    value.encode_wide().chain(std::iter::once(0)).collect()
 }
 
 impl From<PlatformErrorCode> for WireErrorCode {

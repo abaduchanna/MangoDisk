@@ -16,7 +16,7 @@ use crate::{
     PlatformStartupDesiredState,
 };
 
-const HELPER_FLAG: &str = "--mangodisk-startup-helper-v3";
+pub(crate) const HELPER_FLAG: &str = "--mangodisk-startup-helper-v3";
 const PROTOCOL: &str = "mangodisk-startup-helper-v3";
 const MAX_MESSAGE_BYTES: u64 = 1024 * 1024;
 const MAX_BATCH_ITEMS: usize = 128;
@@ -754,64 +754,25 @@ fn launch_elevated(
 
 #[cfg(windows)]
 mod windows_launcher {
-    use std::os::windows::ffi::OsStrExt;
 
     use windows_sys::Win32::{
-        Foundation::{CloseHandle, GetLastError, ERROR_CANCELLED, WAIT_OBJECT_0},
+        Foundation::{CloseHandle, WAIT_OBJECT_0},
         System::Threading::{GetExitCodeProcess, WaitForSingleObject, INFINITE},
-        UI::{
-            Shell::{ShellExecuteExW, SEE_MASK_NOCLOSEPROCESS, SHELLEXECUTEINFOW},
-            WindowsAndMessaging::SW_HIDE,
-        },
     };
 
     use super::*;
 
     pub(super) fn launch(request: &Path, response: &Path) -> PlatformResult<()> {
-        let executable = std::env::current_exe()
-            .map_err(|error| PlatformError::io("resolve startup helper executable", &error))?;
-        if !executable.is_absolute() || !executable.is_file() {
-            return Err(PlatformError::invalid_path(
-                "startup helper executable is invalid",
-            ));
-        }
-        let executable = wide(executable.as_os_str());
-        let verb = wide(std::ffi::OsStr::new("runas"));
-        let arguments = wide(std::ffi::OsStr::new(&format!(
-            "{HELPER_FLAG} {} {}",
-            quote_argument(request)?,
-            quote_argument(response)?
-        )));
-        let mut execution = SHELLEXECUTEINFOW {
-            cbSize: size_of::<SHELLEXECUTEINFOW>() as u32,
-            fMask: SEE_MASK_NOCLOSEPROCESS,
-            lpVerb: verb.as_ptr(),
-            lpFile: executable.as_ptr(),
-            lpParameters: arguments.as_ptr(),
-            nShow: SW_HIDE,
-            ..unsafe { std::mem::zeroed() }
-        };
-        if unsafe { ShellExecuteExW(&mut execution) } == 0 {
-            let code = unsafe { GetLastError() };
-            return Err(PlatformError::new(
-                if code == ERROR_CANCELLED {
-                    PlatformErrorCode::UserCancelled
-                } else {
-                    PlatformErrorCode::OperationFailed
-                },
-                "startup helper elevation request failed",
-            ));
-        }
-        if execution.hProcess.is_null() {
-            return Err(PlatformError::operation_failed(
-                "startup helper process handle is unavailable",
-            ));
-        }
-        let wait = unsafe { WaitForSingleObject(execution.hProcess, INFINITE) };
+        let process =
+            crate::elevation::launch_platform(crate::elevation::LaunchRequest::Startup {
+                request: request.to_owned(),
+                response: response.to_owned(),
+            })?;
+        let wait = unsafe { WaitForSingleObject(process, INFINITE) };
         let mut exit_code = HELPER_FAILURE_EXIT_CODE as u32;
-        let exit_read = unsafe { GetExitCodeProcess(execution.hProcess, &mut exit_code) };
+        let exit_read = unsafe { GetExitCodeProcess(process, &mut exit_code) };
         unsafe {
-            CloseHandle(execution.hProcess);
+            CloseHandle(process);
         }
         if wait != WAIT_OBJECT_0 || exit_read == 0 || exit_code != HELPER_SUCCESS_EXIT_CODE as u32 {
             return Err(PlatformError::operation_failed(
@@ -819,22 +780,6 @@ mod windows_launcher {
             ));
         }
         Ok(())
-    }
-
-    fn quote_argument(path: &Path) -> PlatformResult<String> {
-        let value = path.to_str().ok_or_else(|| {
-            PlatformError::invalid_path("startup helper message path is not valid UTF-8")
-        })?;
-        if value.contains(['\r', '\n', '"']) {
-            return Err(PlatformError::invalid_path(
-                "startup helper message path contains unsupported characters",
-            ));
-        }
-        Ok(format!("\"{value}\""))
-    }
-
-    fn wide(value: &std::ffi::OsStr) -> Vec<u16> {
-        value.encode_wide().chain(std::iter::once(0)).collect()
     }
 }
 
