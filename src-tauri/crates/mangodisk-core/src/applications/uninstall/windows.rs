@@ -162,8 +162,8 @@ pub(super) fn execute_registration(
         })
         .map_err(|error| {
             log::warn!(
-                "application_uninstall_wait_worker_start_failed error_digest={}",
-                blake3::hash(error.to_string().as_bytes()).to_hex()
+                "application_uninstall_wait_worker_start_failed error={}",
+                mangodisk_platform::diagnostics::text(&error)
             );
             ApplicationUninstallActionReason::NativeInstallerFailed
         })?;

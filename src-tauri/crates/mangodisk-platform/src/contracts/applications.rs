@@ -155,8 +155,8 @@ impl ApplicationUninstallDiagnostic {
     }
 }
 
-/// Shared by inventory diagnostics, Core plans, and UI interaction logs. Hashing keeps
-/// private registry/package identifiers out of logs without losing cross-stage correlation.
+/// Stable opaque identity shared by inventory, Core plans and UI interactions.
+/// Diagnostic logs also include readable labels; never change this ID format just for logging.
 pub fn application_uninstall_diagnostic_id(catalog_identifier: &str) -> String {
     let mut hasher = blake3::Hasher::new();
     hasher.update(b"mangodisk-application-uninstall-v2");

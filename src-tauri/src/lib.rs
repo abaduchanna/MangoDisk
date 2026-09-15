@@ -303,10 +303,10 @@ pub fn run() {
                     version
                 ),
                 Err(error) => log::warn!(
-                    "webview_runtime_version_failed platform={} engine={} error_digest={}",
+                    "webview_runtime_version_failed platform={} engine={} error={}",
                     std::env::consts::OS,
                     webview_engine,
-                    blake3::hash(error.to_string().as_bytes()).to_hex()
+                    mangodisk_platform::diagnostics::text(&error)
                 ),
             }
             #[cfg(target_os = "windows")]

@@ -803,10 +803,10 @@ fn run(
     )
     .map_err(|error| command_execution_error(error, effect))?;
     if !output.status.success() {
-        let stdout_digest = blake3::hash(&output.stdout).to_hex().to_string();
+        let stdout_detail = crate::diagnostics::text(&String::from_utf8_lossy(&output.stdout));
         let stderr_bytes = output.stderr_bytes;
-        log::warn!("windows_maintenance_command_failed command_id={command_id} effect={effect:?} exit_code={:?} stdout_digest={stdout_digest} stderr_bytes={stderr_bytes}", output.status.code());
-        let error = PlatformError::operation_failed(format!("maintenance command failed: command_id={command_id} exit_code={:?} stdout_digest={stdout_digest} stderr_bytes={stderr_bytes}", output.status.code()));
+        log::warn!("windows_maintenance_command_failed command_id={command_id} effect={effect:?} exit_code={:?} stdout_detail={stdout_detail} stderr_bytes={stderr_bytes}", output.status.code());
+        let error = PlatformError::operation_failed(format!("maintenance command failed: command_id={command_id} exit_code={:?} stdout_detail={stdout_detail} stderr_bytes={stderr_bytes}", output.status.code()));
         return Err(match effect {
             CommandEffect::ReadOnly => error,
             CommandEffect::MayMutate => error.with_possible_side_effects(),

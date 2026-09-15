@@ -1227,7 +1227,7 @@ fn wait_for_process_tree<T>(
         });
         if !slow_wait_logged && started.elapsed() >= Duration::from_secs(30) {
             slow_wait_logged = true;
-            log::warn!("windows_uninstaller_process_tree_waiting root_pid={} root_exited={} tracked_descendant_count={} active_descendant_count={} elapsed_ms={}",
+            log::info!("windows_uninstaller_process_tree_waiting root_pid={} root_exited={} tracked_descendant_count={} active_descendant_count={} elapsed_ms={}",
                 root_process_id, root_result.is_some(), tracked_process_ids.len().saturating_sub(1),
                 processes.iter().filter(|(pid, _)| *pid != root_process_id && tracked_process_ids.contains_key(pid)).count(),
                 started.elapsed().as_millis());

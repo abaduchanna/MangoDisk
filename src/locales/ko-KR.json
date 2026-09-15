@@ -1538,6 +1538,8 @@
       "unsupportedFormat": "이 구성 형식은 지원되지 않습니다"
     },
     "change": {
+      "serviceAccessDenied": "시스템이 일부 서비스의 변경을 거부했습니다. 관리자 승인으로도 해당 권한 제한을 해제하지 못할 수 있습니다",
+      "accessDenied": "시스템이 이 시작 항목의 변경을 거부했습니다. 필요한 권한을 확인하세요",
       "title": "변경 확인",
       "checking": "시작 항목 확인 중…",
       "descriptions": {

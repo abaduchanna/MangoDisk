@@ -7,6 +7,7 @@ mod browser_profile;
 mod command;
 mod contracts;
 mod current;
+pub mod diagnostics;
 #[cfg(windows)]
 mod disk_cleanup_helper;
 mod file_icon;

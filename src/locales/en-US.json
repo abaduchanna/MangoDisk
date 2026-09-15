@@ -1538,6 +1538,8 @@
       "unsupportedFormat": "This configuration format is not supported"
     },
     "change": {
+      "serviceAccessDenied": "Windows denied changes to one or more services. Administrator approval may not override their permission restrictions",
+      "accessDenied": "The system denied changes to this startup item. Check the required permissions",
       "title": "Confirm changes",
       "checking": "Checking startup items…",
       "descriptions": {

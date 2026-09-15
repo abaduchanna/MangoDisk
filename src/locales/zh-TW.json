@@ -1538,6 +1538,8 @@
       "unsupportedFormat": "尚不支援此設定格式"
     },
     "change": {
+      "serviceAccessDenied": "系統拒絕修改部分服務，管理員授權也可能無法變更其權限限制",
+      "accessDenied": "系統拒絕修改此啟動項目，請檢查相關權限",
       "title": "確認變更",
       "checking": "正在檢查啟動項目…",
       "descriptions": {

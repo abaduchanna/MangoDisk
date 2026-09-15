@@ -197,8 +197,8 @@ pub(super) fn annotate(
     if next_document != previous_document {
         if let Err(error) = save_observations(&observation_path, &next_document) {
             log::warn!(
-                "application_uninstall_observation_save_failed error_digest={}",
-                blake3::hash(error.as_bytes()).to_hex()
+                "application_uninstall_observation_save_failed error={}",
+                mangodisk_platform::diagnostics::text(&error)
             );
         }
     }
@@ -263,8 +263,8 @@ fn top_level_directory_facts(
             }
             Err(DirectoryTreeAggregateError::Platform(error)) => {
                 log::warn!(
-                    "application_observation_native_enumeration_failed error_digest={}",
-                    blake3::hash(error.as_bytes()).to_hex()
+                    "application_observation_native_enumeration_failed error={}",
+                    mangodisk_platform::diagnostics::text(&error)
                 );
             }
         }

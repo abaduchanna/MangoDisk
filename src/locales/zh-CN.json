@@ -1538,6 +1538,8 @@
       "unsupportedFormat": "暂不支持此配置格式"
     },
     "change": {
+      "serviceAccessDenied": "系统拒绝修改部分服务，管理员授权也可能无法更改其权限限制",
+      "accessDenied": "系统拒绝修改此启动项，请检查相关权限",
       "title": "确认更改",
       "checking": "正在检查启动项…",
       "descriptions": {
