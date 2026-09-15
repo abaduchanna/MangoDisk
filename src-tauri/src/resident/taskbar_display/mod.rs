@@ -16,12 +16,16 @@ mod native;
 mod position;
 #[cfg(any(windows, test))]
 mod presentation;
+#[cfg(windows)]
+mod shell_events;
 #[cfg(any(windows, test))]
 mod surface;
 #[cfg(any(windows, test))]
 mod text_layout;
 #[cfg(windows)]
 mod transparent;
+#[cfg(any(windows, test))]
+mod visibility;
 
 use serde::Serialize;
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize)]

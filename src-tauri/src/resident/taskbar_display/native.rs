@@ -5,8 +5,11 @@ use super::{
     layout::{self, Bounds},
     position::{self, Edge, Environment},
     presentation::{self, Column},
+    shell_events,
     surface::Surface,
-    transparent, DisplayStatus, Service,
+    transparent,
+    visibility::{self, OcclusionRetry, Visibility},
+    DisplayStatus, Service,
 };
 use crate::resident::{
     main_window, panel,
@@ -22,7 +25,7 @@ use windows_sys::{
     core::w,
     Win32::{
         Foundation::*,
-        Graphics::Gdi::*,
+        Graphics::{Dwm::*, Gdi::*},
         System::Threading::{
             OpenProcess, QueryFullProcessImageNameW, PROCESS_QUERY_LIMITED_INFORMATION,
         },
@@ -30,6 +33,15 @@ use windows_sys::{
     },
 };
 pub const UPDATE: u32 = WM_APP + 71;
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+struct NativeState {
+    visible: bool,
+    minimized: bool,
+    // Preserve query failures rather than reporting unknown composition as visible.
+    cloaked: Result<u32, i32>,
+}
+
 struct Window {
     service: Arc<Service>,
     columns: Vec<Column>,
@@ -39,10 +51,13 @@ struct Window {
     color: [u8; 3],
     hover: Option<usize>,
     visible: bool,
+    native_state: Option<NativeState>,
+    visibility: Option<Visibility>,
     background: bool,
     paint_failed: bool,
     text_renderer: Option<directwrite::Renderer>,
     position_failed: bool,
+    occlusion_retry: OcclusionRetry,
     placement_policy: Option<(
         crate::resident::preference_schema::TaskbarPosition,
         Environment,
@@ -50,6 +65,8 @@ struct Window {
     )>,
     foreground: usize,
     shell_flyout: bool,
+    flyout_yield: Option<bool>,
+    shell_desktop: bool,
     appearance_checked: std::time::Instant,
 }
 
@@ -87,13 +104,18 @@ pub fn start(service: Arc<Service>) {
                 color: [0; 3],
                 hover: None,
                 visible: false,
+                native_state: None,
+                visibility: None,
                 background: true,
                 paint_failed: false,
                 text_renderer: None,
                 position_failed: false,
+                occlusion_retry: OcclusionRetry::default(),
                 placement_policy: None,
                 foreground: 0,
                 shell_flyout: false,
+                flyout_yield: None,
+                shell_desktop: false,
                 appearance_checked: std::time::Instant::now() - Duration::from_secs(2),
             }));
             // Bind top-level ownership at creation. Changing ownership afterward can
@@ -121,6 +143,7 @@ pub fn start(service: Arc<Service>) {
                 return;
             }
             service.window.store(hwnd as usize, Ordering::Relaxed);
+            let subscription = shell_events::Subscription::install(hwnd);
             PostMessageW(hwnd, UPDATE, 0, 0);
             let mut message = MSG::default();
             let mut result = GetMessageW(&mut message, ptr::null_mut(), 0, 0);
@@ -131,6 +154,7 @@ pub fn start(service: Arc<Service>) {
             }
             // Do not release the callback data while a native window can still
             // refer to it, including the exceptional GetMessage failure path.
+            drop(subscription);
             if IsWindow(hwnd) != 0 {
                 DestroyWindow(hwnd);
             }
@@ -171,12 +195,36 @@ unsafe extern "system" fn procedure(
         PostQuitMessage(0);
         return 0;
     }
+    // A popup menu can dispatch a wake while update() still holds its borrow.
+    // Release the coalescing slot even then; the timer remains the safe fallback.
+    if message == shell_events::WAKE {
+        shell_events::dispatched();
+    }
+    // Owner-driven hiding need not pass through our logical visibility state.
+    // Ignore synchronous notifications from our own ShowWindow calls.
+    if message == WM_SHOWWINDOW {
+        if let Ok(window) = (*raw).try_borrow() {
+            log::info!(
+                "resident_taskbar_external_visibility show={} reason={lparam} expected={:?} foreground={:?}",
+                wparam != 0,
+                window.visibility,
+                GetForegroundWindow(),
+            );
+        }
+    }
     // Default processing can synchronously reenter this callback. Borrow state
     // only for handled messages. Owned popups handle right release themselves,
     // otherwise DefWindowProc forwards the context menu to the shell owner.
     if !matches!(
         message,
-        UPDATE | WM_TIMER | WM_PAINT | WM_MOUSEMOVE | WM_LBUTTONUP | WM_RBUTTONUP | WM_CONTEXTMENU
+        UPDATE
+            | WM_TIMER
+            | shell_events::WAKE
+            | WM_PAINT
+            | WM_MOUSEMOVE
+            | WM_LBUTTONUP
+            | WM_RBUTTONUP
+            | WM_CONTEXTMENU
     ) {
         return match message {
             WM_ERASEBKGND => 1,
@@ -194,7 +242,7 @@ unsafe extern "system" fn procedure(
         return DefWindowProcW(hwnd, message, wparam, lparam);
     };
     match message {
-        UPDATE | WM_TIMER => {
+        UPDATE | WM_TIMER | shell_events::WAKE => {
             if message == UPDATE {
                 if window.service.requested.load(Ordering::Relaxed) {
                     SetTimer(hwnd, 1, 100, None);
@@ -202,7 +250,10 @@ unsafe extern "system" fn procedure(
                     KillTimer(hwnd, 1);
                 }
             }
-            window.update(hwnd);
+            window.update(
+                hwnd,
+                (message == shell_events::WAKE).then_some((wparam as u32, lparam as u32)),
+            );
             0
         }
         WM_PAINT => {
@@ -289,14 +340,39 @@ impl Window {
                     );
                 }
                 self.paint_failed = true;
-                self.hide(hwnd);
+                self.hide(hwnd, Visibility::PaintFailed);
                 self.service.publish(DisplayStatus::ShellUnavailable);
                 false
             }
         }
     }
 
-    unsafe fn hide(&mut self, hwnd: HWND) {
+    unsafe fn record_visibility(&mut self, state: Visibility) {
+        if self.visibility != Some(state) {
+            let foreground = GetForegroundWindow();
+            let mut class = [0u16; 256];
+            let length =
+                GetClassNameW(foreground, class.as_mut_ptr(), class.len() as i32).max(0) as usize;
+            let mut frame = RECT::default();
+            let has_frame = GetWindowRect(foreground, &mut frame) != 0;
+            log::info!(
+                "resident_taskbar_visibility previous={:?} current={state:?} foreground={foreground:?} class={} style={:#x} maximized={} frame_available={has_frame} frame=({},{},{},{}) bounds={:?}",
+                self.visibility,
+                mangodisk_platform::diagnostics::text(&String::from_utf16_lossy(&class[..length])),
+                GetWindowLongPtrW(foreground, GWL_STYLE),
+                IsZoomed(foreground) != 0,
+                frame.left, frame.top, frame.right, frame.bottom,
+                self.bounds
+            );
+            self.visibility = Some(state);
+        }
+    }
+
+    unsafe fn hide(&mut self, hwnd: HWND, reason: Visibility) {
+        // A new hide reason ends the previous placement attempt, so a later
+        // fullscreen exit receives its own bounded retry window.
+        self.occlusion_retry = OcclusionRetry::default();
+        self.record_visibility(reason);
         // Explorer can restore an owned popup independently of our cache.
         // Reconcile actual visibility so fullscreen/auto-hide stays respected.
         if self.visible || IsWindowVisible(hwnd) != 0 {
@@ -309,9 +385,45 @@ impl Window {
             .unwrap_or_else(|e| e.into_inner())
             .clear();
     }
-    unsafe fn update(&mut self, hwnd: HWND) {
+    unsafe fn record_native_state(&mut self, hwnd: HWND) {
+        if self.visibility != Some(Visibility::Visible) {
+            self.native_state = None;
+            return;
+        }
+        // IsWindowVisible alone misses shell composition suppression. Read the
+        // native flags while display is expected, logging only changes/anomalies.
+        let mut cloaked = 0u32;
+        let result = DwmGetWindowAttribute(
+            hwnd,
+            DWMWA_CLOAKED as _,
+            (&mut cloaked as *mut u32).cast(),
+            std::mem::size_of_val(&cloaked) as _,
+        );
+        let state = NativeState {
+            visible: IsWindowVisible(hwnd) != 0,
+            minimized: IsIconic(hwnd) != 0,
+            cloaked: if result < 0 { Err(result) } else { Ok(cloaked) },
+        };
+        if self.native_state != Some(state) {
+            if self.native_state.is_some()
+                || !state.visible
+                || state.minimized
+                || state.cloaked != Ok(0)
+            {
+                log::info!(
+                    "resident_taskbar_native_state previous={:?} current={state:?} foreground={:?}",
+                    self.native_state,
+                    GetForegroundWindow()
+                );
+            }
+            self.native_state = Some(state);
+        }
+    }
+
+    unsafe fn update(&mut self, hwnd: HWND, event: Option<(u32, u32)>) {
+        self.record_native_state(hwnd);
         if !self.service.requested.load(Ordering::Relaxed) {
-            self.hide(hwnd);
+            self.hide(hwnd, Visibility::Disabled);
             self.service.publish(DisplayStatus::Tray);
             return;
         }
@@ -323,12 +435,12 @@ impl Window {
             .clone();
         let Some(geometry) = geometry.filter(|g| g.sampled.elapsed() < Duration::from_secs(3))
         else {
-            self.hide(hwnd);
+            self.hide(hwnd, Visibility::GeometryUnavailable);
             self.service.publish(DisplayStatus::ShellUnavailable);
             return;
         };
         if geometry.hidden {
-            self.hide(hwnd);
+            self.hide(hwnd, Visibility::AutoHidden);
             self.service.publish(DisplayStatus::Taskbar);
             return;
         }
@@ -340,7 +452,7 @@ impl Window {
             .clone();
         let columns = presentation::columns(&model.entries, geometry.dpi, model.compact);
         let Some(surface) = Surface::arrange(&columns, geometry.bar, geometry.dpi) else {
-            self.hide(hwnd);
+            self.hide(hwnd, Visibility::UnsupportedLayout);
             self.service.publish(DisplayStatus::UnsupportedLayout);
             return;
         };
@@ -365,7 +477,7 @@ impl Window {
             edge,
             model.position == crate::resident::preference_schema::TaskbarPosition::Auto,
         ) else {
-            self.hide(hwnd);
+            self.hide(hwnd, Visibility::NoSpace);
             self.service.publish(DisplayStatus::NoSpace);
             return;
         };
@@ -416,7 +528,7 @@ impl Window {
         self.dpi = geometry.dpi;
         let shell = geometry.shell as HWND;
         if IsWindow(shell) == 0 {
-            self.hide(hwnd);
+            self.hide(hwnd, Visibility::ShellUnavailable);
             self.service.publish(DisplayStatus::ShellUnavailable);
             return;
         }
@@ -444,44 +556,82 @@ impl Window {
         if self.foreground != foreground as usize {
             self.foreground = foreground as usize;
             self.shell_flyout = is_shell_flyout(foreground);
+            self.flyout_yield = None;
+            self.shell_desktop = is_shell_desktop(foreground, shell);
         }
-        // System flyouts have their own activation/stacking rules. Yield the
-        // strip while they are open rather than opening a panel behind them or
-        // forcing input queues together. Restore the strip on normal foreground.
+        let mut front = RECT::default();
+        let front_available = !foreground.is_null() && GetWindowRect(foreground, &mut front) != 0;
+        let front_bounds = Bounds {
+            left: front.left,
+            top: front.top,
+            right: front.right,
+            bottom: front.bottom,
+        };
+        // Shell menus do not require hiding an unrelated part of the taskbar.
+        // Recheck geometry on every update: the same menu handle is reused and
+        // can move during animation. Unknown/overlapping bounds still yield to
+        // the shell; positioning below preserves the owner's order and focus.
         if self.shell_flyout {
-            self.hide(hwnd);
-            self.service.publish(DisplayStatus::Taskbar);
-            return;
+            let yield_to_menu =
+                visibility::should_yield_to_flyout(bounds, front_available.then_some(front_bounds));
+            if self.flyout_yield != Some(yield_to_menu) {
+                log::info!("resident_taskbar_shell_flyout yield_to_menu={yield_to_menu} foreground={foreground:?} frame_available={front_available} frame={front_bounds:?} bounds={bounds:?}");
+                self.flyout_yield = Some(yield_to_menu);
+            }
+            if yield_to_menu {
+                self.hide(hwnd, Visibility::ShellFlyout);
+                self.service.publish(DisplayStatus::Taskbar);
+                return;
+            }
         }
         if GetWindowLongPtrW(hwnd, GWLP_HWNDPARENT) != shell as isize {
             DestroyWindow(hwnd);
             return;
         }
-        let mut front = RECT::default();
-        // A maximized window extends to the screen edge when auto-hide is enabled;
-        // it must not be mistaken for fullscreen while the user reveals the bar.
-        let covered = IsZoomed(foreground) == 0
-            && foreground != GetShellWindow()
+        let covered = foreground != GetShellWindow()
+            && !self.shell_desktop
             && foreground != hwnd
             && foreground != shell
             && !foreground.is_null()
-            && GetWindowRect(foreground, &mut front) != 0
-            && front.left <= bounds.left
-            && front.right >= bounds.right
-            && front.top <= bounds.top
-            && front.bottom >= bounds.bottom;
-        if shell_moved || !inside || IsWindowVisible(shell) == 0 || covered {
-            self.hide(hwnd);
+            && front_available
+            && visibility::is_fullscreen(
+                front_bounds,
+                Bounds {
+                    left: info.rcMonitor.left,
+                    top: info.rcMonitor.top,
+                    right: info.rcMonitor.right,
+                    bottom: info.rcMonitor.bottom,
+                },
+                GetWindowLongPtrW(foreground, GWL_STYLE) & (WS_DLGFRAME | WS_THICKFRAME) as isize
+                    != 0,
+                IsZoomed(foreground) != 0,
+            );
+        let hidden = if shell_moved {
+            Some(Visibility::ShellMoving)
+        } else if !inside || IsWindowVisible(shell) == 0 {
+            Some(Visibility::AutoHidden)
+        } else if covered {
+            Some(Visibility::Fullscreen)
+        } else {
+            None
+        };
+        if let Some(reason) = hidden {
+            self.hide(hwnd, reason);
             self.service.publish(DisplayStatus::Taskbar);
             return;
         }
-        // Ownership maintains shell-relative order without repeatedly lifting
-        // native shell menus. Repair only a lost topmost state.
+        // A topmost style does not prove that Explorer is below us. Restore
+        // ordering after fullscreen/activation changes, including an externally
+        // hidden owned popup. Never raise the shell owner along with this surface.
+        let restoring = !self.visible || IsWindowVisible(hwnd) == 0;
         let needs_topmost = GetWindowLongPtrW(hwnd, GWL_EXSTYLE) & WS_EX_TOPMOST as isize == 0;
-        if changed || !self.visible || IsWindowVisible(hwnd) == 0 || needs_topmost {
+        let hit = WindowFromPoint(center);
+        let shell_covers = !hit.is_null() && GetAncestor(hit, GA_ROOT) == shell;
+        let repair_order = restoring || needs_topmost || shell_covers;
+        if changed || repair_order {
             let positioned = SetWindowPos(
                 hwnd,
-                if needs_topmost {
+                if repair_order {
                     HWND_TOPMOST
                 } else {
                     ptr::null_mut()
@@ -490,7 +640,10 @@ impl Window {
                 bounds.top,
                 bounds.width(),
                 bounds.height(),
-                SWP_NOACTIVATE | SWP_SHOWWINDOW | if needs_topmost { 0 } else { SWP_NOZORDER },
+                SWP_NOACTIVATE
+                    | SWP_NOOWNERZORDER
+                    | SWP_SHOWWINDOW
+                    | if repair_order { 0 } else { SWP_NOZORDER },
             );
             let position_error = if positioned == 0 { GetLastError() } else { 0 };
             // Window regions do not resize with SetWindowPos. Update the shape before
@@ -513,19 +666,60 @@ impl Window {
             if !self.background && !self.paint_transparent(hwnd) {
                 return;
             }
+            if restoring && positioned != 0 {
+                // Explicitly undo an owner-driven hide after sizing and painting,
+                // so restoration cannot expose the old geometry or empty pixels.
+                ShowWindow(hwnd, SW_SHOWNOACTIVATE);
+            }
             let topmost = GetWindowLongPtrW(hwnd, GWL_EXSTYLE) & WS_EX_TOPMOST as isize != 0;
             let surface = WindowFromPoint(center);
             let shell_still_covers = !surface.is_null() && GetAncestor(surface, GA_ROOT) == shell;
             if positioned == 0 || !topmost || shell_still_covers {
+                if self.occlusion_retry.defer(
+                    std::time::Instant::now(),
+                    positioned != 0 && topmost && shell_still_covers && !self.position_failed,
+                ) {
+                    // Do not hide a window that Explorer is still revealing or
+                    // toggle tray fallback during its animation. Retry on the
+                    // next timer tick, without exposing stale panel hit targets.
+                    self.visible = false;
+                    self.service
+                        .bounds
+                        .lock()
+                        .unwrap_or_else(|e| e.into_inner())
+                        .clear();
+                    return;
+                }
                 if !self.position_failed {
                     log::warn!(
-                        "resident_taskbar_native_failed stage=position code={position_error} topmost={topmost} shell_covers={shell_still_covers}"
+                        "resident_taskbar_position_failed api_succeeded={} code={position_error} topmost={topmost} shell_covers={shell_still_covers} restoring={restoring} foreground={foreground:?} shell={shell:?}",
+                        positioned != 0
                     );
                 }
                 self.position_failed = true;
-                self.hide(hwnd);
+                self.hide(hwnd, Visibility::PositionFailed);
                 self.service.publish(DisplayStatus::ShellUnavailable);
                 return;
+            }
+            if repair_order && self.visibility == Some(Visibility::Visible) {
+                let source = match event {
+                    Some((_, EVENT_SYSTEM_FOREGROUND)) => "foreground",
+                    Some(_) => "desktop_reorder",
+                    None => "poll",
+                };
+                let event_delay_ms = event.map(|(time, _)| {
+                    windows_sys::Win32::System::SystemInformation::GetTickCount().wrapping_sub(time)
+                });
+                log::info!("resident_taskbar_order_restored source={source} event_delay_ms={event_delay_ms:?} restoring={restoring} topmost_missing={needs_topmost} shell_covers={shell_covers} foreground={foreground:?}");
+            }
+            if let Some(elapsed) = self.occlusion_retry.finish(std::time::Instant::now()) {
+                log::info!(
+                    "resident_taskbar_position_settled elapsed_ms={} foreground={foreground:?} shell={shell:?}",
+                    elapsed.as_millis()
+                );
+            }
+            if self.position_failed {
+                log::info!("resident_taskbar_position_recovered");
             }
             self.position_failed = false;
             InvalidateRect(hwnd, ptr::null(), 0);
@@ -551,6 +745,7 @@ impl Window {
                 )
             })
             .collect();
+        self.record_visibility(Visibility::Visible);
         self.update_hover(hwnd);
         self.service.publish(DisplayStatus::Taskbar);
     }
@@ -612,6 +807,23 @@ impl Window {
             _ => {}
         }
     }
+}
+
+/// The shell desktop is not necessarily GetShellWindow(): Windows 10 commonly
+/// activates a full-monitor WorkerW when the user clicks the wallpaper. Resolve
+/// its class and shell ownership together, once per foreground-window change.
+unsafe fn is_shell_desktop(hwnd: HWND, shell: HWND) -> bool {
+    let mut process_id = 0;
+    let mut shell_process_id = 0;
+    GetWindowThreadProcessId(hwnd, &mut process_id);
+    GetWindowThreadProcessId(shell, &mut shell_process_id);
+    let mut class = [0u16; 256];
+    let length = GetClassNameW(hwnd, class.as_mut_ptr(), class.len() as i32).max(0) as usize;
+    visibility::is_shell_desktop(
+        &String::from_utf16_lossy(&class[..length]),
+        process_id,
+        shell_process_id,
+    )
 }
 
 /// Classify only the foreground process, once per foreground-window change.

@@ -139,9 +139,14 @@ Win32 window beside taskbar controls. The window is not parented to Explorer and
 does not resize Explorer children, reserve shell space or alter process DPI.
 A top-level owner relationship is established at window creation. The native
 surface is recreated after Explorer restarts; no WebView or sampler is recreated.
-Z-order is repaired only when its topmost state is lost, so routine updates do
-not raise the taskbar over native shell menus. Positioning checks actual shell
+Z-order is repaired when restoring visibility, losing topmost state, or detecting
+shell occlusion. Repairs preserve the owner's position so they do not raise the
+taskbar over native shell menus. Positioning checks actual shell
 occlusion as well as the API result before hiding the fallback tray entries.
+Successful positioning that is briefly covered by Explorer receives up to 300 ms
+of timer-driven retries before tray fallback. Native errors still fail immediately.
+Recovery within that interval logs one settlement event with elapsed time; it does
+not hide the surface or switch tray modes during the shell animation.
 The primary taskbar supports all four screen edges. Horizontal bars use columns;
 vertical bars stack cells and split network values/units into four lines. Painting,
 hit testing and panel anchors share these rectangles. Window regions are resized
@@ -154,7 +159,14 @@ A dedicated MTA thread reads cached UI Automation control bounds once per second
 While the taskbar is offscreen, it checks only its bounds every 200 ms and skips
 UI Automation; this normal auto-hide state does not activate tray fallback.
 A separate native window thread handles input, paints a small GDI backbuffer and
-checks visibility every 100 ms while enabled. Geometry older than three seconds
+checks visibility every 100 ms while enabled. Out-of-context foreground and desktop
+reorder notifications also wake that same check immediately, reducing the interval
+in which Explorer covers the surface during Show Desktop/restore. Notifications
+are coalesced, child-control reorders and our own thread are excluded, and hooks
+are removed before recreating the native window. Subscription failure retains the
+timer fallback. Recovery logs identify the trigger and notification delay; native
+visibility, minimization and DWM cloaking diagnostics record state changes only.
+Geometry older than three seconds
 is rejected. Shell calls cannot block Tauri's event loop or resource samplers.
 Model updates replace one bounded snapshot, and GDI objects are released after
 painting. Disabled taskbar presentation stops the window timer. The shell query
@@ -169,12 +181,25 @@ margin instead of following centered task buttons. No system control is moved to
 manufacture space. A changed
 shell layout is detected on the next inspection; no undocumented taskbar-width
 mutation is used. Temporary fullscreen/auto-hide visibility differs from a layout
-failure, which activates tray fallback. Native status transitions and query stages
-are logged without collecting control names or application titles.
+failure, which activates tray fallback. Fullscreen detection requires a foreground
+window covering the taskbar's entire monitor. Frameless windows may retain their
+maximized flag, as browsers do. A non-maximized window whose outer bounds exactly
+match the monitor is also accepted even if resize styles remain, as in WPS.
+A framed maximized window with an auto-hidden taskbar is not classified as
+fullscreen. Explorer's WorkerW and Progman desktop
+hosts are excluded by class and shell process identity: clicking the wallpaper
+must not hide the strip just because the desktop covers the monitor.
+Visibility transitions log their reason,
+foreground window class/style/rectangle, and monitor-strip bounds; unchanged polls
+do not repeat these messages. Position failures distinguish native API failure
+from successful calls whose resulting window is still covered. No control names
+or application titles are collected.
 
-Start, Search and Quick Settings temporarily hide the strip while their shell
-process owns foreground; closing the system flyout restores it. This avoids
-forcing focus away from protected shell surfaces or leaving our panel behind them.
+Foreground shell menus (including taskbar app menus, Start, Search and Quick
+Settings) hide the strip only when their bounds overlap it or cannot yet be
+measured (including 1px shell placeholders). Non-overlapping menus leave it visible without activating the strip
+or raising its owner. Bounds are rechecked during menu animations, while the
+yield decision is logged only on foreground/decision changes.
 Foreground executable names are checked only when the foreground window changes;
 paths are never logged. Ordinary clicks use the existing focused detail panel,
 anchored to the clicked column; a second click toggles it closed. The product
