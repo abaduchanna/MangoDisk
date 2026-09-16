@@ -359,7 +359,7 @@ describe('status display interactions', () => {
       expect.objectContaining({ networkInterface: 'wifi' })
     );
     expect(network.attributes('aria-expanded')).toBe('false');
-    expect(network.attributes('title')).toBe('Wi-Fi');
+    expect(wrapper.get('[data-metric="network"]').getComponent({ name: 'MdTooltip' }).props('text')).toBe('Wi-Fi');
     expect(network.text()).toBe('Wi-Fi');
     await wrapper.get('#status-network').setValue(false);
     await flushPromises();
@@ -455,7 +455,7 @@ describe('status display interactions', () => {
     wrappers.push(wrapper);
     await flushPromises();
     await openConfiguration(wrapper);
-    expect(wrapper.get('[data-metric="network"] .selection-toggle').attributes('title')).toBe(
+    expect(wrapper.get('[data-metric="network"]').getComponent({ name: 'MdTooltip' }).props('text')).toBe(
       'systemStatus.savedDisconnected'
     );
     expect(ResidentService.savePreferences).not.toHaveBeenCalled();
@@ -483,13 +483,15 @@ describe('status display interactions', () => {
     wrappers.push(wrapper);
     await flushPromises();
     await openConfiguration(wrapper);
-    expect(wrapper.get('[data-metric="network"] .selection-toggle').attributes('title')).toBe('Automatic');
-    expect(wrapper.get('[data-metric="disk"] .selection-toggle').attributes('title')).toBe('System disk');
+    expect(wrapper.get('[data-metric="network"]').getComponent({ name: 'MdTooltip' }).props('text')).toBe('Automatic');
+    expect(wrapper.get('[data-metric="disk"]').getComponent({ name: 'MdTooltip' }).props('text')).toBe('System disk');
 
     i18n.global.locale.value = 'ja';
     await flushPromises();
-    expect(wrapper.get('[data-metric="network"] .selection-toggle').attributes('title')).toBe('自動選択');
-    expect(wrapper.get('[data-metric="disk"] .selection-toggle').attributes('title')).toBe('システムディスク');
+    expect(wrapper.get('[data-metric="network"]').getComponent({ name: 'MdTooltip' }).props('text')).toBe('自動選択');
+    expect(wrapper.get('[data-metric="disk"]').getComponent({ name: 'MdTooltip' }).props('text')).toBe(
+      'システムディスク'
+    );
     expect(ResidentService.savePreferences).not.toHaveBeenCalled();
   });
 });

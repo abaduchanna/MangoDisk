@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import MdTooltip from '@/components/custom/md-tooltip.vue';
 import { METRIC_LABEL_KEYS } from '@/lib/models/system-resources';
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue';
 import { useI18n } from 'vue-i18n';
@@ -472,25 +473,25 @@ onBeforeUnmount(() => {
                         "
                       >
                         <SelectTrigger as-child>
-                          <button
-                            type="button"
-                            class="selection-toggle"
-                            :aria-label="
-                              row.id === 'network'
-                                ? `${t('systemStatus.interface')}: ${selectedInterfaceLabel}`
-                                : `${t('systemStatus.volume')}: ${selectedVolumeLabel}`
-                            "
-                            :title="row.id === 'network' ? selectedInterfaceLabel : selectedVolumeLabel"
-                          >
-                            <span class="truncate">{{
-                              row.id === 'network' ? selectedInterfaceLabel : selectedVolumeLabel
-                            }}</span>
-                            <MdIcon
-                              :name="expandedSelection === row.id ? ICON_NAMES.chevronUp : ICON_NAMES.chevronDown"
-                              :size="14"
-                              class="shrink-0"
-                            />
-                          </button>
+                          <MdTooltip :text="row.id === 'network' ? selectedInterfaceLabel : selectedVolumeLabel"
+                            ><button
+                              type="button"
+                              class="selection-toggle"
+                              :aria-label="
+                                row.id === 'network'
+                                  ? `${t('systemStatus.interface')}: ${selectedInterfaceLabel}`
+                                  : `${t('systemStatus.volume')}: ${selectedVolumeLabel}`
+                              "
+                            >
+                              <span class="truncate">{{
+                                row.id === 'network' ? selectedInterfaceLabel : selectedVolumeLabel
+                              }}</span>
+                              <MdIcon
+                                :name="expandedSelection === row.id ? ICON_NAMES.chevronUp : ICON_NAMES.chevronDown"
+                                :size="14"
+                                class="shrink-0"
+                              /></button
+                          ></MdTooltip>
                         </SelectTrigger>
                         <SelectContent align="end" class="max-w-[min(20rem,calc(100vw-2rem))]">
                           <template v-if="row.id === 'network'">

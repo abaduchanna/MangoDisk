@@ -46,6 +46,7 @@ Pages may present several domains together, but shared product orchestration mus
 - Buttons and hover states must not translate, scale, or change layout dimensions. Use color, border, or shadow feedback that cannot cause page movement.
 - Keep page headers and content-height behavior consistent through project-owned shell components.
 - Use `MdSettingsGroup` and `MdSettingsRow` for settings-page groups and rows. These components own spacing, alignment, typography, responsive controls, and hover/focus feedback; callers own business state and actions.
+- Use Shadcn-Vue Tooltip (or `MdTooltip`) for hints; do not use native HTML `title` attributes. Component title props for visible headings are unrelated.
 - Never place raw SVG markup in a template. Add or reuse a component under `components/icons/`.
 
 ## Validation

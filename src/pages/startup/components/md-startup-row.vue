@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import MdTooltip from '@/components/custom/md-tooltip.vue';
 import { computed } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { useAiStore } from '@/stores/ai-store';
@@ -105,7 +106,9 @@ function localizedDiagnostics(artifact: StartupArtifact): string {
         >
           <MdApplicationIcon :src="iconSrc" :platform="isWindows ? 'windowsRegistry' : 'macosBundle'" :size="40" />
           <span class="startup-identity">
-            <strong class="md-result-primary" :title="group.name">{{ group.name }}</strong>
+            <MdTooltip :text="group.name"
+              ><strong class="md-result-primary">{{ group.name }}</strong></MdTooltip
+            >
           </span>
         </button>
 
@@ -140,13 +143,13 @@ function localizedDiagnostics(artifact: StartupArtifact): string {
         </span>
 
         <span class="startup-source-slot">
-          <MdStatusBadge
+          <MdTooltip
             v-if="sourceKinds.length"
-            size="compact"
-            :title="sourceKinds.length === 1 ? t(`startup.sourceKinds.${sourceKinds[0]}`) : t('startup.mixedSources')"
+            :text="sourceKinds.length === 1 ? t(`startup.sourceKinds.${sourceKinds[0]}`) : t('startup.mixedSources')"
+            ><MdStatusBadge size="compact">
+              {{ sourceKinds.length === 1 ? t(`startup.sourceKinds.${sourceKinds[0]}`) : t('startup.mixedSources') }}
+            </MdStatusBadge></MdTooltip
           >
-            {{ sourceKinds.length === 1 ? t(`startup.sourceKinds.${sourceKinds[0]}`) : t('startup.mixedSources') }}
-          </MdStatusBadge>
         </span>
         <!-- Reserve the count slot so single and grouped rows keep their controls aligned. -->
         <span class="startup-item-count">
@@ -318,9 +321,11 @@ function localizedDiagnostics(artifact: StartupArtifact): string {
             <div v-if="artifact.configurationPath" class="startup-detail-row">
               <dt>{{ t('startup.detail.configuration') }}</dt>
               <dd class="startup-target-value">
-                <span class="startup-target-text" :title="artifact.configurationPath">
-                  {{ artifact.configurationPath }}
-                </span>
+                <MdTooltip :text="artifact.configurationPath"
+                  ><span class="startup-target-text">
+                    {{ artifact.configurationPath }}
+                  </span></MdTooltip
+                >
                 <span class="startup-target-actions">
                   <MdIconAction
                     variant="ghost"
@@ -354,9 +359,11 @@ function localizedDiagnostics(artifact: StartupArtifact): string {
             <div class="startup-detail-row">
               <dt>{{ t('startup.detail.command') }}</dt>
               <dd class="startup-target-value">
-                <span class="startup-target-text" :title="targetCommand(artifact) || undefined">
-                  {{ targetCommand(artifact) || '—' }}
-                </span>
+                <MdTooltip :text="targetCommand(artifact) || undefined"
+                  ><span class="startup-target-text">
+                    {{ targetCommand(artifact) || '—' }}
+                  </span></MdTooltip
+                >
                 <span v-if="targetCommand(artifact)" class="startup-target-actions">
                   <MdIconAction
                     v-if="!hasMultipleArtifacts && startupArtifactRevealPath(artifact) && !artifact.configurationPath"

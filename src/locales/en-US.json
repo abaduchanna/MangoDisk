@@ -2345,7 +2345,7 @@
       "limited": "Access limited"
     },
     "feedbackTitle": "Feedback",
-    "feedbackDescription": "Send an issue or suggestion with optional screenshots and diagnostic logs",
+    "feedbackDescription": "We’d love to hear how we can make MangoDisk better",
     "feedbackAction": "Submit Feedback",
     "feedbackDialog": {
       "title": "Send Feedback",

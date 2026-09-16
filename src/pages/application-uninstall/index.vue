@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import MdTooltip from '@/components/custom/md-tooltip.vue';
 import { computed, nextTick, onBeforeUnmount, ref, watch } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { toast } from 'vue-sonner';
@@ -987,7 +988,9 @@ function confirmCancelExecution() {
             <i v-else />
           </span>
           <span class="uninstall-execution-copy">
-            <strong :title="item.name">{{ item.name }}</strong>
+            <MdTooltip :text="item.name"
+              ><strong>{{ item.name }}</strong></MdTooltip
+            >
             <small>{{ item.detail }}</small>
           </span>
           <small class="uninstall-execution-item-label">{{ item.statusLabel }}</small>
