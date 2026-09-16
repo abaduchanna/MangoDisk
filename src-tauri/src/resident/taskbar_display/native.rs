@@ -27,7 +27,9 @@ use windows_sys::{
         Foundation::*,
         Graphics::Gdi::*,
         System::{SystemInformation::GetWindowsDirectoryW, Threading::*},
-        UI::{HiDpi::*, WindowsAndMessaging::*},
+        UI::{
+            Controls::WM_MOUSELEAVE, HiDpi::*, Input::KeyboardAndMouse::*, WindowsAndMessaging::*,
+        },
     },
 };
 pub const UPDATE: u32 = WM_APP + 71;
@@ -266,6 +268,7 @@ unsafe extern "system" fn procedure(
             | shell_events::WAKE
             | WM_PAINT
             | WM_MOUSEMOVE
+            | WM_MOUSELEAVE
             | WM_LBUTTONUP
             | WM_RBUTTONUP
             | WM_CONTEXTMENU
@@ -316,7 +319,23 @@ unsafe extern "system" fn procedure(
             0
         }
         WM_MOUSEMOVE => {
+            let mut tracking = TRACKMOUSEEVENT {
+                cbSize: std::mem::size_of::<TRACKMOUSEEVENT>() as u32,
+                dwFlags: TME_LEAVE,
+                hwndTrack: hwnd,
+                dwHoverTime: 0,
+            };
+            TrackMouseEvent(&mut tracking);
             window.update_hover(hwnd);
+            0
+        }
+        WM_MOUSELEAVE => {
+            window.hover = None;
+            InvalidateRect(hwnd, ptr::null(), 0);
+            let app = window.service.app.clone();
+            // Match notification-area leave handling after an abandoned press.
+            // Dispatch outside this native callback to avoid WebView reentrancy.
+            tauri::async_runtime::spawn(async move { panel::tray_pointer_left(&app) });
             0
         }
         WM_LBUTTONUP => {
