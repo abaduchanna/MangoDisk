@@ -291,3 +291,31 @@ Disk capacity belongs to the selected volume. Disk activity is explicitly system
 `resident_disk_io_state` records capability/freshness transitions and scope; failures log typed codes without device identities. Sampling durations join the bounded periodic summary. Closing the panel or entering Memory preserves disk activity demand and its baseline. Disabling resident mode stops the worker requests and discards the baseline. Healthy idle intervals remain zero-valued samples; unavailable intervals remain gaps.
 
 CPU baseline-only observations retain the last reading until its normal five-second expiry instead of clearing the chart. Recovery can bring forward at most two serialized queries by 250 ms, then returns to normal cadence until a valid interval is available. `resident_cpu_baseline` identifies first observations, invalid intervals, counter resets, and stalled counters; `resident_cpu_recovered` records bounded recovery attempts without raw counters or machine identifiers.
+
+## Memory release preferences
+
+On macOS and Windows, `memory-release.json` stores schema version 1 separately from display
+preferences. Unknown versions or malformed data disable automatic release and
+block writes rather than replacing the user's settings. Revision checks prevent
+the ranking shortcut and the settings window from overwriting each other's edits.
+
+Manual and scheduled release share one serialized action. On Windows, both honor
+executable-path exclusions. An exclusion covers all processes with the same executable image,
+including later restarts; it does not cover unrelated helper executables or stop
+Windows itself from reclaiming memory. Native identity is read from the opened
+process handle before trimming, and unreadable identities are skipped whenever
+exclusions are active. Automatic release can also skip the foreground image.
+
+New preferences default to a fifteen-minute interval with automatic release off.
+Accepted intervals are 3, 5, 15, 30, 60, and 120 minutes; existing saved choices
+remain unchanged.
+
+The desktop worker checks deadlines every five seconds, samples memory only when
+a check is due, and never accumulates missed checks. Settings changes, manual
+actions, sleep gaps, and clock discontinuities reset the interval. No service,
+elevation, or operating-system scheduled task is installed. macOS uses the same
+scheduler and settings entry point with its native volatile-memory operation;
+foreground-process skipping remains Windows-only because the macOS operation is
+global. macOS exposes only the timer and threshold; preferences containing an
+exclusion list or foreground skipping are rejected, never silently ignored.
+The separate settings window remains open when the monitor loses focus.

@@ -1,12 +1,12 @@
 <script setup lang="ts">
 import { Card } from '@/components/ui/card';
 
-defineProps<{ title: string }>();
+defineProps<{ title?: string }>();
 </script>
 
 <template>
   <section class="settings-section">
-    <h2>{{ title }}</h2>
+    <h2 v-if="title">{{ title }}</h2>
     <Card class="settings-list"><slot /></Card>
   </section>
 </template>
