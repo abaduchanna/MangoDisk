@@ -267,9 +267,14 @@ onBeforeUnmount(() => {
   @apply bg-background text-foreground;
   display: flex;
   flex-direction: column;
-  height: 100dvh;
+  /* Follow the WebView content bounds. Older WKWebView versions can size
+     dynamic viewport units beyond the visible native window content area. */
+  height: 100%;
+  min-height: 0;
+  overflow: hidden;
 }
 header {
+  flex: none;
   padding: 16px 18px;
   border-bottom: 1px solid var(--border);
 }
@@ -428,6 +433,7 @@ h2 span {
   font-size: 12px;
 }
 footer {
+  flex: none;
   display: flex;
   justify-content: flex-end;
   gap: 10px;
