@@ -21,6 +21,7 @@ import * as StartupCommandUtils from '@/lib/utils/startup-command';
 import {
   canManageStartupArtifact,
   isManualCleanupStartupArtifact,
+  isStaleMacOsLoginRecord,
   manualCleanupToolForStartupArtifacts,
   nextStartupDesiredState,
   startupArtifactRevealPath,
@@ -50,9 +51,10 @@ const emit = defineEmits<{
   toggleArtifact: [artifact: StartupArtifact];
   reveal: [path: string];
   copy: [request: { actionKey: string; value: string }];
-  openSystemSettings: [];
+  openSystemSettings: [artifacts: StartupArtifact[]];
   openWindowsTool: [tool: WindowsStartupTool];
   removeItems: [];
+  removeOrphans: [itemIds: string[]];
   explain: [name: string, artifacts: StartupArtifact[]];
 }>();
 const { locale, t } = useI18n({ useScope: 'global' });
@@ -72,6 +74,14 @@ const hasMultipleArtifacts = computed(() => props.artifacts.length > 1);
 const sourceKinds = computed(() => [...new Set(props.artifacts.map(artifact => artifact.sourceKind))]);
 const removableItems = computed(() => props.artifacts.filter(supportsStartupRemoval));
 const manualCleanupArtifacts = computed(() => props.artifacts.filter(isManualCleanupStartupArtifact));
+const hasStaleMacOsLoginRecord = computed(() => props.isMacOs && props.artifacts.some(isStaleMacOsLoginRecord));
+const removableLoginRecords = computed(() =>
+  props.isMacOs ? props.artifacts.filter(artifact => isStaleMacOsLoginRecord(artifact) && artifact.removableOrphan) : []
+);
+const hasUnsupportedLoginRecord = computed(
+  () =>
+    props.isMacOs && props.artifacts.some(artifact => isStaleMacOsLoginRecord(artifact) && !artifact.removalSupported)
+);
 const manualCleanupTool = computed<WindowsStartupTool | null>(() =>
   manualCleanupToolForStartupArtifacts(props.artifacts)
 );
@@ -88,8 +98,11 @@ function isCopied(artifact: StartupArtifact, field: 'configuration' | 'command')
   return props.copiedActionKey === copyActionKey(artifact, field);
 }
 
-function localizedDiagnostics(artifact: StartupArtifact): string {
-  return artifact.diagnostics.map(value => t(`startup.diagnostics.${value}`)).join(t('startup.valueSeparator'));
+function detailDiagnostics(artifact: StartupArtifact): string {
+  return artifact.diagnostics
+    .filter(value => !(props.isMacOs && isStaleMacOsLoginRecord(artifact) && value === 'missingTarget'))
+    .map(value => t(`startup.diagnostics.${value}`))
+    .join(t('startup.valueSeparator'));
 }
 </script>
 
@@ -194,11 +207,41 @@ function localizedDiagnostics(artifact: StartupArtifact): string {
 
     <div v-if="expanded" class="startup-details">
       <div
-        v-if="manualCleanupArtifacts.length || (!groupManageable && !removableItems.length)"
+        v-if="hasStaleMacOsLoginRecord || manualCleanupArtifacts.length || (!groupManageable && !removableItems.length)"
         class="startup-management-note"
+        :class="{ 'is-residual': hasStaleMacOsLoginRecord }"
       >
-        <span>
-          <MdIcon :name="ICON_NAMES.info" :size="15" />
+        <div v-if="hasStaleMacOsLoginRecord" class="startup-management-content">
+          <div class="startup-management-summary">
+            <MdIcon class="shrink-0" :name="ICON_NAMES.info" :size="15" />
+            <div>
+              <strong>{{ t('startup.cleanup.macOsLoginRecordTitle') }}</strong>
+              <p>
+                {{
+                  t(
+                    hasUnsupportedLoginRecord
+                      ? 'startup.cleanup.macOsLoginRecordGuidance'
+                      : 'startup.cleanup.macOsLoginRecordRemovable'
+                  )
+                }}
+              </p>
+            </div>
+          </div>
+          <details v-if="hasUnsupportedLoginRecord" class="startup-cleanup-help">
+            <summary>{{ t('startup.cleanup.macOsLoginRecordHelp.title') }}</summary>
+            <div class="startup-cleanup-instructions">
+              <p>{{ t('startup.cleanup.macOsLoginRecordHelp.find') }}</p>
+              <ul>
+                <li>{{ t('startup.cleanup.macOsLoginRecordHelp.loginItem') }}</li>
+                <li>{{ t('startup.cleanup.macOsLoginRecordHelp.backgroundItem') }}</li>
+              </ul>
+              <p>{{ t('startup.cleanup.macOsLoginRecordHelp.rescan') }}</p>
+              <p>{{ t('startup.cleanup.macOsLoginRecordHelp.settingsPath') }}</p>
+            </div>
+          </details>
+        </div>
+        <span v-else>
+          <MdIcon class="shrink-0" :name="ICON_NAMES.info" :size="15" />
           {{
             manualCleanupArtifacts.length
               ? t('startup.cleanup.manualGuidance')
@@ -210,11 +253,28 @@ function localizedDiagnostics(artifact: StartupArtifact): string {
           }}
         </span>
         <Button
-          v-if="isMacOs && systemManaged"
+          v-if="removableLoginRecords.length"
+          class="startup-cleanup-button"
+          variant="ghost"
+          size="sm"
+          type="button"
+          :disabled="busy"
+          @click="
+            emit(
+              'removeOrphans',
+              removableLoginRecords.map(artifact => artifact.itemId)
+            )
+          "
+        >
+          <MdIcon :name="ICON_NAMES.trash" :size="14" />
+          {{ t('startup.cleanup.removeLoginRecord') }}
+        </Button>
+        <Button
+          v-if="isMacOs && (hasUnsupportedLoginRecord || (systemManaged && !removableLoginRecords.length))"
           variant="outline"
           size="sm"
           type="button"
-          @click="emit('openSystemSettings')"
+          @click="emit('openSystemSettings', artifacts)"
         >
           <MdIcon :name="ICON_NAMES.external" :size="14" />
           {{ t('startup.detail.openLoginItemsSettings') }}
@@ -356,8 +416,20 @@ function localizedDiagnostics(artifact: StartupArtifact): string {
                 </span>
               </dd>
             </div>
+            <div v-else-if="isMacOs && isStaleMacOsLoginRecord(artifact)" class="startup-detail-row">
+              <dt>{{ t('startup.detail.configuration') }}</dt>
+              <dd class="startup-description">{{ t('startup.cleanup.macOsLoginRecordLocation') }}</dd>
+            </div>
             <div class="startup-detail-row">
-              <dt>{{ t('startup.detail.command') }}</dt>
+              <dt>
+                {{
+                  t(
+                    artifact.diagnostics.includes('missingTarget')
+                      ? 'startup.detail.missingTarget'
+                      : 'startup.detail.command'
+                  )
+                }}
+              </dt>
               <dd class="startup-target-value">
                 <MdTooltip :text="targetCommand(artifact) || undefined"
                   ><span class="startup-target-text">
@@ -410,9 +482,9 @@ function localizedDiagnostics(artifact: StartupArtifact): string {
               <dt>{{ t('startup.detail.modified') }}</dt>
               <dd>{{ FormatUtils.dateTime(artifact.modifiedAtMs, locale) }}</dd>
             </div>
-            <div v-if="artifact.diagnostics.length" class="startup-detail-row is-warning">
+            <div v-if="detailDiagnostics(artifact)" class="startup-detail-row is-warning">
               <dt>{{ t('startup.detail.diagnostics') }}</dt>
-              <dd>{{ localizedDiagnostics(artifact) }}</dd>
+              <dd>{{ detailDiagnostics(artifact) }}</dd>
             </div>
           </dl>
         </article>

@@ -1592,13 +1592,26 @@
       "openTools": {
         "services": "サービスを開く",
         "taskScheduler": "タスク スケジューラを開く"
+      },
+      "macOsLoginRecordTitle": "残存するログイン記録が見つかりました",
+      "macOsLoginRecordRemovable": "この記録を直接削除できます。アプリのファイルは削除されません",
+      "removeLoginRecord": "残存する記録を削除",
+      "macOsLoginRecordGuidance": "この記録は macOS のログイン項目で管理してください",
+      "macOsLoginRecordLocation": "macOS のログイン記録（個別の設定ファイルなし）",
+      "macOsLoginRecordHelp": {
+        "title": "対処方法",
+        "find": "ログイン項目の設定で、アプリ名または開発元名を探してください",
+        "loginItem": "ログイン時に開く：アプリを選択して「−」で削除",
+        "backgroundItem": "バックグラウンド動作：スイッチをオフにします。古い記録は残ることがあります",
+        "rescan": "操作後に MangoDisk に戻り、再スキャンしてください",
+        "settingsPath": "macOS 12：「ユーザとグループ」で「ログイン項目」をクリック。新しい OS では「ログイン項目」を検索できます"
       }
     },
     "detail": {
       "timing": "起動するタイミング",
       "description": "説明",
       "version": "バージョン",
-      "systemManaged": "この項目はシステムによって管理されています。システム設定の「ログイン項目と機能拡張」で変更できます",
+      "systemManaged": "macOS が管理する項目です。ログイン項目で変更できます",
       "viewOnly": "この項目は表示のみ可能で、MangoDisk から直接変更することはできません",
       "protectedService": "このサービスは Windows によって保護されているため、ここでは変更できません",
       "openLoginItemsSettings": "ログイン項目設定を開く",
@@ -1614,7 +1627,8 @@
       "runtime": "現在の実行状態",
       "trust": "デジタル署名",
       "modified": "設定の更新日時",
-      "diagnostics": "注意事項"
+      "diagnostics": "注意事項",
+      "missingTarget": "存在しない対象"
     }
   },
   "common": {

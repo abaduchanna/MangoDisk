@@ -1592,13 +1592,26 @@
       "openTools": {
         "services": "開啟服務",
         "taskScheduler": "開啟工作排程器"
+      },
+      "macOsLoginRecordTitle": "發現殘留登入記錄",
+      "macOsLoginRecordRemovable": "可直接刪除此記錄，不會刪除 App 檔案",
+      "removeLoginRecord": "刪除殘留記錄",
+      "macOsLoginRecordGuidance": "此記錄需在系統登入項目中處理",
+      "macOsLoginRecordLocation": "macOS 登入記錄（無獨立設定檔）",
+      "macOsLoginRecordHelp": {
+        "title": "處理方法",
+        "find": "在登入項目設定中，依 App 或開發者名稱尋找",
+        "loginItem": "登入時開啟：選取 App，按「−」移除",
+        "backgroundItem": "背景活動：關閉開關；舊記錄可能仍會保留",
+        "rescan": "處理後返回 MangoDisk，重新掃描",
+        "settingsPath": "macOS 12：在「使用者與群組」中點選「登入項目」；較新系統可搜尋「登入項目」"
       }
     },
     "detail": {
       "timing": "何時啟動",
       "description": "說明",
       "version": "版本",
-      "systemManaged": "此項目由系統管理，可前往系統設定中的「登入項目與延伸功能」進行變更",
+      "systemManaged": "此項目由系統管理，可在系統登入項目中更改",
       "viewOnly": "此項目僅供檢視，無法在 MangoDisk 中直接變更",
       "protectedService": "此服務受 Windows 保護，無法在此變更",
       "openLoginItemsSettings": "開啟登入項目設定",
@@ -1614,7 +1627,8 @@
       "runtime": "目前執行狀態",
       "trust": "數位簽章",
       "modified": "設定修改時間",
-      "diagnostics": "需要注意"
+      "diagnostics": "需要注意",
+      "missingTarget": "遺失的目標"
     }
   },
   "common": {

@@ -905,11 +905,12 @@ fn is_manual_cleanup_artifact(artifact: &super::StartupArtifact) -> bool {
         .diagnostics
         .contains(&StartupDiagnosticCode::MissingTarget)
         && !artifact.removal_supported
-        && !matches!(
-            artifact.control_capability,
-            super::StartupControlCapability::SystemManaged
-                | super::StartupControlCapability::PolicyManaged
-        )
+        && artifact.control_capability != super::StartupControlCapability::PolicyManaged
+        && (artifact.control_capability != super::StartupControlCapability::SystemManaged
+            || matches!(
+                artifact.source_kind,
+                super::StartupSourceKind::BackgroundTask | super::StartupSourceKind::LoginItem
+            ))
 }
 
 fn validate_selection(selection: &StartupChangeSelection) -> CoreResult<()> {
@@ -1180,6 +1181,49 @@ mod tests {
             startup_change_execution_path(&all_users_removal),
             "elevated_helper"
         );
+    }
+
+    #[test]
+    fn manual_cleanup_counts_include_legacy_login_records_without_unlocking_protected_items() {
+        use mangodisk_platform::{PlatformStartupCoverageStatus, PlatformStartupSourceKind};
+
+        for (kind, capability, expected) in [
+            (
+                PlatformStartupSourceKind::BackgroundTask,
+                PlatformStartupControlCapability::SystemManaged,
+                true,
+            ),
+            (
+                PlatformStartupSourceKind::LoginItem,
+                PlatformStartupControlCapability::SystemManaged,
+                true,
+            ),
+            (
+                PlatformStartupSourceKind::ScheduledTask,
+                PlatformStartupControlCapability::SystemManaged,
+                false,
+            ),
+            (
+                PlatformStartupSourceKind::LoginItem,
+                PlatformStartupControlCapability::PolicyManaged,
+                false,
+            ),
+        ] {
+            let mut item = test_artifact(capability, PlatformStartupConfiguredState::Disabled);
+            item.source_kind = kind;
+            item.diagnostics
+                .push(PlatformStartupDiagnosticCode::MissingTarget);
+            let catalog = aggregation::aggregate(vec![PlatformStartupSourceResult {
+                source_id: "test.login_records".to_owned(),
+                required: true,
+                status: PlatformStartupCoverageStatus::Complete,
+                reason: None,
+                items: vec![item],
+                elapsed_ms: 1,
+            }]);
+            assert_eq!(is_manual_cleanup_artifact(&catalog.artifacts[0]), expected);
+            assert!(!catalog.artifacts[0].removal_supported);
+        }
     }
 
     fn test_artifact(

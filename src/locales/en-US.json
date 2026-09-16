@@ -1592,13 +1592,26 @@
       "openTools": {
         "services": "Open Services",
         "taskScheduler": "Open Task Scheduler"
+      },
+      "macOsLoginRecordTitle": "Leftover login record found",
+      "macOsLoginRecordRemovable": "You can delete this record directly; app files will be kept",
+      "removeLoginRecord": "Delete leftover record",
+      "macOsLoginRecordGuidance": "Manage this record in macOS Login Items",
+      "macOsLoginRecordLocation": "macOS login record (no separate configuration file)",
+      "macOsLoginRecordHelp": {
+        "title": "How to handle this",
+        "find": "In Login Items settings, look for the app or developer name",
+        "loginItem": "Open at Login: select the app and click “−” to remove it",
+        "backgroundItem": "Background activity: turn off the switch; the old record may remain",
+        "rescan": "Return to MangoDisk and rescan afterward",
+        "settingsPath": "macOS 12: click Login Items in Users & Groups. On newer systems, search for Login Items"
       }
     },
     "detail": {
       "timing": "When it starts",
       "description": "Description",
       "version": "Version",
-      "systemManaged": "This item is managed by the system. Change it in Login Items & Extensions in System Settings",
+      "systemManaged": "macOS manages this item; you can change it in Login Items",
       "viewOnly": "This item can be viewed but cannot be changed directly in MangoDisk",
       "protectedService": "This service is protected by Windows and cannot be changed here",
       "openLoginItemsSettings": "Open Login Items Settings",
@@ -1614,7 +1627,8 @@
       "runtime": "Current runtime state",
       "trust": "Digital signature",
       "modified": "Configuration modified",
-      "diagnostics": "Needs attention"
+      "diagnostics": "Needs attention",
+      "missingTarget": "Missing target"
     }
   },
   "common": {

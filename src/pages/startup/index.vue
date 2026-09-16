@@ -442,9 +442,9 @@ async function openBackgroundTaskPrivacySettings(): Promise<boolean> {
   }
 }
 
-async function openLoginItemsSettings() {
+async function openLoginItemsSettings(artifacts: StartupArtifact[]) {
   try {
-    await MacOsSystemSettingsService.openLoginItems();
+    await MacOsSystemSettingsService.openLoginItems(artifacts);
   } catch (error) {
     emit('error', error);
   }
@@ -634,6 +634,7 @@ watch(
           @toggle-group="requestGroupChange(group)"
           @toggle-artifact="requestArtifactChange"
           @remove-items="requestStartupRemoval(group)"
+          @remove-orphans="requestChange($event, 'removed')"
           @reveal="emit('open', $event)"
           @copy="copyStartupValue"
           @open-system-settings="openLoginItemsSettings"

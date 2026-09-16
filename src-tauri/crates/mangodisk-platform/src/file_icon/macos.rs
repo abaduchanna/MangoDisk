@@ -7,7 +7,7 @@ use objc2::{
 };
 use objc2_app_kit::{NSBitmapImageFileType, NSBitmapImageRep, NSImage, NSWorkspace};
 use objc2_foundation::{NSDictionary, NSString};
-use objc2_uniform_type_identifiers::{UTType, UTTypeData, UTTypeFolder};
+use objc2_uniform_type_identifiers::{UTType, UTTypeApplicationBundle, UTTypeData, UTTypeFolder};
 
 use super::IconQuery;
 
@@ -73,6 +73,12 @@ fn content_type(query: &IconQuery) -> Option<Retained<UTType>> {
         // SAFETY: See the constant-lifetime explanation above.
         return Some(unsafe { UTTypeData.retain() });
     };
+    if extension == "app" {
+        // Extension lookup resolves .app to the legacy application-file type on
+        // macOS. Bundle identity selects the native grid placeholder used by Finder.
+        // SAFETY: This immutable constant is available on every supported macOS version.
+        return Some(unsafe { UTTypeApplicationBundle.retain() });
+    }
     UTType::typeWithFilenameExtension(&NSString::from_str(extension))
         // SAFETY: See the constant-lifetime explanation above.
         .or_else(|| Some(unsafe { UTTypeData.retain() }))
@@ -100,5 +106,22 @@ fn append_path_metadata(variant: &mut Vec<u8>, path: &Path) {
             variant.extend_from_slice(&duration.as_secs().to_le_bytes());
             variant.extend_from_slice(&duration.subsec_nanos().to_le_bytes());
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn generic_application_uses_bundle_type_instead_of_legacy_application_file() {
+        let query = IconQuery::Type {
+            key: "ext:app".to_string(),
+            extension: Some("app".to_string()),
+        };
+        assert_eq!(
+            content_type(&query).unwrap().identifier().to_string(),
+            "com.apple.application-bundle"
+        );
     }
 }
