@@ -49,7 +49,8 @@ Unknown persisted
 versions are rejected for writes. Memory snapshots and release results retain
 their separate version 1 contract.
 
-CPU samples every 2 seconds, memory every 3, network every 1 and disk every 30.
+CPU samples every second on Windows and every 2 seconds on macOS; memory
+samples every 3 seconds, network every 1 and disk every 30.
 Their freshness limits are respectively 5, 10, 5 and 90 seconds. All base metrics
 remain active while resident display is enabled, regardless of the selected native
 entries or panel visibility. Disabling resident mode stops periodic collection;
@@ -60,6 +61,25 @@ opening the overview does not enumerate processes. Reopening preserves the last
 selected tab within the application session; a new process defaults to overview.
 A different metric entry can navigate an already open panel.
 CPU and network require two valid observations; unavailable values remain `—`.
+Windows keeps one PDH query on its CPU worker and uses language-neutral
+`Processor Information(_Total)` counters. Windows 10 and older Windows 11
+builds use `% Processor Utility` (frequency-weighted capacity); Windows 11
+26100.3624 and later use `% Processor Time`, following the Task Manager change
+introduced by [KB5053656](https://support.microsoft.com/help/5053656).
+The update was a gradual rollout, so the build policy cannot detect every
+feature-flag state or guarantee identical samples across Task Manager versions.
+macOS retains its Mach aggregate tick source. PDH failures fall back to
+`GetSystemTimes`, explicitly log the source/stage/native code, and retry after
+30 seconds. Only valid intervals are published, and source switches reset tick
+baselines. Re-enabling monitoring or resuming after a long pause primes a new
+native interval. Percentages saturate at 100 for legitimate turbo utility;
+missing, negative and non-finite samples are never converted to idle zeros.
+`cpu_source_selected` records the version policy; source/recovery logs and
+one-minute `cpu_sample_summary` aggregates (including actual window duration)
+support user-log diagnosis without writing every sample at INFO. Summaries reset
+when sampling is interrupted or falls back, so resumed windows exclude old peaks.
+Independent refresh phases and averaging windows
+can still produce transient differences between the two applications.
 Each native trend retains at most 96 points over 80 seconds for the 60-second viewport. `observedAtMs` anchors the time
 axis even when the latest valid sample is older than the current snapshot.
 
