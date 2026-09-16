@@ -3,6 +3,8 @@ mod application_menu;
 mod commands;
 mod events;
 mod resident;
+#[cfg(windows)]
+pub use resident::taskbar_display::run_layout_helper_mode;
 mod services;
 mod webview_runtime;
 

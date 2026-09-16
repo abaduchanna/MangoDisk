@@ -1,5 +1,5 @@
 //! Out-of-context notifications wake the existing window thread; no Explorer
-//! injection or cross-thread UI calls are needed to repair transient stacking.
+//! injection or cross-thread UI calls are needed for prompt fullscreen checks.
 use std::{cell::Cell, ptr};
 use windows_sys::Win32::{
     Foundation::*,
@@ -13,13 +13,13 @@ thread_local! {
     static PENDING: Cell<bool> = const { Cell::new(false) };
 }
 
-pub struct Subscription([HWINEVENTHOOK; 2]);
+pub struct Subscription([HWINEVENTHOOK; 1]);
 
 impl Subscription {
     pub unsafe fn install(hwnd: HWND) -> Self {
         TARGET.set(hwnd);
         PENDING.set(false);
-        let hooks = [EVENT_SYSTEM_FOREGROUND, EVENT_OBJECT_REORDER].map(|event| {
+        let hooks = [EVENT_SYSTEM_FOREGROUND].map(|event| {
             let hook = SetWinEventHook(
                 event,
                 event,
@@ -59,22 +59,14 @@ pub fn dispatched() {
 unsafe extern "system" fn notify(
     _: HWINEVENTHOOK,
     event: u32,
-    hwnd: HWND,
-    object: i32,
+    _: HWND,
+    _: i32,
     _: i32,
     _: u32,
     time: u32,
 ) {
     let target = TARGET.get();
     if target.is_null() {
-        return;
-    }
-    // Child control reordering is unrelated to top-level shell stacking.
-    // Top-level reorder notifications name the desktop parent, not our popup.
-    // Windows 10 reports OBJID_CLIENT for that parent's top-level window list.
-    if event == EVENT_OBJECT_REORDER
-        && (hwnd != GetDesktopWindow() || !matches!(object, OBJID_WINDOW | OBJID_CLIENT))
-    {
         return;
     }
     if !PENDING.replace(true) && PostMessageW(target, WAKE, time as _, event as _) == 0 {
@@ -110,18 +102,8 @@ mod tests {
             let subscription = Subscription::install(hwnd);
             notify(
                 ptr::null_mut(),
-                EVENT_OBJECT_REORDER,
+                EVENT_SYSTEM_FOREGROUND,
                 hwnd,
-                OBJID_CLIENT,
-                0,
-                0,
-                1,
-            );
-            assert!(!PENDING.get(), "child reordering must not enqueue a wake");
-            notify(
-                ptr::null_mut(),
-                EVENT_OBJECT_REORDER,
-                GetDesktopWindow(),
                 OBJID_CLIENT,
                 0,
                 0,

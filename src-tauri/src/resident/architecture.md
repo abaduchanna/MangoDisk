@@ -14,7 +14,7 @@ application termination, or memory-reclamation algorithms.
 | `runtime` | Cached snapshots, status transitions and sampling coordination |
 | `presentation` | Bounded, coalesced visible-window publication and native display updates |
 | `tray_display` | Shared formatting, localization, native entries and Windows bitmap ownership |
-| `taskbar_display` | Windows native window, read-only shell geometry, placement, painting and fallback |
+| `taskbar_display` | Windows native window, shell geometry, task-button space lease, painting and fallback |
 | `preferences` / `preference_schema` | Version migration, revision conflicts, native application and persistence rollback |
 | `panel` / `main_window` | Independent presentation, source anchoring, focus and background-launch behavior |
 | Vue resident settings store | Serialized optimistic edits and rollback to committed preferences |
@@ -27,9 +27,12 @@ network and disk remain unselected. Windows starts in taskbar mode, preferring
 automatic placement with background enabled. Automatic placement prefers right on
 Windows 10, left on centered Windows 11 taskbars, and right on left-aligned ones.
 The existing shell inspection refreshes this decision every second; manual choices
-remain fixed. Manual placement stays in the outer gap on the requested side; if
-it cannot fit, tray fallback replaces jumping across the task buttons. Automatic
-placement may still use another fitting gap. Unknown environments prefer right,
+remain fixed. Windows 10 reserves the selected edge of its task-button container,
+so even uncombined application buttons leave room for the monitor. Windows 11
+reserves XAML space at the outer left edge for centered taskbars, beside Start
+for left-aligned taskbars, or after the application-button repeater, then
+returns that reserved slot directly, so centered buttons do not send the monitor
+to an unrelated outer gap. Unknown environments prefer right,
 and collision checks still apply. These defaults do not replace saved choices.
 
 Resident preferences use schema version 7; resource snapshots use version 3.
@@ -135,52 +138,79 @@ verify the native entry lifecycle.
 ## Optional Windows taskbar display
 
 Windows can show the same readings in either retained tray icons or one native
-Win32 window beside taskbar controls. The window is not parented to Explorer and
-does not resize Explorer children, reserve shell space or alter process DPI.
-A top-level owner relationship is established at window creation. The native
-surface is recreated after Explorer restarts; no WebView or sampler is recreated.
-Z-order is repaired when restoring visibility, losing topmost state, or detecting
-shell occlusion. Repairs preserve the owner's position so they do not raise the
-taskbar over native shell menus. Positioning checks actual shell
-occlusion as well as the API result before hiding the fallback tray entries.
-Successful positioning that is briefly covered by Explorer receives up to 300 ms
-of timer-driven retries before tray fallback. Native errors still fail immediately.
-Recovery within that interval logs one settlement event with elapsed time; it does
-not hide the surface or switch tray modes during the shell animation.
-The primary taskbar supports all four screen edges. Horizontal bars use columns;
+layered Win32 child of Explorer's taskbar: the Windows 10 rebar, or the
+Windows 11 taskbar itself. Only the native monitor surface is parented; main
+and detail WebViews remain independent. On Windows 10, an unelevated companion
+process reserves space by moving/shrinking `MSTaskSwWClass` within the rebar;
+Explorer still owns application-button layout and overflow. Closing the private
+stdin pipe releases this lease on disable, normal exit, or abrupt GUI-process exit.
+A session-local mutex serializes companion lifetimes, including restoration, so
+rapid disable/re-enable cannot overlap allocations. Restoration only touches the
+same shell process/control and our last applied axis; a newer Explorer layout wins.
+Cross-axis DPI changes preserve the current thickness while restoring our axis.
+The companion records reservation/restoration receipts in the existing log, even
+if the GUI has died. It is neither installed nor elevated and never starts Tauri.
+Its newline-delimited JSON protocol is version 1, rejects unknown fields/versions,
+and caps packets at 4 KiB. Only the discovered primary task-button HWND is accepted.
+On Windows 10, killing the companion itself (or the whole process tree) bypasses
+its cleanup; the HWND lease is not a persistent recovery journal. Windows 11 uses
+the same companion protocol with an embedded, architecture-matched C++/WinRT DLL.
+A temporary XAML diagnostics enumeration matches the island HWND to the primary
+Shell_TrayWnd and disconnects after obtaining weak references. Layout mutations
+stay on Explorer's UI thread. The active lease observes the companion process,
+so whole-process-tree termination also restores the XAML properties. An idle
+channel keeps only weak references and runs no timer. Its content-addressed DLL
+may remain mapped until Explorer exits; the per-user cache avoids locking update
+or uninstall files. A build-specific channel identity prevents reuse of old code.
+Old cache files are removed on a later startup when Explorer has released them.
+Windows builds require the MSVC C++/WinRT headers supplied with the Windows SDK.
+Child creation temporarily adopts the parent's per-monitor DPI context on the
+native thread, then restores the previous thread context. Process DPI is unchanged.
+The Windows manifest declares Windows 10/11 compatibility for layered children.
+The surface is recreated after Explorer restarts; no WebView or sampler is recreated.
+The OS handles top-level taskbar ordering and menu occlusion. Position changes
+order the child within its parent, without making it globally topmost.
+The Windows 10 primary taskbar supports all four screen edges; the Windows 11
+native taskbar uses its standard bottom edge. Horizontal bars use columns;
 vertical bars stack cells and split network values/units into four lines. Painting,
 hit testing and panel anchors share these rectangles. Window regions are resized
-before occlusion checks, since SetWindowPos does not resize a previous rounded
-region when switching orientation. Insufficient size or free
-space uses the existing tray entries and exposes a typed status to settings. The
+after positioning, since SetWindowPos does not resize a previous rounded
+region when switching orientation. Physically impossible surface sizes, unavailable
+shell capabilities, or physically unsupported monitor dimensions use the existing
+tray entries and expose a typed status to settings. The
 saved mode stays unchanged, so a usable layout can recover automatically.
 
 A dedicated MTA thread reads cached UI Automation control bounds once per second.
 While the taskbar is offscreen, it checks only its bounds every 200 ms and skips
 UI Automation; this normal auto-hide state does not activate tray fallback.
 A separate native window thread handles input, paints a small GDI backbuffer and
-checks visibility every 100 ms while enabled. Out-of-context foreground and desktop
-reorder notifications also wake that same check immediately, reducing the interval
-in which Explorer covers the surface during Show Desktop/restore. Notifications
-are coalesced, child-control reorders and our own thread are excluded, and hooks
-are removed before recreating the native window. Subscription failure retains the
-timer fallback. Recovery logs identify the trigger and notification delay; native
-visibility, minimization and DWM cloaking diagnostics record state changes only.
+checks visibility every 100 ms while enabled. Out-of-context foreground
+notifications also wake fullscreen checks immediately. Notifications are coalesced,
+our own thread is excluded, and hooks are removed before recreating the window.
+Subscription failure retains the timer fallback. No desktop-reorder hook or
+occlusion retry is needed for a child window.
 Geometry older than three seconds
 is rejected. Shell calls cannot block Tauri's event loop or resource samplers.
 Model updates replace one bounded snapshot, and GDI objects are released after
 painting. Disabled taskbar presentation stops the window timer. The shell query
 thread performs no inspection while tray mode is selected or resident display is disabled.
 
-Placement excludes occupied controls with a margin. Manual left/right selects
-only the first/last free gap and aligns to its outer edge (top/bottom on a vertical
-taskbar). A too-narrow gap activates tray fallback with a compact-mode suggestion;
-it does not move the strip to the opposite side. Automatic placement may choose
-another fitting gap. With a free screen edge, Left retains only the normal 4 DIP
-margin instead of following centered task buttons. No system control is moved to
-manufacture space. A changed
-shell layout is detected on the next inspection; no undocumented taskbar-width
-mutation is used. Temporary fullscreen/auto-hide visibility differs from a layout
+Placement stays within the parent client area and excludes occupied controls with
+a margin. During taskbar orientation changes, empty or inconsistent parent bounds
+wait for the shell layout to settle instead of activating no-space fallback.
+Windows 10 manual left/right reserves the start/end of the task-button container
+(top/bottom on a vertical taskbar). Button crowding does not activate tray fallback.
+The lease remains allocated during fullscreen/auto-hide, avoiding needless button
+reflow. With centered Windows 11 buttons, left placement reserves the repeater's
+outer left margin; Widgets and application buttons flow after the monitor. With
+left-aligned Windows 11 buttons, it reserves the Start button's right margin and
+preserves its real minimum width so its hit-test bounds remain valid. Right
+placement reserves the application repeater's right margin. Restoring properties is conditional on
+the last applied value, preserving later changes made by Explorer or another tool.
+Comparison tolerates XAML float-storage precision at fractional DPI; exact
+equality would mistake our own margin for an external update and compound it.
+Unknown shell versions use the existing non-mutating gap placement.
+A changed shell layout is detected on the next inspection. Temporary fullscreen/auto-hide visibility differs from a layout
 failure, which activates tray fallback. Fullscreen detection requires a foreground
 window covering the taskbar's entire monitor. Frameless windows may retain their
 maximized flag, as browsers do. A non-maximized window whose outer bounds exactly
@@ -188,28 +218,29 @@ match the monitor is also accepted even if resize styles remain, as in WPS.
 A framed maximized window with an auto-hidden taskbar is not classified as
 fullscreen. Explorer's WorkerW and Progman desktop
 hosts are excluded by class and shell process identity: clicking the wallpaper
-must not hide the strip just because the desktop covers the monitor.
+must not hide the strip just because the desktop covers the monitor. System-installed
+StartMenuExperienceHost and SearchHost CoreWindows are also excluded because
+their opening animation can temporarily cover the full monitor.
 Visibility transitions log their reason,
 foreground window class/style/rectangle, and monitor-strip bounds; unchanged polls
-do not repeat these messages. Position failures distinguish native API failure
-from successful calls whose resulting window is still covered. No control names
-or application titles are collected.
+do not repeat these messages. Native embedding logs record parent/window handles,
+DPI awareness. Lease logs separately record original/applied rectangles, edge,
+release reason and native restoration result. Position failures record the native
+error and attempted bounds. No-space transitions include the shell/parent bounds,
+required surface size and occupied control count. No control names or application
+titles are collected.
 
-Foreground shell menus (including taskbar app menus, Start, Search and Quick
-Settings) hide the strip only when their bounds overlap it or cannot yet be
-measured (including 1px shell placeholders). Non-overlapping menus leave it visible without activating the strip
-or raising its owner. Bounds are rechecked during menu animations, while the
-yield decision is logged only on foreground/decision changes.
-Foreground executable names are checked only when the foreground window changes;
-paths are never logged. Ordinary clicks use the existing focused detail panel,
+Shell menus naturally cover overlapping pixels without hiding the entire strip
+or raising the taskbar. Ordinary clicks use the existing focused detail panel,
 anchored to the clicked column; a second click toggles it closed. The product
 main window is not revealed. Right click exposes Open, Settings and Quit. Window callbacks guard
 against synchronous Win32 message reentry. Settings enable pointer/keyboard reordering only where the chosen surface
 can honor it (macOS and Windows taskbar mode).
 
 
-The Windows taskbar background option defaults to opaque. Transparent mode uses
-a layered window with DirectWrite grayscale text and premultiplied BGRA. A cached
+The Windows taskbar background option defaults to opaque. Both modes stay layered
+so Explorer composition cannot cover ordinary GDI child painting. Transparent mode
+uses DirectWrite grayscale text and premultiplied BGRA. A cached
 software Direct2D DC target renders colored glyphs directly into alpha, avoiding
 the previous white-on-black GDI intensity-to-coverage conversion. Regular Segoe UI
 keeps stroke weight close to the opaque reference; both paths retain the same
@@ -218,8 +249,8 @@ format stay on the native window thread; a failed frame discards them for recove
 rather than zero so clicks still reach the entire cell; hover raises that alpha
 to 28/255. ClearType remains enabled only for the opaque, known-background path.
 Mode transitions change the native window style and invalidate its surface.
-The transparent surface is presented before occlusion hit testing, because a
-newly layered window has no hit-testable pixels. Allocation/presentation failure
+The transparent surface is presented before publishing its bounds for interaction,
+because a newly layered window has no hit-testable pixels. Allocation/presentation failure
 hides the surface and activates the existing tray fallback; diagnostics record
 the failing stage and recovery, not every frame.
 

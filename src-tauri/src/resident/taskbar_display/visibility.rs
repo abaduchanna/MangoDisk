@@ -1,29 +1,5 @@
 //! Fullscreen classification is independent of the monitor strip's placement.
 use super::layout::Bounds;
-use std::time::{Duration, Instant};
-
-/// Explorer may briefly cover a successfully positioned window while leaving
-/// fullscreen. Keep the current display mode for at most three timer intervals;
-/// native failures and already-failed placement must still fall back immediately.
-#[derive(Default)]
-pub struct OcclusionRetry {
-    since: Option<Instant>,
-}
-
-impl OcclusionRetry {
-    pub fn defer(&mut self, now: Instant, eligible: bool) -> bool {
-        if !eligible {
-            self.since = None;
-            return false;
-        }
-        now.duration_since(*self.since.get_or_insert(now)) < Duration::from_millis(300)
-    }
-
-    pub fn finish(&mut self, now: Instant) -> Option<Duration> {
-        self.since.take().map(|since| now.duration_since(since))
-    }
-}
-
 #[cfg(windows)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Visibility {
@@ -33,7 +9,6 @@ pub enum Visibility {
     AutoHidden,
     ShellMoving,
     Fullscreen,
-    ShellFlyout,
     UnsupportedLayout,
     NoSpace,
     ShellUnavailable,
@@ -54,21 +29,6 @@ pub fn is_fullscreen(window: Bounds, monitor: Bounds, has_frame: bool, maximized
         && (!has_frame || (!maximized && window == monitor))
 }
 
-/// A shell menu on the other side of the taskbar must not hide the strip.
-/// Yield for a real overlap, unavailable bounds, or a shell 1px placeholder.
-/// Touching edges do not overlap. Recheck bounds even for the same menu handle.
-pub fn should_yield_to_flyout(strip: Bounds, flyout: Option<Bounds>) -> bool {
-    let Some(flyout) = flyout.filter(|r| {
-        i64::from(r.right) - i64::from(r.left) > 1 && i64::from(r.bottom) - i64::from(r.top) > 1
-    }) else {
-        return true;
-    };
-    strip.left < flyout.right
-        && strip.right > flyout.left
-        && strip.top < flyout.bottom
-        && strip.bottom > flyout.top
-}
-
 /// Explorer can focus WorkerW instead of the Progman handle returned by
 /// GetShellWindow. Both desktop hosts are frameless and cover the monitor,
 /// but neither represents application fullscreen. Check the shell process too:
@@ -77,84 +37,52 @@ pub fn is_shell_desktop(class: &str, process_id: u32, shell_process_id: u32) -> 
     process_id != 0 && process_id == shell_process_id && matches!(class, "WorkerW" | "Progman")
 }
 
+/// Start/search animations briefly report a full-monitor CoreWindow. Only
+/// the system-installed shell hosts are exempt; arbitrary UWP fullscreen windows
+/// share this class and must continue to hide the monitor strip.
+pub fn is_shell_flyout(class: &str, image_name: &str, system_app: bool) -> bool {
+    system_app
+        && class == "Windows.UI.Core.CoreWindow"
+        && ["StartMenuExperienceHost.exe", "SearchHost.exe"]
+            .iter()
+            .any(|name| image_name.eq_ignore_ascii_case(name))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
 
-    const STRIP: Bounds = Bounds {
-        left: 2040,
-        top: 1784,
-        right: 2192,
-        bottom: 1856,
-    };
-
     #[test]
-    fn taskbar_app_menu_on_the_left_keeps_the_strip_visible() {
-        assert!(!should_yield_to_flyout(
-            STRIP,
-            Some(Bounds {
-                left: 384,
-                top: 1562,
-                right: 896,
-                bottom: 1780,
-            })
+    fn start_animation_exemption_does_not_cover_other_uwp_apps() {
+        assert!(is_shell_flyout(
+            "Windows.UI.Core.CoreWindow",
+            "StartMenuExperienceHost.exe",
+            true
         ));
-        // A menu may extend below the strip without overlapping horizontally.
-        assert!(!should_yield_to_flyout(
-            STRIP,
-            Some(Bounds {
-                left: 384,
-                top: 1562,
-                right: 896,
-                bottom: 1930,
-            })
+        assert!(is_shell_flyout(
+            "Windows.UI.Core.CoreWindow",
+            "SearchHost.exe",
+            true
         ));
-    }
-
-    #[test]
-    fn flyout_overlap_including_a_single_pixel_yields_the_strip() {
-        assert!(should_yield_to_flyout(STRIP, Some(STRIP)));
-        assert!(should_yield_to_flyout(
-            STRIP,
-            Some(Bounds {
-                left: 2191,
-                top: 1855,
-                right: 2300,
-                bottom: 1900,
-            })
+        assert!(!is_shell_flyout(
+            "Windows.UI.Core.CoreWindow",
+            "SearchHost.exe",
+            false
         ));
-        assert!(!should_yield_to_flyout(
-            STRIP,
-            Some(Bounds {
-                left: 2192,
-                top: 1855,
-                right: 2300,
-                bottom: 1900,
-            })
+        assert!(!is_shell_flyout(
+            "Windows.UI.Core.CoreWindow",
+            "VideoPlayer.exe",
+            true
         ));
-        assert!(!should_yield_to_flyout(
-            STRIP,
-            Some(Bounds {
-                bottom: STRIP.top,
-                top: 1500,
-                ..STRIP
-            })
+        assert!(!is_shell_flyout(
+            "Windows.UI.Core.CoreWindow",
+            "StartMenuExperienceHost.exe",
+            false
         ));
-    }
-
-    #[test]
-    fn unavailable_or_empty_flyout_bounds_yield_until_measurable() {
-        assert!(should_yield_to_flyout(STRIP, None));
-        assert!(should_yield_to_flyout(STRIP, Some(Bounds::default())));
-        // Notification Center may focus a 1x1 proxy outside its visible surface.
-        assert!(should_yield_to_flyout(
-            STRIP,
-            Some(Bounds {
-                left: 0,
-                top: 0,
-                right: 1,
-                bottom: 1,
-            })
+        assert!(!is_shell_flyout(
+            "Chrome_WidgetWin_1",
+            "StartMenuExperienceHost.exe",
+            true
         ));
     }
 
@@ -170,38 +98,6 @@ mod tests {
         assert!(!is_shell_desktop("CabinetWClass", 42, 42));
         assert!(!is_shell_desktop("WorkerW", 7, 42));
         assert!(!is_shell_desktop("Progman", 0, 0));
-    }
-
-    #[test]
-    fn continuous_occlusion_cannot_extend_the_retry_deadline() {
-        let now = Instant::now();
-        let mut retry = OcclusionRetry::default();
-        assert!(retry.defer(now, true));
-        assert!(retry.defer(now + Duration::from_millis(299), true));
-        assert!(!retry.defer(now + Duration::from_millis(300), true));
-        assert!(!retry.defer(now + Duration::from_secs(1), true));
-    }
-
-    #[test]
-    fn native_failure_does_not_wait_for_an_occlusion_retry() {
-        let now = Instant::now();
-        let mut retry = OcclusionRetry::default();
-        assert!(retry.defer(now, true));
-        assert!(!retry.defer(now + Duration::from_millis(100), false));
-        assert_eq!(retry.finish(now + Duration::from_millis(100)), None);
-    }
-
-    #[test]
-    fn recovery_or_cancellation_starts_a_fresh_retry_window() {
-        let now = Instant::now();
-        let mut retry = OcclusionRetry::default();
-        assert!(retry.defer(now, true));
-        assert_eq!(
-            retry.finish(now + Duration::from_millis(100)),
-            Some(Duration::from_millis(100))
-        );
-        assert_eq!(retry.finish(now + Duration::from_millis(100)), None);
-        assert!(retry.defer(now + Duration::from_secs(2), true));
     }
 
     const MONITOR: Bounds = Bounds {
