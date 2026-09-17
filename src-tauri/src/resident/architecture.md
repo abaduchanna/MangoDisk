@@ -183,6 +183,17 @@ channel keeps only weak references and runs no timer. Its content-addressed DLL
 may remain mapped until Explorer exits; the per-user cache avoids locking update
 or uninstall files. A build-specific channel identity prevents reuse of old code.
 Old cache files are removed on a later startup when Explorer has released them.
+When the app and Explorer have different process architectures (for example, an
+x64 build running on ARM64 Windows), child hosting still works but the XAML DLL
+cannot load into Explorer. Detect this before launching the companion and use
+collision-checked free taskbar space instead. No button space is reserved in this
+mode; insufficient free space retains the existing NoSpace status. Architecture
+query failures use the same conservative placement and log the native error.
+Recreated shell hosts repeat this check; compatible builds retain leased reservation.
+Unknown environments leave the architecture check pending. The first usable
+Windows 11 snapshot performs it, including after environment detection recovers.
+Fullscreen and hidden-shell states are evaluated before space allocation, since
+transient accessibility gaps during fullscreen are not evidence of insufficient space.
 Windows builds require the MSVC C++/WinRT headers supplied with the Windows SDK.
 Child creation temporarily adopts the parent's per-monitor DPI context on the
 native thread, then restores the previous thread context. Process DPI is unchanged.
@@ -209,8 +220,11 @@ notifications also wake fullscreen checks immediately. Notifications are coalesc
 our own thread is excluded, and hooks are removed before recreating the window.
 Subscription failure retains the timer fallback. No desktop-reorder hook or
 occlusion retry is needed for a child window.
-Geometry older than three seconds
-is rejected. Shell calls cannot block Tauri's event loop or resource samplers.
+Gap placement rejects geometry older than three seconds. An active reservation
+may continue during a slow UIA query only while the companion has confirmed its
+layout within three seconds and live shell bounds, DPI and alignment still match.
+A delayed UIA sample and its recovery are logged; stale helper replies are rejected.
+Shell calls cannot block Tauri's event loop or resource samplers.
 Model updates replace one bounded snapshot, and GDI objects are released after
 painting. Disabled taskbar presentation stops the window timer. The shell query
 thread performs no inspection while tray mode is selected or resident display is disabled.
@@ -221,12 +235,22 @@ wait for the shell layout to settle instead of activating no-space fallback.
 Windows 10 manual left/right reserves the start/end of the task-button container
 (top/bottom on a vertical taskbar). Button crowding does not activate tray fallback.
 The lease remains allocated during fullscreen/auto-hide, avoiding needless button
-reflow. With centered Windows 11 buttons, left placement reserves the repeater's
-outer left margin; Widgets and application buttons flow after the monitor. With
-left-aligned Windows 11 buttons, it reserves the Start button's right margin and
-preserves its real minimum width so its hit-test bounds remain valid. Right
-placement reserves the application repeater's right margin. Restoring properties is conditional on
-the last applied value, preserving later changes made by Explorer or another tool.
+reflow. With centered Windows 11 buttons, the repeater's positioning margins
+remain untouched. Only a natural button span that would collide with the selected
+monitor edge activates a maximum-width limit; ordinary layouts retain the
+original screen center. Crowded/uncombined buttons use Explorer's constrained
+layout and overflow behavior. A constrained lease measures the unconstrained span
+at most once per second unless its size or placement changes. It does not arrange
+the intermediate state and restores the final constraint before layout. This
+avoids oscillating on the visible-only overflow width or retaining recycled
+button slots after applications close. The monitor stays at the selected outer
+edge, and releasing the lease restores the original maximum width. With
+left-aligned Windows 11 buttons, left placement reserves the Start button's right margin and preserves its real
+minimum width so its hit-test bounds remain valid; right placement reserves the
+application repeater's right margin. The embedded XAML request uses version 2
+and rejects other versions; the DLL content key isolates different builds.
+Restoring properties is conditional on the last applied value, preserving later
+changes made by Explorer or another tool.
 Comparison tolerates XAML float-storage precision at fractional DPI; exact
 equality would mistake our own margin for an external update and compound it.
 Unknown shell versions use the existing non-mutating gap placement.
