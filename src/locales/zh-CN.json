@@ -2429,6 +2429,8 @@
     "versionValue": "版本 {version}"
   },
   "updates": {
+    "noticeAvailable": "新版本可用",
+    "noticeRetry": "重试打开更新",
     "availableTitle": "MangoDisk {version} 可用",
     "currentVersionDescription": "当前版本 {version}",
     "checkDescription": "检查是否有可用的新版本",

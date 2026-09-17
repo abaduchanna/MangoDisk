@@ -361,3 +361,38 @@ Legacy selections and custom order are retained. The former default sequence
 and new installations use CPU, memory, disk, then network. macOS compact mode preserves labels, percentages and direction
 arrows, shortens network units, and reduces fixed field widths and spacing. Both
 densities reserve enough width for their largest numeric values at the native font.
+
+### Background update notice
+
+`services::app_updates` owns both scheduled discovery and explicit checks,
+independently of resident sampling and main-window creation. It checks after a
+3-second startup delay and then every six hours; failures retry after 1, 5, 30,
+and at most 60 minutes while retaining the last successful result. Wall-clock
+deadlines include sleep. A 30-second poll or window-focus read catches overdue
+checks. Concurrent callers share the active result, including failures; a manual
+check after completion explicitly refreshes. Each network operation has a total
+timeout and uses the same native locale, distribution, optional existing install
+identity, and OS version headers. Discovery does not depend on browser timezone
+metadata or create another installation identity.
+
+The versioned, revisioned `app-update-notice` snapshot is readable through
+`get_app_update_notice`. Consumers subscribe before reading and reject older
+revisions. Every successful check advances the revision, including no-update
+results, so both windows clear stale notices. Failed checks retain the prior
+result. The resource panel shows one text action in either tab; no tray-menu item
+or OS notification is created.
+
+The existing About navigation reads the native cache through
+`acquire_app_update(refresh=false)`. Only the main WebView may acquire a cloned
+plugin Update in its resource table. The cached native Update remains independent
+of that window's resource lifetime. `refresh=true` explicitly requests a check;
+opening the update window after discovery does not make another network request.
+The frontend continues using the plugin's signed download and install methods,
+including portable download URL validation and existing user-controlled actions.
+Downloaded resources are not replaced by background notices.
+
+Logs record request source and ID, shared requests, availability, version
+changes, elapsed time, retry delay, and retained-result state. Resource acquisition
+is distinct from network discovery. Polls and unchanged notice reads do not log.
+State remains process-local and is rediscovered after restart, without a new
+persisted settings schema or forced WebView creation.

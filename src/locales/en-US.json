@@ -2429,6 +2429,8 @@
     "versionValue": "Version {version}"
   },
   "updates": {
+    "noticeAvailable": "Update available",
+    "noticeRetry": "Retry opening update",
     "availableTitle": "MangoDisk {version} is available",
     "currentVersionDescription": "Current version {version}",
     "checkDescription": "Check for a newer version",
