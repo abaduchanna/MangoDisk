@@ -35,7 +35,7 @@ returns that reserved slot directly, so centered buttons do not send the monitor
 to an unrelated outer gap. Unknown environments prefer right,
 and collision checks still apply. These defaults do not replace saved choices.
 
-Resident preferences use schema version 7; resource snapshots use version 3.
+Resident preferences use schema version 8; resource snapshots use version 3.
 Version 1 preferences retain background and memory-display choices. Version 2
 preferences retain all selections and default to the original Windows tray mode.
 Version 3 retains that mode and defaults the new position preference to right.
@@ -43,8 +43,9 @@ Version 4 retains all choices and enables the new taskbar background option.
 Version 5 retains its saved left/right preference; only new installations default
 to automatic placement. Version 6 retains automatic/manual choices and defaults
 the new compact mode to off. Compact mode reduces horizontal cells from 50/84
-to 38/76 DIP (percentage/network) without reducing the 12-DIP font,
-color cues or fixed value/unit fields; paint and hit testing share those bounds.
+to 38/58 DIP (percentage/network), with abbreviated network units
+(B/K/M/G/T) and unchanged numeric precision. Labels use 9-DIP text and values
+use 12-DIP text in both densities; paint and hit testing share those bounds.
 Unknown persisted
 versions are rejected for writes. Memory snapshots and release results retain
 their separate version 1 contract.
@@ -288,7 +289,7 @@ uses DirectWrite grayscale text and premultiplied BGRA. A cached
 software Direct2D DC target renders colored glyphs directly into alpha, avoiding
 the previous white-on-black GDI intensity-to-coverage conversion. Regular Segoe UI
 keeps stroke weight close to the opaque reference; both paths retain the same
-physical font size and cell rectangles. Factories, target and DPI-specific text
+physical label/value font sizes and cell rectangles. Factories, target and DPI-specific text
 format stay on the native window thread; a failed frame discards them for recovery. Background pixels use alpha 1/255
 rather than zero so clicks still reach the entire cell; hover raises that alpha
 to 28/255. ClearType remains enabled only for the opaque, known-background path.
@@ -298,7 +299,7 @@ because a newly layered window has no hit-testable pixels. Allocation/presentati
 hides the surface and activates the existing tray fallback; diagnostics record
 the failing stage and recovery, not every frame.
 
-Windows taskbar network columns keep a fixed 84 DIP width, or 76 DIP in compact mode. The arrow, right-aligned
+Windows taskbar network columns keep a fixed 84 DIP width, or 58 DIP in compact mode. The arrow, right-aligned
 value and unit occupy independent fields; upload arrows are red and download arrows
 blue, matching macOS. Side taskbars retain separate value/unit lines. Shared text-run
 geometry drives both opaque GDI drawing and transparent DirectWrite drawing. Taskbar rates
@@ -343,3 +344,20 @@ foreground-process skipping remains Windows-only because the macOS operation is
 global. macOS exposes only the timer and threshold; preferences containing an
 exclusion list or foreground skipping are rejected, never silently ignored.
 The separate settings window remains open when the monitor loses focus.
+
+### Usage colors and menu-bar density
+
+CPU, memory, and disk capacity percentages share configurable warning/critical
+thresholds (70/90 by default). Coloring is enabled for new installations and
+legacy versions without this preference; an explicit saved opt-out is retained.
+Only values change color; labels retain the theme
+foreground. Tones enter higher bands at the threshold and clear three percentage
+points below it. Unavailable readings and disabled coloring reset the tone.
+Changes to color rules reset hysteresis so new thresholds apply immediately.
+Changing the sampled disk resets its tone without affecting other metrics.
+
+Version 8 adds these color preferences and an independent macOS compact setting.
+Legacy selections and custom order are retained. The former default sequence
+and new installations use CPU, memory, disk, then network. macOS compact mode preserves labels, percentages and direction
+arrows, shortens network units, and reduces fixed field widths and spacing. Both
+densities reserve enough width for their largest numeric values at the native font.
