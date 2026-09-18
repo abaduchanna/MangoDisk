@@ -16,7 +16,8 @@ pub enum Ink {
 }
 impl Ink {
     pub fn rgb(self, foreground: [u8; 3]) -> [u8; 3] {
-        // Match the macOS menu bar and the frontend status color tokens.
+        // The native caller resolves a theme-appropriate foreground; usage
+        // tones derive their light/dark variant from that same color.
         match self {
             Self::Foreground => foreground,
             Self::Usage(tone) => tone.rgb(foreground),
@@ -34,10 +35,13 @@ pub enum TextStyle {
 }
 impl TextStyle {
     pub fn pixels(self, dpi: u32) -> u32 {
-        match self {
-            Self::Label => 9 * dpi / 96,
-            Self::Value => 12 * dpi / 96,
-        }
+        let logical_pixels = match self {
+            Self::Label => 9,
+            Self::Value => 13,
+        };
+        // Round to physical pixels without changing the label/value hierarchy.
+        // Opaque and transparent paths share the same 9/13 DIP scale.
+        (logical_pixels * dpi + 48) / 96
     }
 }
 
@@ -83,7 +87,7 @@ pub fn runs<'a>(columns: &'a [Column], surface: &Surface, dpi: u32) -> Vec<Run<'
                     )
                 } else {
                     // Anchor the unit/value fields from the cell's right edge.
-                    // Reserve 28 DIP for four numeric characters, including 99.9
+                    // Reserve 30 DIP for four numeric characters, including 99.9
                     // and rounded 1000. This keeps zero close to the arrow while
                     // preserving a stable unit anchor as speed changes.
                     let compact = column.compact;
@@ -145,7 +149,13 @@ pub fn runs<'a>(columns: &'a [Column], surface: &Surface, dpi: u32) -> Vec<Run<'
                 ]);
             }
         } else {
-            let split = cell.top + cell.height() * 5 / 12;
+            // Center a compact 12/18 DIP line pair instead of spreading text
+            // over the full 36 DIP cell. Short taskbars retain their available
+            // height; the panel and pointer hit area do not shrink.
+            let height = cell.height().min(scale(30));
+            let top = cell.top + (cell.height() - height) / 2;
+            let bottom = top + height;
+            let split = top + height * 2 / 5;
             for (index, text) in [&column.first, &column.second].into_iter().enumerate() {
                 result.push(Run {
                     text,
@@ -156,9 +166,9 @@ pub fn runs<'a>(columns: &'a [Column], surface: &Surface, dpi: u32) -> Vec<Run<'
                     },
                     bounds: Bounds {
                         left: cell.left + scale(3),
-                        top: if index == 0 { cell.top } else { split },
+                        top: if index == 0 { top } else { split },
                         right: cell.right - scale(3),
-                        bottom: if index == 0 { split } else { cell.bottom },
+                        bottom: if index == 0 { split } else { bottom },
                     },
                     alignment: Alignment::Center,
                     ink: if index == 1 {
@@ -209,10 +219,25 @@ mod tests {
                 .unwrap();
                 let runs = runs(&columns, &surface, 192);
                 assert_eq!(runs[0].ink, Ink::Foreground);
-                assert!(runs[0].style.pixels(96) < runs[1].style.pixels(96));
+                assert!(runs[0].style.pixels(192) < runs[1].style.pixels(192));
                 assert_eq!(runs[1].ink, Ink::Usage(tone));
                 assert_eq!(runs[1].text, "90%");
             }
+        }
+    }
+
+    #[test]
+    fn label_hierarchy_survives_fractional_and_high_dpi_rounding() {
+        for (dpi, label, value) in [
+            (96, 9, 13),
+            (120, 11, 16),
+            (144, 14, 20),
+            (192, 18, 26),
+            (240, 23, 33),
+        ] {
+            assert_eq!(TextStyle::Label.pixels(dpi), label);
+            assert_eq!(TextStyle::Value.pixels(dpi), value);
+            assert!(label < value);
         }
     }
 
