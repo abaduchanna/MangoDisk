@@ -27,7 +27,7 @@ impl Ink {
     }
 }
 
-/// Keep metric labels subordinate to values in both native renderers.
+/// Semantic text roles share one size in both native renderers.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum TextStyle {
     Label,
@@ -36,11 +36,10 @@ pub enum TextStyle {
 impl TextStyle {
     pub fn pixels(self, dpi: u32) -> u32 {
         let logical_pixels = match self {
-            Self::Label => 9,
-            Self::Value => 13,
+            Self::Label | Self::Value => 13,
         };
-        // Round to physical pixels without changing the label/value hierarchy.
-        // Opaque and transparent paths share the same 9/13 DIP scale.
+        // Labels, percentages and both network rows use the same physical size.
+        // Round identically in the opaque and transparent paths.
         (logical_pixels * dpi + 48) / 96
     }
 }
@@ -91,9 +90,9 @@ pub fn runs<'a>(columns: &'a [Column], surface: &Surface, dpi: u32) -> Vec<Run<'
                     // and rounded 1000. This keeps zero close to the arrow while
                     // preserving a stable unit anchor as speed changes.
                     let compact = column.compact;
-                    let padding = scale(if compact { 3 } else { 5 });
+                    let padding = scale(if compact { 1 } else { 3 });
                     let unit_width = scale(if compact { 12 } else { 33 });
-                    let spacing = scale(if compact { 2 } else { 3 });
+                    let spacing = scale(if compact { 1 } else { 2 });
                     let unit_left = cell.right - padding - unit_width;
                     (
                         Bounds {
@@ -149,13 +148,10 @@ pub fn runs<'a>(columns: &'a [Column], surface: &Surface, dpi: u32) -> Vec<Run<'
                 ]);
             }
         } else {
-            // Center a compact 12/18 DIP line pair instead of spreading text
-            // over the full 36 DIP cell. Short taskbars retain their available
-            // height; the panel and pointer hit area do not shrink.
-            let height = cell.height().min(scale(30));
-            let top = cell.top + (cell.height() - height) / 2;
-            let bottom = top + height;
-            let split = top + height * 2 / 5;
+            // Equal-height rows align metric labels/values with the two network
+            // rows and give the larger labels the same unclipped line box.
+            let padding = scale(if column.compact { 1 } else { 3 });
+            let split = cell.top + cell.height() / 2;
             for (index, text) in [&column.first, &column.second].into_iter().enumerate() {
                 result.push(Run {
                     text,
@@ -165,10 +161,10 @@ pub fn runs<'a>(columns: &'a [Column], surface: &Surface, dpi: u32) -> Vec<Run<'
                         TextStyle::Value
                     },
                     bounds: Bounds {
-                        left: cell.left + scale(3),
-                        top: if index == 0 { top } else { split },
-                        right: cell.right - scale(3),
-                        bottom: if index == 0 { split } else { bottom },
+                        left: cell.left + padding,
+                        top: if index == 0 { cell.top } else { split },
+                        right: cell.right - padding,
+                        bottom: if index == 0 { split } else { cell.bottom },
                     },
                     alignment: Alignment::Center,
                     ink: if index == 1 {
@@ -219,7 +215,7 @@ mod tests {
                 .unwrap();
                 let runs = runs(&columns, &surface, 192);
                 assert_eq!(runs[0].ink, Ink::Foreground);
-                assert!(runs[0].style.pixels(192) < runs[1].style.pixels(192));
+                assert_eq!(runs[0].style.pixels(192), runs[1].style.pixels(192));
                 assert_eq!(runs[1].ink, Ink::Usage(tone));
                 assert_eq!(runs[1].text, "90%");
             }
@@ -227,17 +223,10 @@ mod tests {
     }
 
     #[test]
-    fn label_hierarchy_survives_fractional_and_high_dpi_rounding() {
-        for (dpi, label, value) in [
-            (96, 9, 13),
-            (120, 11, 16),
-            (144, 14, 20),
-            (192, 18, 26),
-            (240, 23, 33),
-        ] {
-            assert_eq!(TextStyle::Label.pixels(dpi), label);
-            assert_eq!(TextStyle::Value.pixels(dpi), value);
-            assert!(label < value);
+    fn uniform_text_size_survives_fractional_and_high_dpi_rounding() {
+        for (dpi, pixels) in [(96, 13), (120, 16), (144, 20), (192, 26), (240, 33)] {
+            assert_eq!(TextStyle::Label.pixels(dpi), pixels);
+            assert_eq!(TextStyle::Value.pixels(dpi), pixels);
         }
     }
 

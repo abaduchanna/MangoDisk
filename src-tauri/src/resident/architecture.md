@@ -42,10 +42,9 @@ Version 3 retains that mode and defaults the new position preference to right.
 Version 4 retains all choices and enables the new taskbar background option.
 Version 5 retains its saved left/right preference; only new installations default
 to automatic placement. Version 6 retains automatic/manual choices and defaults
-the new compact mode to off. Compact mode reduces horizontal cells from 50/86
-to 38/60 DIP (percentage/network), with abbreviated network units
-(B/K/M/G/T) and unchanged numeric precision. Taskbar labels use 9 DIP Segoe UI and values use 13 DIP, preserving
-a smaller-label hierarchy. Both sizes convert to physical pixels with nearest-pixel
+the new compact mode to off. Compact mode reduces horizontal cells from 38/81
+to 34/55 DIP (percentage/network), with abbreviated network units
+(B/K/M/G/T) and unchanged numeric precision. Taskbar labels and values use 13 DIP Segoe UI. The shared size converts to physical pixels with nearest-pixel
 rounding at the monitor DPI; paint and hit testing share those bounds.
 Unknown persisted
 versions are rejected for writes. Memory snapshots and release results retain
@@ -323,7 +322,7 @@ grid fitting and matching measuring mode keep small glyph advances on physical
 pixels. System gamma and grayscale contrast are preserved; flat pixel geometry
 and zero ClearType level avoid colored fringes on an unknown backdrop. Native
 field-fit tests use GDI-compatible metrics as well. Regular Segoe UI
-uses the same 9 DIP label and 13 DIP value sizes as the opaque path; GDI uses
+uses the same 13 DIP label and value size as the opaque path; GDI uses
 normal weight 400 and both paths retain the same DPI-converted sizes and cell rectangles. Factories, target and DPI-specific text
 format stay on the native window thread; a failed frame discards them for recovery. Background pixels use alpha 1/255
 rather than zero so clicks still reach the entire cell; hover raises that alpha
@@ -334,10 +333,10 @@ because a newly layered window has no hit-testable pixels. Allocation/presentati
 hides the surface and activates the existing tray fallback; diagnostics record
 the failing stage and recovery, not every frame.
 
-Percentage labels and values occupy a centered 30 DIP block (12/18 DIP rows)
-inside the normal 36 DIP cell to keep their vertical spacing compact.
+Percentage labels and values use equal-height rows inside the normal 36 DIP
+cell, matching the two network rows at the same font size.
 
-Windows taskbar network columns keep a fixed 86 DIP width, or 60 DIP in compact mode. The arrow, right-aligned
+Windows taskbar network columns keep a fixed 81 DIP width, or 55 DIP in compact mode. The arrow, right-aligned
 value and unit occupy independent fields; upload arrows are red and download arrows
 blue, matching macOS. Side taskbars retain separate value/unit lines. Shared text-run
 geometry drives both opaque GDI drawing and transparent DirectWrite drawing. Taskbar rates
