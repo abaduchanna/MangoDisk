@@ -29,6 +29,7 @@ use mangodisk_platform::{
 };
 
 mod index_sink;
+mod indexed_scopes;
 
 use index_sink::{CompletedIndexSink, IndexRecordSink};
 #[cfg(any(debug_assertions, test))]
@@ -51,6 +52,7 @@ pub(crate) struct AnalysisScanDiagnostics {
 
 #[derive(Debug, Default)]
 pub(crate) struct LargeFileScanDiagnostics {
+    pub(crate) native_directory_reads: u64,
     pub(crate) candidate_discovery_ms: u64,
     pub(crate) validation_or_traversal_ms: u64,
     pub(crate) candidate_count: u64,
@@ -64,6 +66,7 @@ pub(crate) struct LargeFileScanDiagnostics {
 
 impl LargeFileScanDiagnostics {
     fn accumulate(&mut self, root: &Self) {
+        self.native_directory_reads += root.native_directory_reads;
         self.candidate_discovery_ms += root.candidate_discovery_ms;
         self.validation_or_traversal_ms += root.validation_or_traversal_ms;
         self.candidate_count += root.candidate_count;
@@ -348,6 +351,15 @@ impl StorageTraversal {
         let operation = OperationGuard::start(CoordinatedOperationKind::LargeFiles)?;
         let started = Instant::now();
         let roots = normalize_large_file_roots(roots)?;
+        if scan_mode == LargeFileScanMode::Quick
+            && roots.len() > 1
+            && !current_platform().fast_large_file_candidates_are_complete()
+        {
+            let result =
+                indexed_scopes::scan(&roots, minimum_bytes, &excluded_paths, &operation, callback)?;
+            operation.complete();
+            return Ok(result);
+        }
         let root_count = roots.len() as u64;
         let callback = Arc::new(callback);
         let scanned_at_ms = now_ms();
@@ -427,6 +439,7 @@ impl StorageTraversal {
 
             let (root_aggregate, completed_sink) = match scan {
                 FastLargeFileScanOutcome::Completed(scan) => {
+                    diagnostics.native_directory_reads = scan.summary.native_directory_reads;
                     diagnostics.fast_path = "used";
                     diagnostics.validation_or_traversal_ms = scan.summary.consumer_elapsed_ms;
                     diagnostics.candidate_count = scan.summary.candidate_count;
@@ -434,7 +447,8 @@ impl StorageTraversal {
                     diagnostics.candidate_peak_in_flight = scan.summary.peak_in_flight_candidates;
                     diagnostics.candidate_strategy = scan.summary.strategy;
                     log::info!(
-                        "large_file_candidate_scan_finished root={root_log} operation_id={} platform={} mode={} strategy={} candidate_count={} valid_count={} skipped_count={} producer_backpressure_ms={} peak_in_flight_candidates={} elapsed_ms={}",
+                        "large_file_candidate_scan_finished native_directory_reads={} root={root_log} operation_id={} platform={} mode={} strategy={} candidate_count={} valid_count={} skipped_count={} producer_backpressure_ms={} peak_in_flight_candidates={} elapsed_ms={}",
+                        diagnostics.native_directory_reads,
                         operation.id(),
                         current_platform().os_name(),
                         scan_mode.as_str(),
@@ -1083,6 +1097,7 @@ fn stream_indexed_large_files_once(
     let summary = current_platform().fast_large_file_candidates(
         root,
         minimum_bytes,
+        exclusions.roots(),
         &|| cancelled.load(Ordering::Relaxed),
         &mut |path| validation.consume(path, sink),
     )?;
@@ -1127,12 +1142,12 @@ fn stream_complete_large_files(
     )?;
     let summary = current_platform().fast_analysis_records(
         FastAnalysisQuery {
+            excluded_roots: exclusions.roots(),
             root,
             purpose: ScanPurpose::LargeFiles,
             large_file_minimum_bytes: minimum_bytes,
-            // Native adapters currently expose a non-capturing platform-prune callback. Core still
-            // applies user exclusions to every emitted candidate below; the generic traversal can
-            // additionally avoid descending into excluded subtrees.
+            // Prune selected descendants and saved exclusions before native directory reads.
+            // Candidate validation remains a second boundary for every source.
             should_prune_directory: |_| false,
         },
         &|| cancelled.load(Ordering::Relaxed),
@@ -1156,6 +1171,7 @@ fn stream_complete_large_files(
                     aggregate: validation.aggregate,
                     completed_sink: sink.finish()?,
                     summary: LargeFileCandidateSummary {
+                        native_directory_reads: summary.directory_count,
                         candidate_count: summary.candidate_count,
                         skipped_count: summary.root_skipped_count,
                         consumer_elapsed_ms: summary.consumer_elapsed_ms,
@@ -1221,6 +1237,7 @@ fn stream_fast_analysis_once(
     let mut progress_validation = FastAnalysisProgressValidation::new(root, progress);
     let summary = current_platform().fast_analysis_records(
         FastAnalysisQuery {
+            excluded_roots: &[],
             root,
             purpose: ScanPurpose::Analysis,
             large_file_minimum_bytes: LARGE_FILE_CANDIDATE_FLOOR_BYTES,

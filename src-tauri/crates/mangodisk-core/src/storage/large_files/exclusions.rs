@@ -109,6 +109,10 @@ impl LargeFileExclusions {
         delegated
     }
 
+    pub(crate) fn roots(&self) -> &[PathBuf] {
+        &self.roots
+    }
+
     pub(crate) fn matches(&self, path: &Path) -> bool {
         self.roots
             .iter()
