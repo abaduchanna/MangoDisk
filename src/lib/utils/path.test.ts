@@ -18,6 +18,12 @@ describe('PathUtils.display', () => {
 });
 
 describe('PathUtils.collapseOverlappingRoots', () => {
+  it('compares equivalent scan coverage after root ordering and overlap changes', () => {
+    expect(PathUtils.sameRootScope(['F:\\Chat', 'E:\\Work'], ['e:/work/child', 'f:/chat/', 'E:\\Work'])).toBe(true);
+    expect(PathUtils.sameRootScope(['/work', '/chat'], ['/work', '/chat-old'])).toBe(false);
+    expect(PathUtils.sameRootScope(['/Work'], ['/work'])).toBe(false);
+    expect(PathUtils.sameRootScope([], ['/work'])).toBe(false);
+  });
   it('ignores descendants already covered by a selected parent', () => {
     expect(
       PathUtils.collapseOverlappingRoots([

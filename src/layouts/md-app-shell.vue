@@ -432,8 +432,8 @@ async function deleteLargeFilesPermanently(entries: LargeFileEntry[]) {
   else toast.success(t('largeFiles.deleteCompleted'), options);
 }
 
-function findDuplicateFiles(path: string) {
-  return duplicateFilesStore.find([path], store.settings.duplicateFileMinimumBytes);
+function findDuplicateFiles(paths: string[]) {
+  return duplicateFilesStore.find(paths, store.settings.duplicateFileMinimumBytes);
 }
 
 function updateDuplicateFileMinimum(minimumBytes: number) {

@@ -5,6 +5,45 @@ import { MAX_RECENT_STORAGE_FOLDERS } from '@/lib/models/storage-scope';
 import * as StorageScopePreferenceUtils from './storage-scope-preference';
 
 describe('StorageScopePreferenceUtils', () => {
+  it('migrates the original duplicate selection without changing other pages', () => {
+    expect(
+      StorageScopePreferenceUtils.parse({
+        selectedPaths: { analysis: '/data', 'duplicate-files': '/work' },
+        recentFolders: ['/work'],
+      })
+    ).toEqual({
+      schemaVersion: 1,
+      selectedPaths: { analysis: '/data', 'duplicate-files': ['/work'] },
+      recentFolders: ['/work'],
+    });
+  });
+
+  it('preserves explicit empty selections and selections larger than recent history', () => {
+    const paths = Array.from({ length: 12 }, (_, index) => `/work/${index}`);
+    expect(
+      StorageScopePreferenceUtils.parse({
+        schemaVersion: 1,
+        selectedPaths: { 'duplicate-files': paths },
+        recentFolders: [],
+      }).selectedPaths['duplicate-files']
+    ).toEqual(paths);
+    expect(
+      StorageScopePreferenceUtils.parse({
+        schemaVersion: 1,
+        selectedPaths: { 'duplicate-files': [] },
+        recentFolders: [],
+      }).selectedPaths['duplicate-files']
+    ).toEqual([]);
+  });
+
+  it('rejects unsupported versions, invalid items, and multi-selection on single-scope pages', () => {
+    for (const value of [
+      { schemaVersion: 2, selectedPaths: {}, recentFolders: [] },
+      { schemaVersion: 1, selectedPaths: { 'duplicate-files': [null] }, recentFolders: [] },
+      { schemaVersion: 1, selectedPaths: { analysis: ['/work'] }, recentFolders: [] },
+    ])
+      expect(() => StorageScopePreferenceUtils.parse(value)).toThrow();
+  });
   it('parses the current storage scope document', () => {
     expect(
       StorageScopePreferenceUtils.parse({
@@ -14,6 +53,7 @@ describe('StorageScopePreferenceUtils', () => {
         recentFolders: ['C:\\Users\\example\\Downloads', '/Users/example/Downloads'],
       })
     ).toEqual({
+      schemaVersion: 1,
       selectedPaths: {
         analysis: '/Users/example/Downloads',
       },

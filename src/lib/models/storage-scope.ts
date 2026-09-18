@@ -9,6 +9,8 @@ export type StorageScopeId = (typeof STORAGE_SCOPE_IDS)[keyof typeof STORAGE_SCO
 export const MAX_RECENT_STORAGE_FOLDERS = 8;
 
 export interface StorageScopePreferences {
-  selectedPaths: Partial<Record<StorageScopeId, string>>;
+  /** Missing version denotes the original single-selection document; reads migrate it to version 1. */
+  schemaVersion?: 1;
+  selectedPaths: Partial<Record<StorageScopeId, string | string[]>>;
   recentFolders: string[];
 }

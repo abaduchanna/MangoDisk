@@ -48,3 +48,10 @@ export function collapseOverlappingRoots(paths: string[]): string[] {
     return [...roots.filter(root => !isSameOrChildKey(comparisonKey(root), pathKey)), path];
   }, []);
 }
+
+/** Compares scan coverage independently of input order and redundant child selections. */
+export function sameRootScope(left: string[], right: string[]): boolean {
+  const leftKeys = collapseOverlappingRoots(left).map(comparisonKey).sort();
+  const rightKeys = collapseOverlappingRoots(right).map(comparisonKey).sort();
+  return leftKeys.length === rightKeys.length && leftKeys.every((key, index) => key === rightKeys[index]);
+}
