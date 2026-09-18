@@ -49,12 +49,12 @@ describe('storage scope store', () => {
   it('restores every selected directory independently of the eight-item history', async () => {
     const paths = Array.from({ length: 70 }, (_, index) => `/fixture/${index}`);
     const store = useStorageScopeStore();
-    store.selectDuplicatePaths(paths, disks);
+    store.selectPaths('duplicate-files', paths, disks);
     expect(store.recentFolders).toHaveLength(8);
     const recent = [...store.recentFolders];
-    store.selectDuplicatePaths(paths.slice(1), disks);
+    store.selectPaths('duplicate-files', paths.slice(1), disks);
     expect(store.recentFolders).toEqual(recent);
-    store.selectDuplicatePaths(paths, disks);
+    store.selectPaths('duplicate-files', paths, disks);
     const resolve = vi
       .spyOn(FolderSelectionService, 'resolveDirectories')
       .mockImplementation(async values => values.map(path => ({ requestedPath: path, path })));
@@ -70,11 +70,22 @@ describe('storage scope store', () => {
 
   it('persists deselecting every location and deduplicates Windows aliases', async () => {
     const store = useStorageScopeStore();
-    store.selectDuplicatePaths(['E:\\Work', 'e:/work/', 'F:\\Chat'], disks);
+    store.selectPaths('duplicate-files', ['E:\\Work', 'e:/work/', 'F:\\Chat'], disks);
     expect(store.selectedPaths['duplicate-files']).toEqual(['E:\\Work', 'F:\\Chat']);
-    store.selectDuplicatePaths([], disks);
+    store.selectPaths('duplicate-files', [], disks);
     await expect(PreferenceStorageService.loadStorageScopePreferences()).resolves.toMatchObject({
       selectedPaths: { 'duplicate-files': [] },
+    });
+  });
+
+  it('keeps large-file and duplicate multi-selections independent', async () => {
+    const store = useStorageScopeStore();
+    store.selectPaths('duplicate-files', ['/chat'], disks);
+    store.selectPaths('large-files', ['/work', '/downloads'], disks);
+    store.selectPaths('large-files', [], disks);
+    await expect(PreferenceStorageService.loadStorageScopePreferences()).resolves.toMatchObject({
+      schemaVersion: 2,
+      selectedPaths: { 'large-files': [], 'duplicate-files': ['/chat'] },
     });
   });
 
@@ -94,10 +105,10 @@ describe('storage scope store', () => {
       '/Users/example/Downloads',
     ]);
     await expect(PreferenceStorageService.loadStorageScopePreferences()).resolves.toEqual({
-      schemaVersion: 1,
+      schemaVersion: 2,
       selectedPaths: {
         analysis: '/Users/example/Downloads',
-        'large-files': '/Users/example/Movies',
+        'large-files': ['/Users/example/Movies'],
         'duplicate-files': ['/Users/example/Documents'],
       },
       recentFolders: ['/Users/example/Documents', '/Users/example/Movies', '/Users/example/Downloads'],
@@ -166,7 +177,7 @@ describe('storage scope store', () => {
 
     store.removeFolder('/Users/example/Downloads');
 
-    expect(store.selectedPaths).toEqual({ 'duplicate-files': [] });
+    expect(store.selectedPaths).toEqual({ 'large-files': [], 'duplicate-files': [] });
     expect(store.recentFolders).toEqual([]);
   });
 
@@ -184,7 +195,7 @@ describe('storage scope store', () => {
     const store = useStorageScopeStore();
     await store.initialize(disks);
     expect(store.recentFolders).toEqual([target]);
-    expect(store.selectedPaths).toEqual({ analysis: target, 'large-files': target });
+    expect(store.selectedPaths).toEqual({ analysis: target, 'large-files': [target] });
   });
 
   it('does not rewrite unchanged folder preferences during restoration', async () => {
@@ -217,13 +228,13 @@ describe('storage scope store', () => {
     await store.initialize(disks);
 
     expect(store.selectedPaths).toEqual({
-      'large-files': '/Users/example/Downloads',
+      'large-files': ['/Users/example/Downloads'],
     });
     expect(store.recentFolders).toEqual(['/Users/example/Downloads']);
     await vi.waitFor(() => {
       expect(values.get('storageScopePreferences')).toMatchObject({
         selectedPaths: {
-          'large-files': '/Users/example/Downloads',
+          'large-files': ['/Users/example/Downloads'],
         },
       });
     });

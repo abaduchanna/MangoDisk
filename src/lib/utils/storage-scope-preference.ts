@@ -11,7 +11,8 @@ export function parse(value: unknown): StorageScopePreferences {
     !isRecord(value) ||
     !(
       hasExactKeys(value, ['selectedPaths', 'recentFolders']) ||
-      (value.schemaVersion === 1 && hasExactKeys(value, ['schemaVersion', 'selectedPaths', 'recentFolders']))
+      ((value.schemaVersion === 1 || value.schemaVersion === 2) &&
+        hasExactKeys(value, ['schemaVersion', 'selectedPaths', 'recentFolders']))
     )
   ) {
     throw new Error('Invalid storage scope preferences');
@@ -22,17 +23,19 @@ export function parse(value: unknown): StorageScopePreferences {
   const selectedPaths: StorageScopePreferences['selectedPaths'] = {};
   for (const [scopeId, selection] of Object.entries(value.selectedPaths)) {
     const paths = Array.isArray(selection) ? selection : [selection];
+    const multiple = scopeId === STORAGE_SCOPE_IDS.duplicateFiles || scopeId === STORAGE_SCOPE_IDS.largeFiles;
+    const arrayAllowed =
+      value.schemaVersion === 2 ? multiple : value.schemaVersion === 1 && scopeId === STORAGE_SCOPE_IDS.duplicateFiles;
     if (
       !STORAGE_SCOPE_ID_VALUES.has(scopeId) ||
-      (Array.isArray(selection) && (value.schemaVersion !== 1 || scopeId !== STORAGE_SCOPE_IDS.duplicateFiles)) ||
+      (Array.isArray(selection) && !arrayAllowed) ||
       paths.some(path => typeof path !== 'string' || !path.trim())
     ) {
       throw new Error('Invalid storage scope selection');
     }
-    selectedPaths[scopeId as StorageScopeId] =
-      scopeId === STORAGE_SCOPE_IDS.duplicateFiles
-        ? uniquePaths(paths, Infinity)
-        : PathUtils.display((selection as string).trim());
+    selectedPaths[scopeId as StorageScopeId] = multiple
+      ? uniquePaths(paths, Infinity)
+      : PathUtils.display((selection as string).trim());
   }
   if (
     value.recentFolders.length > MAX_RECENT_STORAGE_FOLDERS ||
@@ -45,7 +48,7 @@ export function parse(value: unknown): StorageScopePreferences {
     throw new Error('Duplicate recent storage folders');
   }
   return {
-    schemaVersion: 1,
+    schemaVersion: 2,
     selectedPaths,
     recentFolders,
   };
@@ -58,7 +61,7 @@ export function removePath(paths: readonly string[], path: string): string[] {
   return paths.filter(item => PathUtils.comparisonKey(item) !== removedKey);
 }
 export function empty(): StorageScopePreferences {
-  return { schemaVersion: 1, selectedPaths: {}, recentFolders: [] };
+  return { schemaVersion: 2, selectedPaths: {}, recentFolders: [] };
 }
 function uniquePaths(values: readonly unknown[], limit = MAX_RECENT_STORAGE_FOLDERS): string[] {
   const keys = new Set<string>();

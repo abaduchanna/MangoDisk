@@ -405,8 +405,8 @@ function deleteAnalysisEntryPermanently(entry: DirectoryEntryInfo) {
   return analysisStore.deletePermanently(entry);
 }
 
-function findLargeFiles(path: string | undefined, scanMode: LargeFileScanMode) {
-  return largeFilesStore.find(path, store.settings.largeFileMinimumBytes, scanMode);
+function findLargeFiles(paths: string[], scanMode: LargeFileScanMode) {
+  return largeFilesStore.find(paths, store.settings.largeFileMinimumBytes, scanMode);
 }
 
 function updateLargeFileMinimum(minimumBytes: number) {

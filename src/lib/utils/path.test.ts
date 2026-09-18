@@ -67,3 +67,21 @@ describe('PathUtils.collapseOverlappingRoots', () => {
     ]);
   });
 });
+
+describe('explicit scan locations', () => {
+  it('preserves mounted descendants while removing duplicate path aliases', () => {
+    expect(PathUtils.uniquePaths(['/', '/Volumes/External', '/', '/Volumes/External/'])).toEqual([
+      '/',
+      '/Volumes/External',
+    ]);
+    expect(PathUtils.uniquePaths(['C:\\', 'C:\\Mount', 'c:/mount/', 'D:\\'])).toEqual(['C:\\', 'C:\\Mount', 'D:\\']);
+  });
+
+  it('does not present a missing mounted volume as matching the current selection', () => {
+    expect(PathUtils.sameSelectedPaths(['/'], ['/', '/Volumes/External'])).toBe(false);
+    expect(PathUtils.sameSelectedPaths(['/', '/Volumes/External'], ['/'])).toBe(false);
+    expect(PathUtils.sameSelectedPaths(['/Volumes/External', '/'], ['/', '/Volumes/External/'])).toBe(true);
+    expect(PathUtils.sameSelectedPaths(['E:\\Work', 'F:\\Chat'], ['f:/chat/', 'e:/work', 'E:\\Work'])).toBe(true);
+    expect(PathUtils.sameSelectedPaths([], ['/'])).toBe(false);
+  });
+});

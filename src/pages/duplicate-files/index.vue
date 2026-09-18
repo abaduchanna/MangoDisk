@@ -172,7 +172,7 @@ function selectScope(value: unknown) {
   if (!Array.isArray(value) || !value.every(path => typeof path === 'string')) return;
   // Selection only configures the next scan. Streamed result roots must never replace it.
   selectedScopePaths.value = value.map(PathUtils.display);
-  storageScopeStore.selectDuplicatePaths(selectedScopePaths.value, props.disks);
+  storageScopeStore.selectPaths(scopeId, selectedScopePaths.value, props.disks);
 }
 
 function removeScopeFolder(path: string) {

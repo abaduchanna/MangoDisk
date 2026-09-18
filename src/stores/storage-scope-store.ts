@@ -24,7 +24,7 @@ const initializationByStore = new WeakMap<object, Promise<void>>();
 export const useStorageScopeStore = defineStore('storage-scope', {
   state: (): StorageScopeState => ({
     initialized: false,
-    schemaVersion: 1,
+    schemaVersion: 2,
     selectedPaths: {},
     recentFolders: [],
     standardFolders: [],
@@ -147,14 +147,18 @@ export const useStorageScopeStore = defineStore('storage-scope', {
       const normalized = PathUtils.display(path);
       if (!normalized) return;
 
-      this.selectedPaths[scopeId] = scopeId === STORAGE_SCOPE_IDS.duplicateFiles ? [normalized] : normalized;
+      this.selectedPaths[scopeId] = scopeId === STORAGE_SCOPE_IDS.analysis ? normalized : [normalized];
       const diskKeys = new Set(disks.map(disk => PathUtils.comparisonKey(disk.mountPoint)));
       if (!diskKeys.has(PathUtils.comparisonKey(normalized))) {
         this.recentFolders = StorageScopePreferenceUtils.addRecentFolder(this.recentFolders, normalized);
       }
       this.persist();
     },
-    selectDuplicatePaths(paths: string[], disks: readonly DiskInfo[]) {
+    selectPaths(
+      scopeId: typeof STORAGE_SCOPE_IDS.largeFiles | typeof STORAGE_SCOPE_IDS.duplicateFiles,
+      paths: string[],
+      disks: readonly DiskInfo[]
+    ) {
       const keys = new Set<string>();
       const selected = paths.map(PathUtils.display).filter(path => {
         const key = PathUtils.comparisonKey(path);
@@ -162,9 +166,9 @@ export const useStorageScopeStore = defineStore('storage-scope', {
         keys.add(key);
         return true;
       });
-      const previous = this.selectedPaths[STORAGE_SCOPE_IDS.duplicateFiles] ?? [];
+      const previous = this.selectedPaths[scopeId] ?? [];
       const previousKeys = new Set((Array.isArray(previous) ? previous : [previous]).map(PathUtils.comparisonKey));
-      this.selectedPaths[STORAGE_SCOPE_IDS.duplicateFiles] = selected;
+      this.selectedPaths[scopeId] = selected;
       const diskKeys = new Set(disks.map(disk => PathUtils.comparisonKey(disk.mountPoint)));
       const recentKeys = new Set(this.recentFolders.map(PathUtils.comparisonKey));
       for (const path of selected) {
@@ -189,7 +193,7 @@ export const useStorageScopeStore = defineStore('storage-scope', {
     },
     persist() {
       void PreferenceStorageService.saveStorageScopePreferences({
-        schemaVersion: 1,
+        schemaVersion: 2,
         selectedPaths: this.selectedPaths,
         recentFolders: this.recentFolders,
       }).catch(error => {

@@ -55,3 +55,21 @@ export function sameRootScope(left: string[], right: string[]): boolean {
   const rightKeys = collapseOverlappingRoots(right).map(comparisonKey).sort();
   return leftKeys.length === rightKeys.length && leftKeys.every((key, index) => key === rightKeys[index]);
 }
+
+/** Deduplicates explicit selections without assuming parents traverse mounted filesystems. */
+export function uniquePaths(paths: readonly string[]): string[] {
+  const seen = new Set<string>();
+  return paths.map(display).filter(path => {
+    const key = comparisonKey(path);
+    if (!key || seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+}
+
+/** Matches the complete selected scope; a nested path may be a separately mounted volume. */
+export function sameSelectedPaths(left: readonly string[], right: readonly string[]): boolean {
+  const leftKeys = uniquePaths(left).map(comparisonKey).sort();
+  const rightKeys = uniquePaths(right).map(comparisonKey).sort();
+  return leftKeys.length === rightKeys.length && leftKeys.every((key, index) => key === rightKeys[index]);
+}
