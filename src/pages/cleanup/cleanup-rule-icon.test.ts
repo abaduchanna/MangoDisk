@@ -23,6 +23,16 @@ describe('cleanup rule icons', () => {
     expect(cleanupRuleIcon('project.cmake-build-artifacts', 'project')).toBe(ICON_NAMES.brandCmake);
     expect(cleanupRuleIcon('dev.homebrew-cache', 'userCache')).toBe(ICON_NAMES.brandHomebrew);
     expect(cleanupRuleIcon('app.lark-renderer-cache', 'userCache')).toBe(ICON_NAMES.brandLark);
+    expect(cleanupRuleIcon('app.qqlive-rendering-cache', 'application')).toBe(ICON_NAMES.brandTencentVideo);
+    expect(cleanupRuleIcon('app.qqlive-update-cache', 'application')).toBe(ICON_NAMES.brandTencentVideo);
+    expect(cleanupRuleIcon('special.qqlive-offline-videos', 'application')).toBe(ICON_NAMES.brandTencentVideo);
+    expect(cleanupRuleIcon('special.qqlive-playback-cache', 'application')).toBe(ICON_NAMES.brandTencentVideo);
+    expect(cleanupRuleIcon('app.youku-rendering-cache', 'application')).toBe(ICON_NAMES.brandYouku);
+    expect(cleanupRuleIcon('special.youku-offline-videos', 'application')).toBe(ICON_NAMES.brandYouku);
+    expect(cleanupRuleIcon('special.youku-playback-cache', 'application')).toBe(ICON_NAMES.brandYouku);
+    expect(cleanupRuleIcon('app.iqiyi-rendering-cache', 'application')).toBe(ICON_NAMES.brandIqiyi);
+    expect(cleanupRuleIcon('special.iqiyi-offline-videos', 'application')).toBe(ICON_NAMES.brandIqiyi);
+    expect(cleanupRuleIcon('special.iqiyi-playback-cache', 'application')).toBe(ICON_NAMES.brandIqiyi);
     expect(cleanupRuleIcon('special.xcode-simulator-runtime', 'xcode')).toBe(ICON_NAMES.brandXcode);
     expect(cleanupRuleIcon('special.ai-model-hugging-face', 'ai')).toBe(ICON_NAMES.brandHuggingface);
     expect(cleanupRuleIcon('special.ai-model-ollama', 'ai')).toBe(ICON_NAMES.brandOllama);

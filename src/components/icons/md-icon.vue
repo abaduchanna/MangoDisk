@@ -151,9 +151,12 @@ import { computed, type Component } from 'vue';
 
 import MdIconAiModel from '@/components/icons/md-icon-ai-model.vue';
 import MdIconGithub from '@/components/icons/md-icon-github.vue';
+import MdIconIqiyi from '@/components/icons/md-icon-iqiyi.vue';
 import MdIconLark from '@/components/icons/md-icon-lark.vue';
 import MdIconLinuxFolder from '@/components/icons/md-icon-linux-folder.vue';
 import MdIconSimpleBrand from '@/components/icons/md-icon-simple-brand.vue';
+import MdIconTencentVideo from '@/components/icons/md-icon-tencent-video.vue';
+import MdIconYouku from '@/components/icons/md-icon-youku.vue';
 import type { IconName } from '@/lib/models/ui';
 import { LoggerService } from '@/lib/services/logger-service';
 
@@ -282,6 +285,7 @@ const iconMap: Record<IconName, IconDefinition> = {
   brandGradle: simpleBrand(siGradle),
   brandHomebrew: simpleBrand(siHomebrew),
   brandHuggingface: simpleBrand(siHuggingface),
+  brandIqiyi: custom(MdIconIqiyi),
   brandJetbrains: simpleBrand(siJetbrains),
   brandLark: lucide(MdIconLark),
   brandNodejs: tabler(IconBrandNodejs),
@@ -299,6 +303,7 @@ const iconMap: Record<IconName, IconDefinition> = {
   brandSwift: tabler(IconBrandSwift),
   brandTeams: tabler(IconBrandTeams),
   brandTelegram: tabler(IconBrandTelegram),
+  brandTencentVideo: custom(MdIconTencentVideo),
   brandTerraform: tabler(IconBrandTerraform),
   brandUnity: tabler(IconBrandUnity),
   brandVivaldi: tabler(IconBrandVivaldi),
@@ -309,6 +314,7 @@ const iconMap: Record<IconName, IconDefinition> = {
   brandWindows: tabler(IconBrandWindows),
   brandXcode: simpleBrand(siXcode),
   brandYarn: tabler(IconBrandYarn),
+  brandYouku: custom(MdIconYouku),
   brandZoom: tabler(IconBrandZoom),
   windowsApplication: lucide(Monitor),
   uninstall: lucide(PackageX),
