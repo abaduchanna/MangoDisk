@@ -57,6 +57,7 @@
   "dependencies": {
     "@lucide/vue": "^1.24.0",
     "@tabler/icons-vue": "3.46.0",
+    "@tanstack/vue-virtual": "3.13.32",
     "@tauri-apps/api": "^2.11.1",
     "@tauri-apps/plugin-dialog": "~2.7.1",
     "@tauri-apps/plugin-fs": "2.5.1",

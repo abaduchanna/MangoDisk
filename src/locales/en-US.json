@@ -1635,6 +1635,7 @@
     }
   },
   "common": {
+    "scrollbar": "Vertical scrollbar",
     "decreaseValue": "Decrease {label}",
     "increaseValue": "Increase {label}",
     "copy": "Copy",

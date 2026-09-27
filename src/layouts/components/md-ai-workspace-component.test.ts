@@ -94,7 +94,11 @@ it.each([true, false])(
       store.minimize('startup');
       module.value = 'systemOptimization';
       await flushPromises();
-      expect(wrapper.get('[role="region"]').isVisible()).toBe(true);
+      // jsdom can retain the previous computed display after KeepAlive moves
+      // a node. Check Vue's actual v-show output and accessible state instead.
+      const region = wrapper.get('[role="region"]');
+      expect((region.element as HTMLElement).style.display).not.toBe('none');
+      expect(region.attributes('aria-hidden')).toBe('false');
       streams.get('systemOptimization')!.finish();
       await second;
       module.value = 'startup';

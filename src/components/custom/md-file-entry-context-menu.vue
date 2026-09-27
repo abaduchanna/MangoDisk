@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { onDeactivated, ref, watch } from 'vue';
 import { useI18n } from 'vue-i18n';
 
 import MdIcon from '@/components/icons/md-icon.vue';
@@ -7,12 +8,14 @@ import { ICON_NAMES } from '@/lib/models/ui';
 
 const { t } = useI18n({ useScope: 'global' });
 
-withDefaults(
+const props = withDefaults(
   defineProps<{
+    entryKey?: string;
     openDisabled?: boolean;
     deleteDisabled?: boolean;
   }>(),
   {
+    entryKey: undefined,
     openDisabled: false,
     deleteDisabled: false,
   }
@@ -24,15 +27,27 @@ const emit = defineEmits<{
   delete: [];
   menuStateChange: [open: boolean];
 }>();
+// Recycled virtual rows must not leave a menu targeting the previous file.
+const open = ref(false);
+onDeactivated(() => {
+  open.value = false;
+});
+watch(
+  () => props.entryKey,
+  () => {
+    open.value = false;
+  },
+  { flush: 'sync' }
+);
 </script>
 
 <template>
   <!-- The owning domain maps these presentation-only actions to its trusted entry model. -->
-  <ContextMenu @update:open="emit('menuStateChange', $event)">
+  <ContextMenu v-model:open="open" @update:open="emit('menuStateChange', $event)">
     <ContextMenuTrigger as-child>
       <slot />
     </ContextMenuTrigger>
-    <ContextMenuContent>
+    <ContextMenuContent v-if="open">
       <ContextMenuItem :disabled="openDisabled" @select="emit('open')">
         <MdIcon :name="ICON_NAMES.external" :size="16" />
         {{ t('common.open') }}

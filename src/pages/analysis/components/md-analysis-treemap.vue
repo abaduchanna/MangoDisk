@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { useI18n } from 'vue-i18n';
-import { computed, ref } from 'vue';
+import { computed, onDeactivated, ref } from 'vue';
 
 import MdFileEntryContextMenu from '@/components/custom/md-file-entry-context-menu.vue';
 import MdNativeFileIcon from '@/components/custom/md-native-file-icon.vue';
@@ -90,6 +90,11 @@ function showTooltip(tile: TreemapTile, event: PointerEvent) {
   hoveredTile.value = tile;
   updateTooltipPosition(event);
 }
+
+onDeactivated(() => {
+  hideTooltip();
+  contextMenuOpen.value = false;
+});
 
 function hideTooltip() {
   hoveredTile.value = null;

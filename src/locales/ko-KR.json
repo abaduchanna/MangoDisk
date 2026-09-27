@@ -1635,6 +1635,7 @@
     }
   },
   "common": {
+    "scrollbar": "세로 스크롤 막대",
     "decreaseValue": "{label} 줄이기",
     "increaseValue": "{label} 늘리기",
     "copy": "복사",

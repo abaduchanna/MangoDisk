@@ -1635,6 +1635,7 @@
     }
   },
   "common": {
+    "scrollbar": "垂直捲動軸",
     "decreaseValue": "減少{label}",
     "increaseValue": "增加{label}",
     "copy": "複製",

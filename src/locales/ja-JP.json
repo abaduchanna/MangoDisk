@@ -1635,6 +1635,7 @@
     }
   },
   "common": {
+    "scrollbar": "縦スクロールバー",
     "decreaseValue": "{label}を減らす",
     "increaseValue": "{label}を増やす",
     "copy": "コピー",

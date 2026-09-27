@@ -16,6 +16,18 @@
   }
 }
 
+/* Virtual tables own thumb dragging so viewport and rows paint together. */
+@utility scrollbar-synchronous {
+  overflow-y: scroll;
+  scrollbar-width: none;
+  scrollbar-gutter: auto;
+  padding-inline: var(--layout-scrollbar-width);
+
+  &::-webkit-scrollbar {
+    display: none;
+  }
+}
+
 @utility scrollbar-stable {
   overflow-y: scroll;
   scrollbar-gutter: stable both-edges;

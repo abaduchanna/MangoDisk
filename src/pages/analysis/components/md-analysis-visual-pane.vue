@@ -75,27 +75,29 @@ const emit = defineEmits<{
       </div>
     </header>
 
-    <MdAnalysisTreemap
-      v-if="props.viewMode === ANALYSIS_VIEW_IDS.treemap"
-      :entries="entries"
-      :total-bytes="result.totalBytes"
-      :open-disabled="openDisabled"
-      :delete-disabled="deleteDisabled"
-      @activate="emit('activate', $event)"
-      @open-entry="emit('openEntry', $event)"
-      @reveal="emit('reveal', $event)"
-      @delete="emit('delete', $event)"
-    />
-    <MdAnalysisDetailsTable
-      v-else
-      :entries="entries"
-      :open-disabled="openDisabled"
-      :delete-disabled="deleteDisabled"
-      @activate="emit('activate', $event)"
-      @open-entry="emit('openEntry', $event)"
-      @reveal="emit('reveal', $event)"
-      @delete="emit('delete', $event)"
-    />
+    <KeepAlive>
+      <MdAnalysisTreemap
+        v-if="props.viewMode === ANALYSIS_VIEW_IDS.treemap"
+        :entries="entries"
+        :total-bytes="result.totalBytes"
+        :open-disabled="openDisabled"
+        :delete-disabled="deleteDisabled"
+        @activate="emit('activate', $event)"
+        @open-entry="emit('openEntry', $event)"
+        @reveal="emit('reveal', $event)"
+        @delete="emit('delete', $event)"
+      />
+      <MdAnalysisDetailsTable
+        v-else
+        :entries="entries"
+        :open-disabled="openDisabled"
+        :delete-disabled="deleteDisabled"
+        @activate="emit('activate', $event)"
+        @open-entry="emit('openEntry', $event)"
+        @reveal="emit('reveal', $event)"
+        @delete="emit('delete', $event)"
+      />
+    </KeepAlive>
   </section>
 </template>
 
