@@ -1747,7 +1747,6 @@
     "diskUsageUsedLabel": "已用",
     "diskUsageAvailableLabel": "可用",
     "diskUsageTotalLabel": "總容量",
-    "selected": "已選",
     "totalSize": "共 {size}",
     "selectAll": "全選",
     "selectRule": "選擇清理項目：{name}",
@@ -1816,7 +1815,6 @@
     "cancelled": "清理已取消",
     "processedItems": "已處理項目",
     "failedItems": "跳過或失敗",
-    "cleanableFound": "可清理項目",
     "summaryCount": "發現 {count} 項可清理內容",
     "summarySpace": "估算可清理",
     "emptyCleanTitle": "你的電腦很乾淨",
@@ -2554,8 +2552,8 @@
     },
     "entries": {
       "system.user-temp": {
-        "name": "使用者暫存檔案",
-        "description": "Windows 與應用程式寫入的暫存工作檔案",
+        "name": "舊暫存檔案",
+        "description": "系統和應用程式留下的舊暫存檔案",
         "impact": "佔用中的檔案會被跳過；應用程式需要時會重新建立暫存內容。"
       },
       "system.darwin-user-cache": {
@@ -2599,9 +2597,9 @@
         "impact": "不會刪除模型或個人內容；後續功能啟動時可能重新產生。"
       },
       "system.thumbnail-cache": {
-        "name": "縮圖與圖示快取",
-        "description": "檔案總管為檔案預覽和圖示產生的快取資料庫",
-        "impact": "下次瀏覽資料夾時，Windows 會視需要重新產生預覽和圖示。"
+        "name": "檔案預覽快取",
+        "description": "瀏覽檔案時產生的預覽快取",
+        "impact": "不會刪除原始檔案；下次瀏覽時會重新產生預覽。"
       },
       "system.directx-shader-cache": {
         "name": "DirectX 著色器快取",
@@ -3069,12 +3067,12 @@
         "impact": "不會刪除原始碼或封存；舊檔案索引可能在後續使用時重新產生。"
       },
       "special.xcode-device-support": {
-        "name": "Xcode DeviceSupport",
+        "name": "Xcode 裝置支援檔案",
         "description": "Xcode 為真機調試準備的系統支援檔案",
         "impact": "再次調試對應系統版本的裝置時，Xcode 需要重新準備支援檔案。"
       },
       "special.xcode-simulator-runtime": {
-        "name": "Simulator Runtime",
+        "name": "Xcode 模擬器執行環境",
         "description": "Xcode 安裝的 iOS、watchOS、tvOS 與 visionOS 模擬執行環境",
         "impact": "移除後將無法執行對應系統版本的模擬器，需要時可透過 Xcode 重新下載。"
       },
@@ -3547,6 +3545,261 @@
         "name": "Universal Binary",
         "description": "相容應用程式中額外包含的 Intel 或 Apple 晶片程式碼",
         "impact": "會保留目前 Mac 需要的程式碼，並在清理前後檢查應用程式。正在執行或無法安全修改的應用程式會被跳過。重新安裝或更新應用程式可復原對兩種處理器的支援。"
+      },
+      "app.apple-mail-cache": {
+        "name": "Apple 郵件快取",
+        "description": "郵件應用程式產生的暫存快取",
+        "impact": "郵件、附件和帳號設定會保留；請先關閉郵件再清理。"
+      },
+      "app.blender-cache": {
+        "name": "Blender 預覽快取",
+        "description": "Blender 產生的縮圖與渲染預覽",
+        "impact": "專案檔案和已儲存的渲染圖會保留；請先關閉 Blender 再清理。"
+      },
+      "app.cargo-cache": {
+        "name": "Cargo 下載快取",
+        "description": "Cargo 下載的 crate 原始碼和 Git 儲存庫快取",
+        "impact": "工具鏈和專案會保留；後續建置可能重新下載。"
+      },
+      "app.chrome-cache": {
+        "name": "Chrome 渲染快取",
+        "description": "Chrome 產生的網頁和圖形渲染快取",
+        "impact": "書籤、密碼和瀏覽記錄會保留；請先關閉 Chrome 再清理。"
+      },
+      "app.dingtalk-diagnostic-cache": {
+        "name": "釘釘記錄檔與圖片快取",
+        "description": "釘釘的診斷記錄檔和暫存圖片快取",
+        "impact": "聊天、下載檔案和帳號資料會保留；請先關閉釘釘再清理。"
+      },
+      "app.docker-build-cache": {
+        "name": "Docker 建置快取",
+        "description": "BuildKit 保存的中間建置層快取",
+        "impact": "執行中的容器和已推送映像不受影響；後續建置可能重新執行。"
+      },
+      "app.electron-productivity-cache": {
+        "name": "Electron 應用程式渲染快取",
+        "description": "Notion、Obsidian、Insomnia 和 GitHub Desktop 的渲染快取與記錄檔",
+        "impact": "文件、工作區、登入資料和設定會保留；請先關閉相關應用程式再清理。"
+      },
+      "app.firefox-cache": {
+        "name": "Firefox 網路快取",
+        "description": "Firefox 產生的網頁與啟動快取",
+        "impact": "書籤、密碼和瀏覽記錄會保留；請先關閉 Firefox 再清理。"
+      },
+      "app.gimp-cache": {
+        "name": "GIMP 預覽快取",
+        "description": "GIMP 產生的筆刷、調色盤和圖案預覽",
+        "impact": "圖片和工具設定會保留；請先關閉 GIMP 再清理。"
+      },
+      "app.gradle-cache": {
+        "name": "Gradle 建置快取",
+        "description": "Gradle 產生的轉換結果和建置快取",
+        "impact": "已下載的相依套件和專案會保留；後續建置可能重新執行。"
+      },
+      "app.gtk-doc-cache": {
+        "name": "GTK 文件快取",
+        "description": "GTK-Doc 產生的文件快取",
+        "impact": "原始檔案會保留；文件可重新產生。"
+      },
+      "app.iwork-cache": {
+        "name": "iWork 應用程式快取",
+        "description": "Pages、Numbers 和 Keynote 產生的暫存快取",
+        "impact": "文件、範本和自動儲存內容會保留；請先關閉相關應用程式再清理。"
+      },
+      "app.jetbrains-cache": {
+        "name": "JetBrains IDE 快取",
+        "description": "JetBrains IDE 的索引、網路與建置快取",
+        "impact": "專案、設定和外掛程式會保留；請先關閉相關 IDE 再清理。"
+      },
+      "app.maven-cache": {
+        "name": "Maven 舊相依套件快取",
+        "description": "Maven 本機儲存庫中長期未使用的相依套件",
+        "impact": "專案和設定會保留；後續建置可能重新下載。"
+      },
+      "app.minecraft-cache": {
+        "name": "Minecraft 舊記錄檔",
+        "description": "Minecraft 的舊記錄檔和當機報告",
+        "impact": "遊戲版本和模組會保留；請先關閉 Minecraft 再清理。"
+      },
+      "app.npm-cache": {
+        "name": "npm 下載快取",
+        "description": "npm 下載的套件封存快取",
+        "impact": "專案和 node_modules 會保留；後續安裝可能重新下載。"
+      },
+      "app.obs-diagnostic-cache": {
+        "name": "OBS 舊診斷檔案",
+        "description": "超過 14 天的 OBS 記錄檔與效能分析資料",
+        "impact": "錄製、場景和設定會保留；請先關閉 OBS 再清理。"
+      },
+      "app.outlook-cache": {
+        "name": "Outlook 快取",
+        "description": "Outlook 產生的暫存快取",
+        "impact": "郵件、附件和帳號資料會保留；請先關閉 Outlook 再清理。"
+      },
+      "app.pip-cache": {
+        "name": "pip 下載快取",
+        "description": "pip 下載的 wheel 與原始碼套件快取",
+        "impact": "已安裝的套件和虛擬環境會保留；後續安裝可能重新下載。"
+      },
+      "app.spotify-cache": {
+        "name": "Spotify 播放快取",
+        "description": "Spotify 產生的串流播放快取",
+        "impact": "播放清單、下載歌曲和帳號資料會保留；請先關閉 Spotify 再清理。"
+      },
+      "app.teams-msix-cache": {
+        "name": "Teams 渲染快取",
+        "description": "新版 Teams 的網頁和圖形渲染快取",
+        "impact": "聊天、下載檔案和登入資料會保留；請先關閉 Teams 再清理。"
+      },
+      "app.telegram-cache": {
+        "name": "Telegram 快取",
+        "description": "Telegram 產生的暫存快取",
+        "impact": "訊息、下載的媒體和帳號資料會保留；請先關閉 Telegram 再清理。"
+      },
+      "app.thunderbird-cache": {
+        "name": "Thunderbird 快取",
+        "description": "Thunderbird 產生的暫存快取",
+        "impact": "郵件、設定檔和登入資料會保留；請先關閉 Thunderbird 再清理。"
+      },
+      "app.vscode-cache": {
+        "name": "VS Code 渲染快取",
+        "description": "VS Code 的渲染、圖形與擴充套件封存快取",
+        "impact": "設定、擴充套件和工作區會保留；請先關閉 VS Code 再清理。"
+      },
+      "app.whatsapp-cache": {
+        "name": "WhatsApp 快取",
+        "description": "WhatsApp 產生的暫存快取",
+        "impact": "訊息、附件和帳號資料會保留；請先關閉 WhatsApp 再清理。"
+      },
+      "app.wine-prefix-cache": {
+        "name": "Wine 暫存檔案",
+        "description": "Wine 前綴中的 Windows 暫存檔案",
+        "impact": "已安裝的應用程式和設定會保留；使用中的檔案會跳過。"
+      },
+      "app.yarn-cache": {
+        "name": "Yarn 下載快取",
+        "description": "Yarn 下載的套件快取",
+        "impact": "專案和 node_modules 會保留；後續安裝可能重新下載。"
+      },
+      "app.zoom-diagnostic-cache": {
+        "name": "Zoom 舊記錄檔",
+        "description": "超過 14 天的 Zoom 診斷記錄檔",
+        "impact": "錄製、聊天檔案和下載內容會保留；請先關閉 Zoom 再清理。"
+      },
+      "browser.duckduckgo-cache": {
+        "name": "DuckDuckGo 渲染快取",
+        "description": "DuckDuckGo 瀏覽器的網頁和圖形渲染快取",
+        "impact": "書籤、歷史記錄、密碼和登入資料會保留；請先關閉瀏覽器再清理。"
+      },
+      "browser.gecko-family-cache": {
+        "name": "Gecko 應用程式快取",
+        "description": "Floorp、LibreWolf、Waterfox 和 Thunderbird 的網路與啟動快取",
+        "impact": "書籤、郵件和設定檔會保留；請先關閉相關應用程式再清理。"
+      },
+      "dev.bun-cache": {
+        "name": "Bun 套件快取",
+        "description": "Bun 下載的套件快取",
+        "impact": "專案和 Bun 設定會保留；後續安裝可能重新下載套件。"
+      },
+      "dev.ccache-cache": {
+        "name": "ccache 編譯快取",
+        "description": "ccache 保存的可重建編譯結果",
+        "impact": "原始碼和 ccache 設定會保留；後續建置可能重新編譯。"
+      },
+      "dev.composer-cache": {
+        "name": "Composer 快取",
+        "description": "Composer 下載的套件與儲存庫中繼資料",
+        "impact": "專案、憑證和設定會保留；後續使用可能重新下載。"
+      },
+      "dev.copilot-cli-cache": {
+        "name": "GitHub Copilot CLI 快取",
+        "description": "Copilot CLI 的擴充套件市集與更新快取",
+        "impact": "設定和工作階段記錄會保留；請先關閉 Copilot CLI 再清理。"
+      },
+      "dev.deno-cache": {
+        "name": "Deno 相依套件快取",
+        "description": "Deno 下載的相依套件與編譯快取",
+        "impact": "專案和設定會保留；後續執行可能重新下載或編譯。"
+      },
+      "dev.hex-cache": {
+        "name": "Hex 套件快取",
+        "description": "Hex 下載的套件快取",
+        "impact": "憑證和設定會保留；請先關閉 Mix 工作再清理。"
+      },
+      "dev.mise-cache": {
+        "name": "mise 快取",
+        "description": "mise 產生的暫存中繼資料快取",
+        "impact": "已安裝的工具和設定會保留；請先關閉 mise 再清理。"
+      },
+      "dev.rubygems-cache": {
+        "name": "RubyGems 下載快取",
+        "description": "RubyGems 下載的 .gem 安裝套件",
+        "impact": "已安裝的 gem 會保留；請先關閉 Ruby 工具再清理。"
+      },
+      "dev.xcode-simulator-cache": {
+        "name": "Xcode 模擬器快取",
+        "description": "CoreSimulator 產生的快取與暫存檔案",
+        "impact": "模擬器裝置、執行環境和應用程式資料會保留；請先關閉 Xcode 與模擬器再清理。"
+      },
+      "project.autoconf-cache": {
+        "name": "Autoconf 快取",
+        "description": "專案中的 autom4te.cache 產生檔案",
+        "impact": "原始碼會保留；下次設定專案時會重新產生。"
+      },
+      "project.clojure-cli-cache": {
+        "name": "Clojure CLI 快取",
+        "description": "專案中的 .cpcache 產生檔案",
+        "impact": "原始碼會保留；下次執行時會重新產生。"
+      },
+      "project.dune-build-artifacts": {
+        "name": "Dune 建置產物",
+        "description": "專案中的 _build 建置目錄",
+        "impact": "原始碼會保留；下次建置需要重新產生。"
+      },
+      "project.leiningen-build-artifacts": {
+        "name": "Leiningen 建置產物",
+        "description": "專案中的 target 建置目錄",
+        "impact": "原始碼會保留；下次建置需要重新產生。"
+      },
+      "project.meson-build-artifacts": {
+        "name": "Meson 建置產物",
+        "description": "專案中的 builddir 建置目錄",
+        "impact": "原始碼會保留；下次建置需要重新產生。"
+      },
+      "project.mill-build-artifacts": {
+        "name": "Mill 建置產物",
+        "description": "專案中的 out 建置目錄",
+        "impact": "原始碼會保留；下次建置需要重新產生。"
+      },
+      "project.pants-workdir": {
+        "name": "Pants 工作目錄",
+        "description": "專案中的 .pants.d 建置工作目錄",
+        "impact": "原始碼會保留；下次建置需要重新產生。"
+      },
+      "project.rails-cache": {
+        "name": "Rails 快取",
+        "description": "專案中的 tmp/cache 暫存快取",
+        "impact": "原始碼會保留；Rails 會視需要重新產生快取。"
+      },
+      "project.rebar-build-artifacts": {
+        "name": "Rebar3 建置產物",
+        "description": "專案中的 _build 建置目錄",
+        "impact": "原始碼會保留；下次建置需要重新產生。"
+      },
+      "system.dns-cache": {
+        "name": "DNS 查詢快取",
+        "description": "名稱解析服務儲存的暫存查詢快取",
+        "impact": "網路設定會保留；後續查詢會重新取得結果。"
+      },
+      "system.font-cache": {
+        "name": "字型快取",
+        "description": "Fontconfig 和字形渲染快取",
+        "impact": "已安裝的字型會保留；首次使用時可能重新產生快取。"
+      },
+      "system.gtk-icon-cache": {
+        "name": "GTK 圖示快取",
+        "description": "GTK 產生的圖示預覽快取",
+        "impact": "已安裝的圖示主題會保留；需要時會重新產生。"
       }
     },
     "actionMessages": {

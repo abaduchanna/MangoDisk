@@ -1747,7 +1747,6 @@
     "diskUsageUsedLabel": "使用済み",
     "diskUsageAvailableLabel": "空き容量",
     "diskUsageTotalLabel": "合計容量",
-    "selected": "選択済み",
     "totalSize": "合計 {size}",
     "selectAll": "すべて選択",
     "selectRule": "{name} のクリーンアップ項目を選択",
@@ -1816,7 +1815,6 @@
     "cancelled": "クリーンアップがキャンセルされました",
     "processedItems": "処理された項目",
     "failedItems": "スキップまたは失敗",
-    "cleanableFound": "削除可能な項目",
     "summaryCount": "削除可能な項目が {count} 件見つかりました | 削除可能な項目が {count} 件見つかりました",
     "summarySpace": "削除可能データ（推定）",
     "emptyCleanTitle": "パソコンはきれいな状態です",
@@ -2599,9 +2597,9 @@
         "impact": "モデルおよび個人コンテンツは保持されます。一部のキャッシュは起動時に再生成される場合があります。"
       },
       "system.thumbnail-cache": {
-        "name": "サムネイルおよびアイコンキャッシュ",
-        "description": "Windowsファイルエクスプローラーによって生成されたサムネイルおよびアイコンデータベース。",
-        "impact": "Windowsはフォルダーを再度開くとプレビューおよびアイコンを再生成します。"
+        "name": "ファイルプレビューキャッシュ",
+        "description": "ファイルの閲覧時に生成されるプレビューキャッシュ。",
+        "impact": "元のファイルは保持されます。必要に応じてプレビューが再生成されます。"
       },
       "system.directx-shader-cache": {
         "name": "DirectXシェーダーキャッシュ",
@@ -3069,7 +3067,7 @@
         "impact": "ソースコードおよびアーカイブは保持されます。ドキュメントインデックスは後で再生成される場合があります。"
       },
       "special.xcode-device-support": {
-        "name": "Xcode DeviceSupport",
+        "name": "Xcode デバイスサポートファイル",
         "description": "物理デバイスのデバッグ用にXcodeが準備したシステムサポートファイル。",
         "impact": "Xcodeは、対応するシステムバージョンをデバッグする際に再度サポートを準備する必要があります。"
       },
@@ -3547,6 +3545,261 @@
         "name": "ユニバーサルバイナリ",
         "description": "互換性のあるMacアプリに含まれる余分なIntelまたはAppleシリコンコード。",
         "impact": "このMacで必要なコードを保持し、クリーンアップ前後で各アプリをチェックします。実行中または安全に変更できないアプリはスキップされます。両方のプロセッサタイプをサポートするには、アプリを再インストールまたは更新してください。"
+      },
+      "app.apple-mail-cache": {
+        "name": "Apple Mail キャッシュ",
+        "description": "Mail が生成する一時キャッシュ。",
+        "impact": "メール、添付ファイル、アカウント設定は保持されます。先に Mail を終了してください。"
+      },
+      "app.blender-cache": {
+        "name": "Blender プレビューキャッシュ",
+        "description": "Blender が生成したサムネイルとレンダリングプレビュー。",
+        "impact": "プロジェクトと保存済みのレンダリング画像は保持されます。先に Blender を終了してください。"
+      },
+      "app.cargo-cache": {
+        "name": "Cargo ダウンロードキャッシュ",
+        "description": "ダウンロード済みの crate ソースと Git リポジトリのキャッシュ。",
+        "impact": "ツールチェーンとプロジェクトは保持されます。後のビルドで再ダウンロードされる場合があります。"
+      },
+      "app.chrome-cache": {
+        "name": "Chrome 描画キャッシュ",
+        "description": "Chrome が生成した Web とグラフィック描画キャッシュ。",
+        "impact": "ブックマーク、パスワード、履歴は保持されます。先に Chrome を終了してください。"
+      },
+      "app.dingtalk-diagnostic-cache": {
+        "name": "DingTalk のログと画像キャッシュ",
+        "description": "DingTalk の診断ログと一時画像キャッシュ。",
+        "impact": "チャット、ダウンロード、アカウントデータは保持されます。先に DingTalk を終了してください。"
+      },
+      "app.docker-build-cache": {
+        "name": "Docker ビルドキャッシュ",
+        "description": "BuildKit が保存した中間ビルドレイヤー。",
+        "impact": "実行中のコンテナとプッシュ済みイメージには影響しません。後のビルドで再実行される場合があります。"
+      },
+      "app.electron-productivity-cache": {
+        "name": "Electron アプリの描画キャッシュ",
+        "description": "Notion、Obsidian、Insomnia、GitHub Desktop の描画キャッシュとログ。",
+        "impact": "文書、ワークスペース、ログイン情報、設定は保持されます。先に関連アプリを終了してください。"
+      },
+      "app.firefox-cache": {
+        "name": "Firefox ネットワークキャッシュ",
+        "description": "Firefox が生成した Web と起動キャッシュ。",
+        "impact": "ブックマーク、パスワード、履歴は保持されます。先に Firefox を終了してください。"
+      },
+      "app.gimp-cache": {
+        "name": "GIMP プレビューキャッシュ",
+        "description": "GIMP が生成したブラシ、パレット、パターンのプレビュー。",
+        "impact": "画像とツール設定は保持されます。先に GIMP を終了してください。"
+      },
+      "app.gradle-cache": {
+        "name": "Gradle ビルドキャッシュ",
+        "description": "Gradle の変換結果とビルド結果のキャッシュ。",
+        "impact": "ダウンロード済みの依存関係とプロジェクトは保持されます。後のビルドで再実行される場合があります。"
+      },
+      "app.gtk-doc-cache": {
+        "name": "GTK ドキュメントキャッシュ",
+        "description": "GTK-Doc が生成したドキュメントキャッシュ。",
+        "impact": "ソースファイルは保持されます。ドキュメントは再生成できます。"
+      },
+      "app.iwork-cache": {
+        "name": "iWork アプリキャッシュ",
+        "description": "Pages、Numbers、Keynote が生成する一時キャッシュ。",
+        "impact": "文書、テンプレート、自動保存データは保持されます。先に関連アプリを終了してください。"
+      },
+      "app.jetbrains-cache": {
+        "name": "JetBrains IDE キャッシュ",
+        "description": "JetBrains IDE の索引、ネットワーク、ビルドキャッシュ。",
+        "impact": "プロジェクト、設定、プラグインは保持されます。先に関連 IDE を終了してください。"
+      },
+      "app.maven-cache": {
+        "name": "古い Maven 依存関係",
+        "description": "Maven のローカルリポジトリで長期間使われていない依存関係。",
+        "impact": "プロジェクトと設定は保持されます。後のビルドで依存関係が再ダウンロードされる場合があります。"
+      },
+      "app.minecraft-cache": {
+        "name": "古い Minecraft ログ",
+        "description": "Minecraft の古いログとクラッシュレポート。",
+        "impact": "ゲームのバージョンと Mod は保持されます。先に Minecraft を終了してください。"
+      },
+      "app.npm-cache": {
+        "name": "npm ダウンロードキャッシュ",
+        "description": "npm が保存したダウンロード済みパッケージ。",
+        "impact": "プロジェクトと node_modules は保持されます。後のインストールで再ダウンロードされる場合があります。"
+      },
+      "app.obs-diagnostic-cache": {
+        "name": "古い OBS 診断ファイル",
+        "description": "14 日以上経過した OBS のログとプロファイリングデータ。",
+        "impact": "録画、シーン、設定は保持されます。先に OBS を終了してください。"
+      },
+      "app.outlook-cache": {
+        "name": "Outlook キャッシュ",
+        "description": "Outlook が生成する一時キャッシュ。",
+        "impact": "メール、添付ファイル、アカウントデータは保持されます。先に Outlook を終了してください。"
+      },
+      "app.pip-cache": {
+        "name": "pip ダウンロードキャッシュ",
+        "description": "pip が保存した wheel とソースパッケージ。",
+        "impact": "インストール済みパッケージと仮想環境は保持されます。後のインストールで再ダウンロードされる場合があります。"
+      },
+      "app.spotify-cache": {
+        "name": "Spotify 再生キャッシュ",
+        "description": "Spotify が生成したストリーミングと再生キャッシュ。",
+        "impact": "プレイリスト、オフライン楽曲、アカウントデータは保持されます。先に Spotify を終了してください。"
+      },
+      "app.teams-msix-cache": {
+        "name": "Teams 描画キャッシュ",
+        "description": "新しい Teams アプリの Web とグラフィック描画キャッシュ。",
+        "impact": "チャット、ダウンロード、ログイン情報は保持されます。先に Teams を終了してください。"
+      },
+      "app.telegram-cache": {
+        "name": "Telegram キャッシュ",
+        "description": "Telegram が生成する一時キャッシュ。",
+        "impact": "メッセージ、ダウンロード済みメディア、アカウントデータは保持されます。先に Telegram を終了してください。"
+      },
+      "app.thunderbird-cache": {
+        "name": "Thunderbird キャッシュ",
+        "description": "Thunderbird が生成する一時キャッシュ。",
+        "impact": "メール、プロファイル、ログイン情報は保持されます。先に Thunderbird を終了してください。"
+      },
+      "app.vscode-cache": {
+        "name": "VS Code 描画キャッシュ",
+        "description": "VS Code の描画、グラフィック、拡張機能パッケージのキャッシュ。",
+        "impact": "設定、拡張機能、ワークスペースは保持されます。先に VS Code を終了してください。"
+      },
+      "app.whatsapp-cache": {
+        "name": "WhatsApp キャッシュ",
+        "description": "WhatsApp が生成する一時キャッシュ。",
+        "impact": "メッセージ、添付ファイル、アカウントデータは保持されます。先に WhatsApp を終了してください。"
+      },
+      "app.wine-prefix-cache": {
+        "name": "Wine 一時ファイル",
+        "description": "Wine プレフィックス内の Windows 一時ファイル。",
+        "impact": "インストール済みアプリと設定は保持されます。使用中のファイルはスキップされます。"
+      },
+      "app.yarn-cache": {
+        "name": "Yarn ダウンロードキャッシュ",
+        "description": "Yarn がダウンロードしたパッケージ。",
+        "impact": "プロジェクトと node_modules は保持されます。後のインストールで再ダウンロードされる場合があります。"
+      },
+      "app.zoom-diagnostic-cache": {
+        "name": "古い Zoom ログ",
+        "description": "14 日以上経過した Zoom の診断ログ。",
+        "impact": "録画、チャットファイル、ダウンロードは保持されます。先に Zoom を終了してください。"
+      },
+      "browser.duckduckgo-cache": {
+        "name": "DuckDuckGo 描画キャッシュ",
+        "description": "DuckDuckGo ブラウザーの Web とグラフィック描画キャッシュ。",
+        "impact": "ブックマーク、履歴、パスワード、ログイン情報は保持されます。先にブラウザーを終了してください。"
+      },
+      "browser.gecko-family-cache": {
+        "name": "Gecko アプリキャッシュ",
+        "description": "Floorp、LibreWolf、Waterfox、Thunderbird のネットワークと起動キャッシュ。",
+        "impact": "ブックマーク、メール、プロファイルは保持されます。先に関連アプリを終了してください。"
+      },
+      "dev.bun-cache": {
+        "name": "Bun パッケージキャッシュ",
+        "description": "Bun がダウンロードしたパッケージ。",
+        "impact": "プロジェクトと Bun の設定は保持されます。次回のインストール時に再ダウンロードされる場合があります。"
+      },
+      "dev.ccache-cache": {
+        "name": "ccache コンパイルキャッシュ",
+        "description": "ccache が保存した再生成可能なコンパイル結果。",
+        "impact": "ソースコードと ccache の設定は保持されます。後のビルドで再コンパイルされる場合があります。"
+      },
+      "dev.composer-cache": {
+        "name": "Composer キャッシュ",
+        "description": "Composer がダウンロードしたパッケージとリポジトリのメタデータ。",
+        "impact": "プロジェクト、認証情報、設定は保持されます。必要に応じて再ダウンロードされます。"
+      },
+      "dev.copilot-cli-cache": {
+        "name": "GitHub Copilot CLI キャッシュ",
+        "description": "Copilot CLI のマーケットプレイスと更新キャッシュ。",
+        "impact": "設定とセッション履歴は保持されます。先に Copilot CLI を終了してください。"
+      },
+      "dev.deno-cache": {
+        "name": "Deno 依存関係キャッシュ",
+        "description": "Deno が保存した依存関係とコンパイル済みファイル。",
+        "impact": "プロジェクトと設定は保持されます。次回の実行時に再ダウンロードまたは再コンパイルされる場合があります。"
+      },
+      "dev.hex-cache": {
+        "name": "Hex パッケージキャッシュ",
+        "description": "Hex がダウンロードしたパッケージ。",
+        "impact": "認証情報と設定は保持されます。先に Mix タスクを停止してください。"
+      },
+      "dev.mise-cache": {
+        "name": "mise キャッシュ",
+        "description": "mise が保存した一時的なメタデータ。",
+        "impact": "インストール済みツールと設定は保持されます。先に mise を終了してください。"
+      },
+      "dev.rubygems-cache": {
+        "name": "RubyGems ダウンロードキャッシュ",
+        "description": "ダウンロード済みの .gem パッケージ。",
+        "impact": "インストール済み gem は保持されます。先に Ruby ツールを停止してください。"
+      },
+      "dev.xcode-simulator-cache": {
+        "name": "Xcode シミュレータキャッシュ",
+        "description": "CoreSimulator が生成したキャッシュと一時ファイル。",
+        "impact": "シミュレータデバイス、ランタイム、アプリデータは保持されます。先に Xcode とシミュレータを終了してください。"
+      },
+      "project.autoconf-cache": {
+        "name": "Autoconf キャッシュ",
+        "description": "プロジェクト内の autom4te.cache 生成ファイル。",
+        "impact": "ソースファイルは保持されます。次回の設定時に再生成されます。"
+      },
+      "project.clojure-cli-cache": {
+        "name": "Clojure CLI キャッシュ",
+        "description": "プロジェクト内の .cpcache 生成ファイル。",
+        "impact": "ソースファイルは保持されます。次回の実行時に再生成されます。"
+      },
+      "project.dune-build-artifacts": {
+        "name": "Dune ビルド成果物",
+        "description": "Dune プロジェクト内の _build ディレクトリ。",
+        "impact": "ソースファイルは保持されます。次回のビルド時に再生成されます。"
+      },
+      "project.leiningen-build-artifacts": {
+        "name": "Leiningen ビルド成果物",
+        "description": "Leiningen プロジェクト内の target ディレクトリ。",
+        "impact": "ソースファイルは保持されます。次回のビルド時に再生成されます。"
+      },
+      "project.meson-build-artifacts": {
+        "name": "Meson ビルド成果物",
+        "description": "Meson プロジェクト内の builddir ディレクトリ。",
+        "impact": "ソースファイルは保持されます。次回のビルド時に再生成されます。"
+      },
+      "project.mill-build-artifacts": {
+        "name": "Mill ビルド成果物",
+        "description": "Mill プロジェクト内の out ディレクトリ。",
+        "impact": "ソースファイルは保持されます。次回のビルド時に再生成されます。"
+      },
+      "project.pants-workdir": {
+        "name": "Pants 作業ディレクトリ",
+        "description": "Pants プロジェクト内の .pants.d 作業ディレクトリ。",
+        "impact": "ソースファイルは保持されます。次回のビルド時に再生成されます。"
+      },
+      "project.rails-cache": {
+        "name": "Rails キャッシュ",
+        "description": "Rails プロジェクト内の tmp/cache ディレクトリ。",
+        "impact": "ソースファイルは保持されます。必要に応じて Rails がキャッシュを再生成します。"
+      },
+      "project.rebar-build-artifacts": {
+        "name": "Rebar3 ビルド成果物",
+        "description": "Rebar3 プロジェクト内の _build ディレクトリ。",
+        "impact": "ソースファイルは保持されます。次回のビルド時に再生成されます。"
+      },
+      "system.dns-cache": {
+        "name": "DNS 参照キャッシュ",
+        "description": "名前解決サービスの一時的な参照キャッシュ。",
+        "impact": "ネットワーク設定は保持されます。後の参照で結果が更新されます。"
+      },
+      "system.font-cache": {
+        "name": "フォントキャッシュ",
+        "description": "Fontconfig と文字描画のキャッシュ。",
+        "impact": "インストール済みフォントは保持されます。初回使用時にキャッシュが再生成される場合があります。"
+      },
+      "system.gtk-icon-cache": {
+        "name": "GTK アイコンキャッシュ",
+        "description": "GTK が生成したアイコンプレビューのキャッシュ。",
+        "impact": "インストール済みのアイコンテーマは保持されます。必要に応じて再生成されます。"
       }
     },
     "actionMessages": {
