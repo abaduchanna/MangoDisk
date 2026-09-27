@@ -185,11 +185,12 @@ function ruleValueDetail(
   rule: PresentedScanRuleResult,
   selection: 'all' | 'partial' | 'none',
   selectedRuleBytes: number
-): string {
+): string | undefined {
   if (rule.status === 'requiresElevation') return t('cleanup.privilegedScan.sizePending');
-  if (selection === 'none') return t('cleanup.cleanableFound');
-  if (selectedRuleBytes !== rule.bytes) return t('cleanup.totalSize', { size: ByteSizeService.bytes(rule.bytes) });
-  return t('cleanup.selected');
+  if (selection !== 'none' && selectedRuleBytes !== rule.bytes) {
+    return t('cleanup.totalSize', { size: ByteSizeService.bytes(rule.bytes) });
+  }
+  return undefined;
 }
 
 function visibleRuleSources(rule: PresentedScanRuleResult) {
@@ -360,7 +361,6 @@ watch(
         @update:selected="toggleAllLeftovers"
       >
         <template #metric>
-          <small>{{ t('cleanup.selected') }} / {{ t('cleanup.cleanableFound') }}</small>
           <strong>{{ ByteSizeService.bytes(selectedLeftoverBytes) }}</strong>
           <i>/ {{ ByteSizeService.bytes(leftovers.totalBytes) }}</i>
         </template>
@@ -487,7 +487,6 @@ watch(
         @update:selected="toggleCategory(activeCategory, $event)"
       >
         <template #metric>
-          <small>{{ t('cleanup.selected') }} / {{ t('cleanup.cleanableFound') }}</small>
           <strong>{{ ByteSizeService.bytes(activeCategory.selectedBytes) }}</strong>
           <i>/ {{ ByteSizeService.bytes(activeCategory.bytes) }}</i>
         </template>
@@ -540,7 +539,6 @@ watch(
         @update:selected="toggleCategory(activeCategory, $event)"
       >
         <template #metric>
-          <small>{{ t('cleanup.selected') }} / {{ t('cleanup.cleanableFound') }}</small>
           <strong>{{ ByteSizeService.bytes(activeCategory.selectedBytes) }}</strong>
           <i>/ {{ ByteSizeService.bytes(activeCategory.bytes) }}</i>
         </template>
@@ -553,7 +551,6 @@ watch(
             :key="row.rule.ruleId"
             class="rule-card"
             :class="{
-              compact: activeCategory.id === 'userCache',
               'requires-elevation': row.rule.status === 'requiresElevation',
             }"
           >
@@ -588,11 +585,7 @@ watch(
                 @toggle="toggleRuleDetails(row.rule)"
               >
                 <template #icon>
-                  <MdIcon
-                    :class="{ 'recoverable-rule-icon': row.rule.risk === 'recoverable' }"
-                    :name="cleanupRuleIcon(row.rule.ruleId, row.rule.group)"
-                    :size="20"
-                  />
+                  <MdIcon :name="cleanupRuleIcon(row.rule.ruleId, row.rule.group)" :size="20" />
                 </template>
                 <template v-if="aiStore.enabled && row.rule.category !== 'custom'" #actions>
                   <MdAiAction :name="row.rule.name" :disabled="busy" @explain="explainRule(row.rule)" />
