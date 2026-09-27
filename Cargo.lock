@@ -2606,12 +2606,14 @@ dependencies = [
  "base64 0.22.1",
  "blake3",
  "chrono",
+ "encoding_rs",
  "fs2",
  "hmac",
  "libc",
  "log",
  "mangodisk-platform",
  "plist",
+ "quick-xml",
  "reqwest",
  "rusqlite",
  "serde",
@@ -2622,6 +2624,7 @@ dependencies = [
  "toml 0.9.12+spec-1.1.0",
  "uuid",
  "windows-sys 0.61.2",
+ "winreg 0.55.0",
 ]
 
 [[package]]

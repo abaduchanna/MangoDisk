@@ -2673,6 +2673,21 @@
         "description": "騰訊影片桌面介面產生的暫存圖片、圖示、網頁、程式碼、GPU 與著色器資料",
         "impact": "不會刪除執行元件、離線包、帳號狀態、設定或瀏覽器儲存；關閉騰訊影片後清理。"
       },
+      "app.qqlive-update-cache": {
+        "name": "騰訊視頻已下載更新",
+        "description": "騰訊視頻已下載的待安裝更新檔與解壓內容",
+        "impact": "不會刪除目前應用程式、離線影片、帳號或觀看紀錄；待安裝更新會取消，但騰訊視頻重新啟動後可能自動重新下載。"
+      },
+      "app.youku-rendering-cache": {
+        "name": "優酷介面快取",
+        "description": "優酷產生的網頁、程式碼、圖形與封面圖片快取",
+        "impact": "不會刪除離線影片、下載紀錄、帳號或設定；關閉優酷後清理，圖片可能重新下載。"
+      },
+      "app.iqiyi-rendering-cache": {
+        "name": "愛奇藝介面快取",
+        "description": "愛奇藝產生的暫存介面資料",
+        "impact": "不會刪除離線影片、下載紀錄、帳號或設定；關閉愛奇藝後清理。"
+      },
       "app.flashvoice-cache": {
         "name": "FlashVoice 快取",
         "description": "FlashVoice 產生的可重建 WebKit 或 WebView2 內容、程式碼、圖形、元件與診斷快取",
@@ -3462,6 +3477,36 @@
         "name": "Dropbox 暫存快取",
         "description": "依 Dropbox 帳號位置找到的上傳、下載和復原暫存檔案",
         "impact": "清理前需完全結束 Dropbox；同步檔案和帳號設定都會保留，暫存檔案之後可能重新產生。"
+      },
+      "special.qqlive-offline-videos": {
+        "name": "騰訊視頻離線影片",
+        "description": "騰訊視頻已下載的離線影片及對應下載紀錄",
+        "impact": "將永久刪除所有已完成的離線影片；之後需重新下載。不會刪除帳號或觀看紀錄。"
+      },
+      "special.youku-offline-videos": {
+        "name": "優酷離線影片",
+        "description": "優酷已下載的離線影片及對應下載任務",
+        "impact": "將永久刪除所有已完成的離線影片；之後需重新下載。不會刪除帳號或觀看紀錄。"
+      },
+      "special.iqiyi-offline-videos": {
+        "name": "愛奇藝離線影片",
+        "description": "愛奇藝已下載的離線影片及對應下載紀錄",
+        "impact": "將永久刪除所有已完成的離線影片；之後需重新下載。不會刪除帳號或觀看紀錄。"
+      },
+      "special.qqlive-playback-cache": {
+        "name": "騰訊視頻播放快取",
+        "description": "播放時產生的暫存 HLS 片段，不含離線下載清單中的影片",
+        "impact": "清理後可能需要重新緩衝影片；不會刪除登入資訊或已記錄的離線下載。預設不勾選。"
+      },
+      "special.youku-playback-cache": {
+        "name": "優酷播放快取",
+        "description": "優酷快取資料夾中的暫存播放資料",
+        "impact": "清理後可能需要重新緩衝影片；不會刪除登入資訊或離線下載。預設不勾選。"
+      },
+      "special.iqiyi-playback-cache": {
+        "name": "愛奇藝播放快取",
+        "description": "暫存播放資料和廣告快取，不含離線下載資料夾",
+        "impact": "清理後可能需要重新緩衝影片；不會刪除登入資訊或離線下載。預設不勾選。"
       },
       "special.windows-recycle-bin": {
         "name": "資源回收筒",

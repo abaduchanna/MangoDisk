@@ -2673,6 +2673,21 @@
         "description": "QQLive デスクトップ インターフェースによって生成された一時的な画像、アイコン、ウェブ、コード、GPU、およびシェーダーデータ。",
         "impact": "ランタイムコンポーネント、オフラインパッケージ、アカウント状態、設定、およびブラウザストレージは保持されます。クリーンアップ前に QQLive を閉じてください。"
       },
+      "app.qqlive-update-cache": {
+        "name": "騰訊視頻の更新",
+        "description": "保留中の更新ファイル",
+        "impact": "更新は取り消され、再取得可能です。個人データは保持。"
+      },
+      "app.youku-rendering-cache": {
+        "name": "優酷の画面キャッシュ",
+        "description": "ウェブ、画像、サムネイルの一時データ",
+        "impact": "優酷を終了してください。動画、アカウント、設定は保持します。"
+      },
+      "app.iqiyi-rendering-cache": {
+        "name": "愛奇藝の画面キャッシュ",
+        "description": "一時的な画面データ",
+        "impact": "愛奇藝を終了してください。動画、アカウント、設定は保持します。"
+      },
       "app.flashvoice-cache": {
         "name": "FlashVoice キャッシュ",
         "description": "FlashVoice によって生成された再作成可能な WebKit または WebView2 のコンテンツ、コード、グラフィックス、コンポーネント、および診断キャッシュ。",
@@ -3462,6 +3477,36 @@
         "name": "Dropbox一時キャッシュ",
         "description": "Dropboxアカウントの場所から検出された一時アップロード、ダウンロード、およびリカバリファイル。",
         "impact": "クリーンアップ前に Dropbox を完全に終了してください。同期済みファイルとアカウント設定は保持されます。一時ファイルは必要に応じて再作成されます。"
+      },
+      "special.qqlive-offline-videos": {
+        "name": "騰訊視頻のオフライン動画",
+        "description": "動画と履歴",
+        "impact": "動画を完全に削除。再取得が必要です。アカウントは保持。"
+      },
+      "special.youku-offline-videos": {
+        "name": "優酷のオフライン動画",
+        "description": "動画とダウンロードタスク",
+        "impact": "動画を完全に削除。再取得が必要です。アカウントは保持。"
+      },
+      "special.iqiyi-offline-videos": {
+        "name": "愛奇藝のオフライン動画",
+        "description": "動画と履歴",
+        "impact": "動画を完全に削除。再取得が必要です。アカウントは保持。"
+      },
+      "special.qqlive-playback-cache": {
+        "name": "騰訊視頻の再生キャッシュ",
+        "description": "オフライン動画以外の HLS 断片",
+        "impact": "再読込が必要な場合があります。ログインと動画は保持。初期状態では未選択。"
+      },
+      "special.youku-playback-cache": {
+        "name": "優酷の再生キャッシュ",
+        "description": "一時的な再生データ",
+        "impact": "再読込が必要な場合があります。ログインと動画は保持。初期状態では未選択。"
+      },
+      "special.iqiyi-playback-cache": {
+        "name": "愛奇藝の再生キャッシュ",
+        "description": "一時的な再生・広告データ",
+        "impact": "再読込が必要な場合があります。ログインと動画は保持。初期状態では未選択。"
       },
       "special.windows-recycle-bin": {
         "name": "ごみ箱",

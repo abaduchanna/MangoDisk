@@ -2673,6 +2673,21 @@
         "description": "QQLive 데스크탑 인터페이스가 생성한 임시 이미지, 아이콘, 웹, 코드, GPU 및 셰이더 데이터입니다.",
         "impact": "런타임 구성 요소, 오프라인 패키지, 계정 상태, 설정, 브라우저 저장소는 유지됩니다. 정리 전에 QQLive를 닫으세요."
       },
+      "app.qqlive-update-cache": {
+        "name": "Tencent Video 다운로드된 업데이트",
+        "description": "설치 대기 중인 업데이트 설치 파일 및 압축 해제 데이터",
+        "impact": "현재 앱, 오프라인 동영상, 계정 및 시청 기록은 유지됩니다. 대기 중인 업데이트는 취소되지만 재시작 후 자동으로 다시 다운로드될 수 있습니다."
+      },
+      "app.youku-rendering-cache": {
+        "name": "Youku 화면 캐시",
+        "description": "Youku에서 생성한 웹, 코드, 그래픽 및 표지 이미지 캐시",
+        "impact": "오프라인 동영상, 다운로드 기록, 계정 및 설정은 유지됩니다. Youku를 종료한 후 정리하세요."
+      },
+      "app.iqiyi-rendering-cache": {
+        "name": "iQIYI 화면 캐시",
+        "description": "iQIYI에서 생성한 임시 화면 캐시",
+        "impact": "오프라인 동영상, 다운로드 기록, 계정 및 설정은 유지됩니다. iQIYI를 종료한 후 정리하세요."
+      },
       "app.flashvoice-cache": {
         "name": "FlashVoice 캐시",
         "description": "FlashVoice에서 생성된 WebKit 또는 WebView2 콘텐츠, 코드, 그래픽, 구성 요소 및 진단 캐시로, 다시 생성할 수 있습니다.",
@@ -3462,6 +3477,36 @@
         "name": "Dropbox 임시 캐시",
         "description": "Dropbox 계정 위치에서 발견된 임시 업로드, 다운로드 및 복구 파일입니다.",
         "impact": "Dropbox를 완전히 닫아야 합니다. 동기화된 파일과 계정 설정은 유지됩니다. 임시 파일은 다시 생성될 수 있습니다."
+      },
+      "special.qqlive-offline-videos": {
+        "name": "Tencent Video 오프라인 동영상",
+        "description": "다운로드한 오프라인 동영상과 해당 다운로드 기록",
+        "impact": "완료된 오프라인 동영상을 모두 영구 삭제합니다. 다시 다운로드해야 하며 계정과 시청 기록은 유지됩니다."
+      },
+      "special.youku-offline-videos": {
+        "name": "Youku 오프라인 동영상",
+        "description": "다운로드한 오프라인 동영상과 해당 다운로드 작업",
+        "impact": "완료된 오프라인 동영상을 모두 영구 삭제합니다. 다시 다운로드해야 하며 계정과 시청 기록은 유지됩니다."
+      },
+      "special.iqiyi-offline-videos": {
+        "name": "iQIYI 오프라인 동영상",
+        "description": "다운로드한 오프라인 동영상과 해당 다운로드 기록",
+        "impact": "완료된 오프라인 동영상을 모두 영구 삭제합니다. 다시 다운로드해야 하며 계정과 시청 기록은 유지됩니다."
+      },
+      "special.qqlive-playback-cache": {
+        "name": "Tencent Video 재생 캐시",
+        "description": "기록된 오프라인 다운로드를 제외한 임시 HLS 재생 데이터",
+        "impact": "동영상을 다시 버퍼링해야 할 수 있습니다. 로그인 정보와 기록된 다운로드는 유지됩니다. 기본적으로 선택되지 않습니다."
+      },
+      "special.youku-playback-cache": {
+        "name": "Youku 재생 캐시",
+        "description": "Youku 캐시 폴더의 임시 재생 데이터",
+        "impact": "동영상을 다시 버퍼링해야 할 수 있습니다. 로그인 정보와 오프라인 동영상은 유지됩니다. 기본적으로 선택되지 않습니다."
+      },
+      "special.iqiyi-playback-cache": {
+        "name": "iQIYI 재생 캐시",
+        "description": "오프라인 동영상을 제외한 임시 재생 및 광고 캐시",
+        "impact": "동영상을 다시 버퍼링해야 할 수 있습니다. 로그인 정보와 오프라인 동영상은 유지됩니다. 기본적으로 선택되지 않습니다."
       },
       "special.windows-recycle-bin": {
         "name": "휴지통",

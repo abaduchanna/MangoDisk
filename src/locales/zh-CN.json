@@ -2673,6 +2673,21 @@
         "description": "腾讯视频桌面界面生成的临时图片、图标、网页、代码、GPU 与着色器数据",
         "impact": "不会删除运行组件、离线包、账号状态、设置或浏览器存储；关闭腾讯视频后清理。"
       },
+      "app.qqlive-update-cache": {
+        "name": "腾讯视频已下载更新",
+        "description": "腾讯视频下载的待安装更新包与解压内容",
+        "impact": "不会删除当前应用、离线视频、账号或观看历史；待安装更新会取消，但腾讯视频重启后可能自动重新下载。"
+      },
+      "app.youku-rendering-cache": {
+        "name": "优酷界面缓存",
+        "description": "优酷生成的网页、代码、图形与封面图片缓存",
+        "impact": "不会删除离线视频、下载记录、账号或设置；关闭优酷后清理，图片可能重新下载。"
+      },
+      "app.iqiyi-rendering-cache": {
+        "name": "爱奇艺界面缓存",
+        "description": "爱奇艺生成的临时界面缓存",
+        "impact": "不会删除离线视频、下载记录、账号或设置；关闭爱奇艺后清理。"
+      },
       "app.flashvoice-cache": {
         "name": "FlashVoice 缓存",
         "description": "FlashVoice 生成的可重建 WebKit 或 WebView2 内容、代码、图形、组件与诊断缓存",
@@ -3462,6 +3477,36 @@
         "name": "Dropbox 临时缓存",
         "description": "根据 Dropbox 账户位置发现的上传、下载和恢复临时文件",
         "impact": "需要完全退出 Dropbox；同步文件和账户设置会保留，临时文件之后可能重新生成。"
+      },
+      "special.qqlive-offline-videos": {
+        "name": "腾讯视频离线视频",
+        "description": "腾讯视频已下载的离线视频及对应下载记录",
+        "impact": "将永久删除所有已完成的离线视频；之后需要重新下载。不会删除账号或观看历史。"
+      },
+      "special.youku-offline-videos": {
+        "name": "优酷离线视频",
+        "description": "优酷已下载的离线视频及对应下载任务",
+        "impact": "将永久删除所有已完成的离线视频；之后需要重新下载。不会删除账号或观看历史。"
+      },
+      "special.iqiyi-offline-videos": {
+        "name": "爱奇艺离线视频",
+        "description": "爱奇艺已下载的离线视频及对应下载记录",
+        "impact": "将永久删除所有已完成的离线视频；之后需要重新下载。不会删除账号或观看历史。"
+      },
+      "special.qqlive-playback-cache": {
+        "name": "腾讯视频播放缓存",
+        "description": "播放时生成的临时 HLS 片段，不含离线下载列表中的视频",
+        "impact": "清理后可能需要重新缓冲视频；不会删除登录信息或已记录的离线下载。默认不勾选。"
+      },
+      "special.youku-playback-cache": {
+        "name": "优酷播放缓存",
+        "description": "优酷缓存目录中的临时播放数据",
+        "impact": "清理后可能需要重新缓冲视频；不会删除登录信息或离线下载。默认不勾选。"
+      },
+      "special.iqiyi-playback-cache": {
+        "name": "爱奇艺播放缓存",
+        "description": "临时播放数据和广告缓存，不含离线下载目录",
+        "impact": "清理后可能需要重新缓冲视频；不会删除登录信息或离线下载。默认不勾选。"
       },
       "special.windows-recycle-bin": {
         "name": "回收站",
