@@ -451,7 +451,6 @@ watch(
               </MdResultTableRow>
               <template v-if="remainingLeftoverCandidateCount(group)" #footer>
                 <MdLoadMoreButton
-                  class="source-load-more"
                   :remaining-label="
                     t(
                       'common.locationCount',
@@ -686,7 +685,6 @@ watch(
               </MdResultTableRow>
               <template v-if="remainingRuleSourceCount(row.rule)" #footer>
                 <MdLoadMoreButton
-                  class="source-load-more"
                   :remaining-label="
                     t(
                       'common.locationCount',

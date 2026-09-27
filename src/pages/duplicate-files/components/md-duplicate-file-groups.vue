@@ -371,7 +371,6 @@ function loadMoreGroups() {
     </section>
     <MdLoadMoreButton
       v-if="remainingVisibleGroupCount > 0 && (visibleGroups.length < groups.length || hasMore)"
-      class="group-load-more"
       :remaining-label="
         category === FILE_CATEGORY_IDS.all
           ? t(
@@ -399,13 +398,6 @@ function loadMoreGroups() {
 .duplicate-group {
   overflow: hidden;
   background: transparent;
-}
-
-.group-load-more {
-  min-height: 38px;
-  border-top-width: 0;
-  background: transparent;
-  padding: 4px 10px;
 }
 
 .group-header {
