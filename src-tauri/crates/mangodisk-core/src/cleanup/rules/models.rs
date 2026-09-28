@@ -156,6 +156,8 @@ pub(crate) struct RuleSpec {
     pub recommended_selected: bool,
     pub applicability: Vec<ApplicabilityProbe>,
     pub roots: Vec<RootSpec>,
+    /// Optional dynamic roots that could not be enumerated during this operation.
+    pub discovery_read_failures: mangodisk_platform::FileReadFailures,
     pub matcher: MatcherSpec,
     pub execution: ExecutionSpec,
     pub required_stopped_processes: Vec<String>,
@@ -174,6 +176,7 @@ pub(crate) struct CompiledRule {
     pub recommended_selected: bool,
     pub applicability: Vec<ApplicabilityProbe>,
     pub roots: Vec<PathBuf>,
+    pub discovery_read_failures: mangodisk_platform::FileReadFailures,
     pub matcher: MatcherSpec,
     pub execution: ExecutionSpec,
     pub remove_empty_directories: bool,
@@ -222,6 +225,7 @@ impl CompiledRule {
             recommended_selected: true,
             applicability: vec![ApplicabilityProbe::AnyRootExists],
             roots: vec![root],
+            discovery_read_failures: Default::default(),
             matcher,
             execution: ExecutionSpec::DeleteMatchingContents {
                 requires_app_close: false,

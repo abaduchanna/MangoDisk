@@ -49,6 +49,7 @@ struct AggregateCollection<'a> {
     child_sources: Vec<DirectoryTreeSourceAggregate>,
     pending: Vec<PendingDirectory>,
     skipped_count: u64,
+    read_failures: crate::FileReadFailures,
     remote_placeholder_count: u64,
     progress: DirectoryAggregateProgress<'a>,
     large_fetch_enabled: bool,
@@ -131,6 +132,7 @@ pub(super) fn measure(
             source_index: None,
         }],
         skipped_count: 0,
+        read_failures: Default::default(),
         remote_placeholder_count: 0,
         progress: DirectoryAggregateProgress::new(report_progress),
         large_fetch_enabled: true,
@@ -152,6 +154,11 @@ pub(super) fn measure(
                 return Err(platform_error("enumerate directory aggregate root", error));
             }
             collection.skipped_count = collection.skipped_count.saturating_add(1);
+            collection.read_failures.record(
+                &directory.path,
+                &error,
+                crate::FileReadStage::ReadDirectory,
+            );
             log::debug!(
                 "directory_aggregate_directory_skipped platform=windows error_kind={:?} os_error={:?}",
                 error.kind(),
@@ -187,6 +194,7 @@ pub(super) fn measure(
         bytes,
         file_count,
         skipped_count: collection.skipped_count,
+        read_failures: collection.read_failures,
         sources,
         strategy: if collection.large_fetch_enabled {
             "win32-find-large-fetch-resident-files-v2"
@@ -443,7 +451,12 @@ fn latest_timestamp(left: Option<u64>, right: Option<u64>) -> Option<u64> {
 }
 
 fn platform_error(operation: &'static str, error: io::Error) -> DirectoryTreeAggregateError {
-    DirectoryTreeAggregateError::Platform(format!("{operation}: {:?}", error.kind()))
+    DirectoryTreeAggregateError::Platform(format!(
+        "{operation}: error_kind={:?} os_error={:?} error={}",
+        error.kind(),
+        error.raw_os_error(),
+        crate::diagnostics::text(&error)
+    ))
 }
 
 #[cfg(test)]
@@ -621,6 +634,7 @@ mod tests {
             child_sources: Vec::new(),
             pending: Vec::new(),
             skipped_count: 0,
+            read_failures: Default::default(),
             remote_placeholder_count: 0,
             progress: DirectoryAggregateProgress::new(&|_, _, _| {}),
             large_fetch_enabled: true,

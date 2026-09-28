@@ -182,7 +182,14 @@ trait CleanupCleaner: Send + Sync {
     }
 }
 
-pub(super) fn preview_all(request: CleanerPreviewRequest<'_>) -> Vec<ScanRuleResult> {
+/// Filesystem diagnostics travel alongside rules rather than being inferred from Limited status.
+#[derive(Default)]
+pub(super) struct CleanerScanPreview {
+    pub rules: Vec<ScanRuleResult>,
+    pub read_failures: mangodisk_platform::FileReadFailures,
+}
+
+pub(super) fn preview_all(request: CleanerPreviewRequest<'_>) -> CleanerScanPreview {
     let CleanerPreviewRequest {
         inventory,
         declared_roots,
@@ -333,8 +340,11 @@ pub(super) fn preview_all(request: CleanerPreviewRequest<'_>) -> Vec<ScanRuleRes
             windows_system_started.elapsed().as_millis()
         );
     }
-    results.extend(project_artifact_results);
-    results
+    results.extend(project_artifact_results.rules);
+    CleanerScanPreview {
+        rules: results,
+        read_failures: project_artifact_results.read_failures,
+    }
 }
 
 /// Returns the full registry when the preview worker cannot produce a result.
@@ -891,6 +901,7 @@ mod tests {
             exclusions: &CleanupExclusions::default(),
         });
         let rule = rules
+            .rules
             .iter()
             .find(|rule| rule.rule_id == "special.docker-build-cache")
             .expect("the cleanup cleaner registry must include Docker build cache");
@@ -945,6 +956,7 @@ mod tests {
             exclusions: &CleanupExclusions::default(),
         });
         let rule = rules
+            .rules
             .iter()
             .find(|rule| rule.rule_id == "special.conda-cache")
             .expect("the cleanup cleaner registry must include Conda cache");

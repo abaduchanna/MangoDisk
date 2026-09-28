@@ -65,6 +65,8 @@ describe('shared scan exclusion editor', () => {
       rules: [],
       applicationIcons: [],
       warningCount: 0,
+      accessLimited: false,
+      readFailureCount: 0,
       safeBytes: 0,
       reclaimableBytes: 0,
       applicabilityElapsedMs: 0,

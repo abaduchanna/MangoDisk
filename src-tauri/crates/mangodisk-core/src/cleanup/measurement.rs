@@ -12,6 +12,7 @@ pub(crate) struct MeasureResult {
     pub(crate) bytes: u64,
     pub(crate) file_count: u64,
     pub(crate) skipped_count: u64,
+    pub(crate) read_failures: mangodisk_platform::FileReadFailures,
 }
 
 /// Re-measures a cleanup root using the same matcher and ownership filter as
@@ -59,6 +60,7 @@ fn measure_path_inner(
                 bytes: metadata.len(),
                 file_count: 1,
                 skipped_count: 0,
+                read_failures: Default::default(),
             };
         }
         return MeasureResult::default();

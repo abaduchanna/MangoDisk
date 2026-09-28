@@ -3,6 +3,7 @@ mod applications;
 mod directory_aggregate;
 mod disk_cleanup;
 mod error;
+mod file_read;
 mod platform;
 mod privacy;
 mod processes;
@@ -37,6 +38,7 @@ pub use disk_cleanup::{
 pub use error::{
     PlatformError, PlatformErrorCode, PlatformFailureReason, PlatformMutationState, PlatformResult,
 };
+pub use file_read::{FileReadFailures, FileReadStage};
 pub use platform::Platform;
 pub use privacy::{
     PlatformPrivacyApplication, PlatformPrivacyApplicationNativeTraceKind,

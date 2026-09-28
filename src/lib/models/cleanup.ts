@@ -159,6 +159,10 @@ export interface CleanupScanResult {
   rules: ScanRuleResult[];
   applicationIcons: CleanupApplicationIcon[];
   warningCount: number;
+  /** Protected macOS app-data reads were denied; privacy settings may help. */
+  accessLimited: boolean;
+  /** Failed reads during root discovery and traversal, excluding intentional skips. */
+  readFailureCount: number;
   safeBytes: number;
   reclaimableBytes: number;
   applicabilityElapsedMs: number;

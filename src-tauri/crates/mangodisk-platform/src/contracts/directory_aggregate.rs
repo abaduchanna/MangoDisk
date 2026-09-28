@@ -27,6 +27,7 @@ pub struct DirectoryTreeAggregate {
     pub bytes: u64,
     pub file_count: u64,
     pub skipped_count: u64,
+    pub read_failures: super::file_read::FileReadFailures,
     pub sources: Vec<DirectoryTreeSourceAggregate>,
     pub strategy: &'static str,
     /// First entry whose name matched the caller's authored-content predicate during the same
@@ -123,27 +124,40 @@ pub(crate) fn reference_directory_tree_aggregate(root: &std::path::Path) -> Dire
         directory: &std::path::Path,
         sources: &mut BTreeMap<PathBuf, DirectoryTreeSourceAggregate>,
         skipped_count: &mut u64,
+        read_failures: &mut super::file_read::FileReadFailures,
     ) {
-        let Ok(entries) = fs::read_dir(directory) else {
-            *skipped_count = skipped_count.saturating_add(1);
-            return;
+        let entries = match fs::read_dir(directory) {
+            Ok(entries) => entries,
+            Err(error) => {
+                *skipped_count = skipped_count.saturating_add(1);
+                read_failures.record(directory, &error, crate::FileReadStage::OpenDirectory);
+                return;
+            }
         };
         for entry in entries {
-            let Ok(entry) = entry else {
-                *skipped_count = skipped_count.saturating_add(1);
-                continue;
+            let entry = match entry {
+                Ok(entry) => entry,
+                Err(error) => {
+                    *skipped_count = skipped_count.saturating_add(1);
+                    read_failures.record(directory, &error, crate::FileReadStage::ReadDirectory);
+                    continue;
+                }
             };
             let path = entry.path();
-            let Ok(metadata) = fs::symlink_metadata(&path) else {
-                *skipped_count = skipped_count.saturating_add(1);
-                continue;
+            let metadata = match fs::symlink_metadata(&path) {
+                Ok(metadata) => metadata,
+                Err(error) => {
+                    *skipped_count = skipped_count.saturating_add(1);
+                    read_failures.record(&path, &error, crate::FileReadStage::ReadMetadata);
+                    continue;
+                }
             };
             if metadata.file_type().is_symlink() {
                 *skipped_count = skipped_count.saturating_add(1);
                 continue;
             }
             if metadata.is_dir() {
-                visit(root, &path, sources, skipped_count);
+                visit(root, &path, sources, skipped_count, read_failures);
                 continue;
             }
             if !metadata.is_file() {
@@ -183,7 +197,14 @@ pub(crate) fn reference_directory_tree_aggregate(root: &std::path::Path) -> Dire
 
     let mut sources = BTreeMap::new();
     let mut skipped_count = 0;
-    visit(root, root, &mut sources, &mut skipped_count);
+    let mut read_failures = super::file_read::FileReadFailures::default();
+    visit(
+        root,
+        root,
+        &mut sources,
+        &mut skipped_count,
+        &mut read_failures,
+    );
     let sources = sources.into_values().collect::<Vec<_>>();
     let bytes = sources
         .iter()
@@ -195,6 +216,7 @@ pub(crate) fn reference_directory_tree_aggregate(root: &std::path::Path) -> Dire
         bytes,
         file_count,
         skipped_count,
+        read_failures,
         sources,
         strategy: "test-reference-walker",
         flagged_entry: None,

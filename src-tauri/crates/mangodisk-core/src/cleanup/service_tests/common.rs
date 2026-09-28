@@ -44,6 +44,36 @@ mod cleanup_matcher_tests {
         }
     }
 
+    #[cfg(target_os = "macos")]
+    #[test]
+    fn unreadable_scan_directories_report_incomplete_results() {
+        use std::os::unix::fs::PermissionsExt;
+
+        let _operation_lock = crate::shared::operation::test_operation_lock();
+        for unreadable_root in [false, true] {
+            let fixture = tempfile::tempdir().expect("create scan fixture");
+            let blocked = fixture.path().join("blocked");
+            fs::create_dir(&blocked).expect("create unreadable directory");
+            fs::write(blocked.join("hidden.tmp"), b"hidden").unwrap();
+            fs::write(fixture.path().join("visible.tmp"), b"visible").unwrap();
+            let rule = service_custom_rule(if unreadable_root { &blocked } else { fixture.path() });
+            fs::set_permissions(&blocked, fs::Permissions::from_mode(0o000)).unwrap();
+            let result = crate::cleanup::CleanupScanService::scan_with_custom_rules(
+                vec![rule], false, |_| {}
+            );
+            fs::set_permissions(&blocked, fs::Permissions::from_mode(0o700)).unwrap();
+            let scan = result.expect("an unreadable child must preserve readable results");
+            assert_eq!(scan.rules[0].bytes, if unreadable_root { 0 } else { 7 });
+            assert_eq!(scan.warning_count, 1);
+            let payload = serde_json::to_value(&scan).unwrap();
+            assert_eq!(payload["readFailureCount"], 1);
+            assert_eq!(payload["accessLimited"], false);
+            assert!(payload.get("dynamicRootSkipCount").is_none());
+            assert!(!scan.access_limited, "ordinary permissions are not privacy authorization");
+            assert_eq!(scan.read_failure_count, 1, "traversal failures must reach the result notice");
+        }
+    }
+
     fn custom_cleanup_request(dry_run: bool) -> CleanupRequest {
         CleanupRequest {
             rule_ids: vec!["custom.service-safety-fixture".to_string()],
@@ -103,7 +133,7 @@ mod cleanup_matcher_tests {
         assert_eq!(scan.missing_custom_root_count, 1);
         let json = serde_json::to_value(&scan).expect("serialize missing-root diagnostics");
         assert_eq!(json["missingCustomRootCount"], 1);
-        assert_eq!(json["schemaVersion"], "1.9");
+        assert_eq!(json["schemaVersion"], "1.10");
         fs::create_dir_all(&root).expect("restore the saved directory");
         fs::write(root.join("cache.tmp"), b"restored").expect("write restored fixture");
         let restored = crate::cleanup::CleanupScanService::scan_with_custom_rules(

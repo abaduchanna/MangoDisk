@@ -102,6 +102,13 @@
     "history": "操作历史",
     "settings": "设置"
   },
+  "fullDiskAccessGuidance": {
+    "summary": "开启完全磁盘访问，获取更完整结果",
+    "title": "开启完全磁盘访问",
+    "instructions": "在系统设置中为 MangoDisk 开启“完全磁盘访问”，返回后重新扫描",
+    "skip": "暂时跳过",
+    "openSettings": "打开完全磁盘访问设置"
+  },
   "privacy": {
     "title": "隐私清理",
     "idleTitle": "查找隐私痕迹",
@@ -128,13 +135,8 @@
     "timeRangeLabel": "清理时间范围",
     "toggleItem": "选择或取消选择{item}",
     "permission": {
-      "badge": "需完全磁盘访问",
-      "summary": "部分数据需要完全磁盘访问",
-      "title": "需要完全磁盘访问",
-      "description": "开启后可扫描更多应用和系统记录",
-      "instructions": "请在系统设置中为 MangoDisk 开启“完全磁盘访问”，然后重新扫描",
-      "skip": "暂时跳过",
-      "openSettings": "打开系统设置"
+      "badge": "访问受限",
+      "description": "开启后可扫描更多应用和系统记录"
     },
     "details": {
       "open": "查看{item}详情",
@@ -1473,16 +1475,10 @@
     "noManageableDescription": "暂时没有发现可以直接开启或关闭的程序",
     "summary": {
       "programs": "{count} 个自动启动程序",
-      "permissionRequired": "开启完全磁盘访问，显示更多启动项",
-      "openPrivacySettings": "打开完全磁盘访问权限设置",
       "enabled": "已启用"
     },
     "permission": {
-      "title": "部分启动项未显示",
-      "description": "开启完全磁盘访问权限后，可以扫描更多启动项",
-      "instructions": "请在系统设置中为 MangoDisk 开启“完全磁盘访问”权限，然后返回并重新扫描",
-      "skip": "暂时跳过",
-      "openSettings": "打开系统设置"
+      "description": "开启后可扫描更多启动项"
     },
     "filters": {
       "all": "全部",
@@ -1751,6 +1747,14 @@
     "totalSize": "共 {size}",
     "selectAll": "全选",
     "selectRule": "选择清理项目：{name}",
+    "permission": {
+      "description": "开启后可扫描更多应用缓存",
+      "otherWarning": "部分目录未能完整扫描，结果可能不完整",
+      "otherTitle": "部分目录未能完整扫描",
+      "otherDescription": "本次有 {count} 处扫描范围未能读取",
+      "otherInstructions": "可打开日志文件夹查看部分失败路径和系统错误，处理后重新扫描",
+      "protectedScanHint": "若 macOS 弹出授权请求，请选择“允许”或“不允许”；扫描会在你回应后继续"
+    },
     "privilegedScan": {
       "required": "尚未检查",
       "sizePending": "需要管理员权限",
@@ -2614,7 +2618,7 @@
       },
       "system.error-reports": {
         "name": "Windows 错误报告",
-        "description": "Windows 为当前用户和系统生成的错误诊断报告",
+        "description": "Windows 为当前用户生成的旧错误诊断报告",
         "impact": "不会影响 Windows 运行，但已删除的报告无法再用于排查问题。"
       },
       "system.stale-partial-downloads": {

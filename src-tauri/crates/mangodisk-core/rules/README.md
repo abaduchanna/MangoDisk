@@ -131,6 +131,12 @@ engine's ownership and snapshot checks before deletion.
 
 A static root needs only `template`. Use `kind = "childDirectories"` only when the rule must expand direct child directories through `child_names`, `child_prefixes`, `include_all_children`, or fixed `suffixes`. The validator rejects parent traversal, uncontrolled variables, duplicate roots, protected locations, unsafe expansion, and broad matching outside recognized cache or verified rebuildable boundaries.
 
+Read failures during optional root discovery and filesystem traversal preserve readable results
+and contribute to the scan's `readFailureCount` diagnostic. Intentional link, mount, and cloud
+placeholder skips remain safety skips and do not imply a read failure. On macOS, `accessLimited`
+indicates a protected app-data read for which privacy settings may help; ordinary BSD/ACL denial
+does not set it. Scanning still waits for the user's response to a native authorization prompt.
+
 ### Matchers and execution
 
 Supported matcher kinds are `all`, `nameEquals`, `nameGlob`, `extensionIn`, `pathSegmentIn`, `olderThan`, `largerThan`, `smallerThan`, `maxDepth`, `allOf`, `anyOf`, and `not`. Name matchers accept names, not paths; `nameGlob` does not support `**`. Numeric age, size, and depth values must be greater than zero.

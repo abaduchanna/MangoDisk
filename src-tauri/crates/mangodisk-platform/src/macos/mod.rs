@@ -4,6 +4,7 @@ mod bulk_directory;
 mod change_tracking;
 mod directories;
 mod directory_aggregate;
+pub(crate) mod file_read;
 mod inventory;
 mod privacy;
 mod privileged_uninstall;

@@ -5,7 +5,7 @@ use std::{
     os::unix::fs::MetadataExt,
     path::{Path, PathBuf},
     sync::{
-        atomic::{AtomicBool, Ordering},
+        atomic::{AtomicBool, AtomicU64, Ordering},
         mpsc::{self, RecvTimeoutError},
         Arc, Condvar, Mutex,
     },
@@ -52,6 +52,7 @@ struct DirectoryReadResult {
     bytes: u64,
     file_count: u64,
     skipped_count: u64,
+    read_failures: crate::FileReadFailures,
     unsupported_entry_count: u64,
     first_unsupported_entry: Option<(PathBuf, u32)>,
     modified_at_ms: Option<u64>,
@@ -119,7 +120,7 @@ fn measure(
 ) -> Result<DirectoryTreeAggregate, DirectoryTreeAggregateError> {
     check_cancelled(is_cancelled)?;
     let root_metadata = fs::symlink_metadata(root)
-        .map_err(|error| platform_error("read directory aggregate root", &error))?;
+        .map_err(|error| platform_error("read directory aggregate root", root, &error))?;
     if !root_metadata.is_dir() || root_metadata.file_type().is_symlink() {
         return Err(DirectoryTreeAggregateError::Platform(
             "directory aggregate root is not a physical directory".to_string(),
@@ -139,12 +140,14 @@ fn measure(
 
     let task_queue = Arc::new(DirectoryTaskQueue::default());
     let abort = Arc::new(AtomicBool::new(false));
+    let failure_sequence = Arc::new(AtomicU64::new(0));
     let (result_sender, result_receiver) = mpsc::channel();
     let worker_count = worker_count(MAX_DIRECTORY_WORKERS);
     let mut workers = Vec::with_capacity(worker_count);
     for worker_index in 0..worker_count {
         let worker_queue = Arc::clone(&task_queue);
         let worker_abort = Arc::clone(&abort);
+        let failure_sequence = Arc::clone(&failure_sequence);
         let result_sender = result_sender.clone();
         let root_device = root_metadata.dev();
         let worker = thread::Builder::new()
@@ -161,6 +164,7 @@ fn measure(
                         policy,
                         flag_entry_name,
                         &worker_abort,
+                        &failure_sequence,
                         &mut buffer,
                     );
                     if result_sender.send(result).is_err() {
@@ -176,7 +180,11 @@ fn measure(
                 for worker in workers {
                     let _ = worker.join();
                 }
-                return Err(platform_error("spawn directory aggregate worker", &error));
+                return Err(platform_error(
+                    "spawn directory aggregate worker",
+                    root,
+                    &error,
+                ));
             }
         }
     }
@@ -186,6 +194,7 @@ fn measure(
     // one stable source index; every descendant task inherits it.
     let mut sources = vec![empty_source(root)];
     let mut skipped_count = 0_u64;
+    let mut read_failures = crate::FileReadFailures::default();
     let mut unsupported_entry_count = 0_u64;
     let mut first_unsupported_entry = None;
     let mut remote_file_count = 0_u64;
@@ -238,6 +247,7 @@ fn measure(
         source.file_count = source.file_count.saturating_add(result.file_count);
         source.modified_at_ms = latest_timestamp(source.modified_at_ms, result.modified_at_ms);
         skipped_count = skipped_count.saturating_add(result.skipped_count);
+        read_failures.merge(result.read_failures);
         unsupported_entry_count =
             unsupported_entry_count.saturating_add(result.unsupported_entry_count);
         if first_unsupported_entry.is_none() {
@@ -315,6 +325,7 @@ fn measure(
         bytes,
         file_count,
         skipped_count,
+        read_failures,
         sources,
         strategy: "darwin-parallel-getattrlistbulk-resident-files-v4",
         flagged_entry,
@@ -385,6 +396,7 @@ fn read_directory(
     policy: AggregatePolicy,
     flag_entry_name: fn(&OsStr) -> bool,
     abort: &AtomicBool,
+    failure_sequence: &AtomicU64,
     buffer: &mut AlignedBuffer,
 ) -> Result<DirectoryReadResult, DirectoryTreeAggregateError> {
     check_aborted(abort)?;
@@ -395,11 +407,19 @@ fn read_directory(
                 "directory_aggregate_directory_skipped platform=macos error_kind={:?}",
                 error.kind()
             );
+            let mut read_failures = crate::FileReadFailures::default();
+            read_failures.record_in_scope(
+                &task.path,
+                &error,
+                crate::FileReadStage::OpenDirectory,
+                failure_sequence,
+            );
             return Ok(DirectoryReadResult {
                 task,
                 bytes: 0,
                 file_count: 0,
                 skipped_count: 1,
+                read_failures,
                 unsupported_entry_count: 0,
                 first_unsupported_entry: None,
                 modified_at_ms: None,
@@ -409,13 +429,20 @@ fn read_directory(
                 first_flagged_entry: None,
             });
         }
-        Err(error) => return Err(platform_error("open directory aggregate root", &error)),
+        Err(error) => {
+            return Err(platform_error(
+                "open directory aggregate root",
+                &task.path,
+                &error,
+            ))
+        }
     };
     let mut result = DirectoryReadResult {
         task,
         bytes: 0,
         file_count: 0,
         skipped_count: 0,
+        read_failures: Default::default(),
         unsupported_entry_count: 0,
         first_unsupported_entry: None,
         modified_at_ms: None,
@@ -426,15 +453,22 @@ fn read_directory(
     };
     loop {
         check_aborted(abort)?;
-        let entries = directory
-            .read_page(buffer)
-            .map_err(|error| platform_error("read directory aggregate", &error))?;
+        let entries = directory.read_page(buffer).map_err(|error| {
+            platform_error("read directory aggregate", &result.task.path, &error)
+        })?;
         if entries.is_empty() {
             break;
         }
         for entry in entries {
             check_aborted(abort)?;
-            collect_entry(root_device, policy, flag_entry_name, entry, &mut result);
+            collect_entry(
+                root_device,
+                policy,
+                flag_entry_name,
+                entry,
+                &mut result,
+                failure_sequence,
+            );
         }
     }
     Ok(result)
@@ -446,6 +480,7 @@ fn collect_entry(
     flag_entry_name: fn(&OsStr) -> bool,
     entry: BulkDirectoryEntry,
     result: &mut DirectoryReadResult,
+    failure_sequence: &AtomicU64,
 ) {
     if entry.name.as_encoded_bytes().is_empty() {
         result.skipped_count = result.skipped_count.saturating_add(1);
@@ -458,6 +493,12 @@ fn collect_entry(
         result.first_flagged_entry = Some(entry.name.to_string_lossy().into_owned());
     }
     if entry.attribute_error != 0 {
+        result.read_failures.record_in_scope(
+            &result.task.path.join(&entry.name),
+            &io::Error::from_raw_os_error(entry.attribute_error as i32),
+            crate::FileReadStage::ReadMetadata,
+            failure_sequence,
+        );
         result.skipped_count = result.skipped_count.saturating_add(1);
         return;
     }
@@ -563,8 +604,18 @@ fn latest_timestamp(left: Option<u64>, right: Option<u64>) -> Option<u64> {
     }
 }
 
-fn platform_error(operation: &'static str, error: &io::Error) -> DirectoryTreeAggregateError {
-    DirectoryTreeAggregateError::Platform(format!("{operation}: {:?}", error.kind()))
+fn platform_error(
+    operation: &'static str,
+    path: &Path,
+    error: &io::Error,
+) -> DirectoryTreeAggregateError {
+    DirectoryTreeAggregateError::Platform(format!(
+        "{operation}: path={} error_kind={:?} os_error={:?} error={}",
+        crate::diagnostics::text(&path.display()),
+        error.kind(),
+        error.raw_os_error(),
+        crate::diagnostics::text(&error)
+    ))
 }
 
 #[cfg(test)]
@@ -578,6 +629,21 @@ mod tests {
 
     use super::*;
     use crate::reference_directory_tree_aggregate;
+
+    #[test]
+    fn aggregate_fallback_preserves_failed_path_and_native_error() {
+        let path = Path::new("fixture/cache\nline");
+        let native = io::Error::from_raw_os_error(libc::EIO);
+        let error = platform_error("read directory aggregate", path, &native);
+        let DirectoryTreeAggregateError::Platform(detail) = error else {
+            panic!("an I/O failure must retain platform diagnostics");
+        };
+        assert!(detail.contains("read directory aggregate"));
+        assert!(detail.contains("fixture/cache\\nline"));
+        assert!(!detail.contains('\n'));
+        assert!(detail.contains(&format!("os_error=Some({})", libc::EIO)));
+        assert!(detail.contains(&native.to_string()));
+    }
 
     struct DirectoryCleanup(PathBuf);
 
@@ -620,6 +686,7 @@ mod tests {
             bytes: 0,
             file_count: 0,
             skipped_count: 0,
+            read_failures: Default::default(),
             unsupported_entry_count: 0,
             first_unsupported_entry: None,
             modified_at_ms: None,
@@ -641,11 +708,19 @@ mod tests {
             record_length: 64,
         };
 
-        collect_entry(7, AggregatePolicy::Cleanup, |_| false, entry, &mut result);
+        collect_entry(
+            7,
+            AggregatePolicy::Cleanup,
+            |_| false,
+            entry,
+            &mut result,
+            &AtomicU64::new(0),
+        );
 
         assert!(result.child_directories.is_empty());
         assert_eq!(result.skipped_count, 1);
         assert_eq!(result.remote_directory_count, 1);
+        assert_eq!(result.read_failures.count, 0);
         assert_eq!(result.remote_file_count, 0);
     }
 
@@ -668,6 +743,7 @@ mod tests {
         assert_eq!(aggregate.bytes, 15);
         assert_eq!(aggregate.file_count, 3);
         assert_eq!(aggregate.skipped_count, 1);
+        assert_eq!(aggregate.read_failures.count, 0);
         assert_eq!(
             aggregate.strategy,
             "darwin-parallel-getattrlistbulk-resident-files-v4"
@@ -782,6 +858,7 @@ mod tests {
             AggregatePolicy::ApplicationComponent,
             |_| false,
             &AtomicBool::new(false),
+            &AtomicU64::new(0),
             &mut AlignedBuffer::new(),
         )
         .expect("directory metadata must be readable");

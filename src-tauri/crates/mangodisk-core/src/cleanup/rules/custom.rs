@@ -167,6 +167,7 @@ fn compile_custom_rule(
         recommended_selected: false,
         applicability: vec![ApplicabilityProbe::AnyRootExists],
         roots,
+        discovery_read_failures: Default::default(),
         matcher,
         execution: ExecutionSpec::DeleteMatchingContents {
             requires_app_close: false,

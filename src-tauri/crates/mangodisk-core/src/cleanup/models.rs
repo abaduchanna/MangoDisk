@@ -300,6 +300,11 @@ pub struct CleanupScanResult {
     pub rules: Vec<ScanRuleResult>,
     pub application_icons: Vec<CleanupApplicationIcon>,
     pub warning_count: u64,
+    /// Protected macOS app-data reads were denied; privacy settings may help.
+    /// This observation does not assert that Full Disk Access is disabled.
+    pub access_limited: bool,
+    /// Failed reads during root discovery and traversal, excluding intentional skips.
+    pub read_failure_count: u64,
     pub safe_bytes: u64,
     /// Aggregate logical/estimated bytes from selectable cleanup results, not a physical-volume
     /// allocation measurement. Actual free-space change can differ after cleanup.

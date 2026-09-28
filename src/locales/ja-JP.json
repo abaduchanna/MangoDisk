@@ -102,6 +102,13 @@
     "history": "操作履歴",
     "settings": "設定"
   },
+  "fullDiskAccessGuidance": {
+    "summary": "フルディスクアクセスを有効にして結果を充実させる",
+    "title": "フルディスクアクセスを有効にする",
+    "instructions": "システム設定で MangoDisk のフルディスクアクセスを有効にし、戻って再スキャンしてください",
+    "skip": "今はしない",
+    "openSettings": "フルディスクアクセス設定を開く"
+  },
   "privacy": {
     "title": "プライバシークリーンアップ",
     "idleTitle": "プライバシー履歴を検索",
@@ -128,13 +135,8 @@
     "timeRangeLabel": "消去する期間",
     "toggleItem": "{item} を選択",
     "permission": {
-      "badge": "フルディスクアクセスが必要",
-      "summary": "一部のデータにはフルディスクアクセスが必要です",
-      "title": "フルディスクアクセスが必要です",
-      "description": "有効にすると、より多くのアプリとシステム履歴をスキャンできます",
-      "instructions": "システム設定で MangoDisk のフルディスクアクセスを有効にしてから再スキャンしてください",
-      "skip": "今はしない",
-      "openSettings": "システム設定を開く"
+      "badge": "アクセス制限あり",
+      "description": "有効にすると、より多くのアプリとシステム履歴をスキャンできます"
     },
     "details": {
       "open": "{item}の詳細を表示",
@@ -1473,16 +1475,10 @@
     "noManageableDescription": "オンまたはオフにできるプログラムは見つかりませんでした",
     "summary": {
       "programs": "自動起動するプログラム {count} 件",
-      "permissionRequired": "フルディスクアクセスで起動項目をさらに検出",
-      "openPrivacySettings": "フルディスクアクセス設定を開く",
       "enabled": "有効"
     },
     "permission": {
-      "title": "一部のスタートアップ項目は表示されていません",
-      "description": "フルディスクアクセスを有効にすると、より多くの項目を検索できます",
-      "instructions": "システム設定で MangoDisk のフルディスクアクセスを有効にし、戻って再スキャンしてください",
-      "skip": "今はしない",
-      "openSettings": "システム設定を開く"
+      "description": "有効にすると、より多くの起動項目をスキャンできます"
     },
     "filters": {
       "all": "すべて",
@@ -1751,6 +1747,14 @@
     "totalSize": "合計 {size}",
     "selectAll": "すべて選択",
     "selectRule": "{name} のクリーンアップ項目を選択",
+    "permission": {
+      "description": "有効にすると、より多くのアプリキャッシュをスキャンできます",
+      "otherWarning": "一部のフォルダを完全にスキャンできず、結果が不完全な可能性があります",
+      "otherTitle": "一部のフォルダを完全にスキャンできませんでした",
+      "otherDescription": "今回のスキャンでは {count} 件の対象を読み取れませんでした",
+      "otherInstructions": "ログフォルダーで読み取りに失敗したパスの例とシステムエラーを確認し、対処後に再スキャンしてください",
+      "protectedScanHint": "macOS がアクセス許可を求めた場合は、許可または拒否を選んでください。応答後にスキャンが続行します"
+    },
     "privilegedScan": {
       "required": "未確認",
       "sizePending": "管理者権限が必要です",
@@ -2614,7 +2618,7 @@
       },
       "system.error-reports": {
         "name": "Windows エラー レポート",
-        "description": "Windows エラー レポートによって生成されたユーザーおよびシステムの診断レポート。",
+        "description": "現在のユーザー向けに生成された古い Windows エラー診断レポート。",
         "impact": "Windows は引き続き動作しますが、削除されたレポートはトラブルシューティングには使用できません。"
       },
       "system.stale-partial-downloads": {

@@ -541,12 +541,12 @@ watch(
             <MdPermissionGuidance
               v-if="backgroundTasksNeedPermission"
               v-model="permissionPromptOpen"
-              :summary="t('startup.summary.permissionRequired')"
-              :title="t('startup.permission.title')"
+              :summary="t('fullDiskAccessGuidance.summary')"
+              :title="t('fullDiskAccessGuidance.title')"
               :description="t('startup.permission.description')"
-              :instructions="t('startup.permission.instructions')"
-              :skip-label="t('startup.permission.skip')"
-              :open-settings-label="t('startup.permission.openSettings')"
+              :instructions="t('fullDiskAccessGuidance.instructions')"
+              :skip-label="t('fullDiskAccessGuidance.skip')"
+              :open-settings-label="t('fullDiskAccessGuidance.openSettings')"
               :open-settings="openBackgroundTaskPrivacySettings"
             />
           </template>
@@ -594,7 +594,7 @@ watch(
           @click="openBackgroundTaskPrivacySettings"
         >
           <MdIcon :name="ICON_NAMES.external" :size="14" />
-          {{ t('startup.summary.openPrivacySettings') }}
+          {{ t('fullDiskAccessGuidance.openSettings') }}
         </Button>
       </MdEmptyState>
 

@@ -36,6 +36,7 @@ fn excluded_project_is_pruned_while_sibling_build_artifact_remains_cleanable() {
         &exclusions,
     );
     let rust = rules
+        .rules
         .iter()
         .find(|rule| rule.rule_id == "project.rust-build-artifacts")
         .expect("Rust build artifacts remain in the catalog");
@@ -688,6 +689,65 @@ fn codex_process_guard_leaves_normal_project_sources_selectable() {
         .all(|source| source.block_reason.is_none()));
 }
 
+/// Apply denial only to disposable fixtures and always restore access before their cleanup.
+#[cfg(any(unix, windows))]
+struct DeniedDirectoryReads(PathBuf);
+
+#[cfg(any(unix, windows))]
+impl DeniedDirectoryReads {
+    fn new(path: &Path) -> Self {
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::PermissionsExt;
+            fs::set_permissions(path, fs::Permissions::from_mode(0o000)).unwrap();
+        }
+        #[cfg(windows)]
+        {
+            let output = std::process::Command::new("icacls.exe")
+                .arg(path)
+                .args(["/deny", "*S-1-1-0:(RD)"])
+                .output()
+                .unwrap();
+            assert!(
+                output.status.success(),
+                "fixture read denial must succeed: {output:?}"
+            );
+        }
+        let guard = Self(path.to_path_buf());
+        // Privileged SSH tokens on Windows can bypass directory ACLs. These fixtures must
+        // exercise real denials, so validate the token before interpreting scan counters.
+        let read_error = fs::read_dir(path).err();
+        assert!(
+            read_error.as_ref().is_some_and(|error| error.kind() == std::io::ErrorKind::PermissionDenied),
+            "fixture must deny directory reads; run without ACL-bypassing privileges (Windows: a normal desktop terminal); error={read_error:?}"
+        );
+        guard
+    }
+}
+
+#[cfg(any(unix, windows))]
+impl Drop for DeniedDirectoryReads {
+    fn drop(&mut self) {
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::PermissionsExt;
+            fs::set_permissions(&self.0, fs::Permissions::from_mode(0o700)).unwrap();
+        }
+        #[cfg(windows)]
+        {
+            let output = std::process::Command::new("icacls.exe")
+                .arg(&self.0)
+                .args(["/remove:d", "*S-1-1-0"])
+                .output()
+                .unwrap();
+            assert!(
+                output.status.success(),
+                "fixture read access must be restored: {output:?}"
+            );
+        }
+    }
+}
+
 struct Fixture(PathBuf);
 
 impl Fixture {
@@ -1003,11 +1063,20 @@ fn native_artifact_measurement_matches_portable_reference() {
     assert_eq!(optimized.modified_at_ms, portable.modified_at_ms);
 }
 
-#[cfg(unix)]
+#[cfg(any(unix, windows))]
 #[test]
 fn incomplete_artifact_measurement_preserves_visible_accessible_bytes() {
-    use std::os::unix::fs::PermissionsExt;
+    assert_incomplete_artifact_diagnostics(64);
+}
 
+#[cfg(any(unix, windows))]
+#[test]
+fn unreadable_artifact_without_visible_bytes_still_reports_failure() {
+    assert_incomplete_artifact_diagnostics(0);
+}
+
+#[cfg(any(unix, windows))]
+fn assert_incomplete_artifact_diagnostics(visible_bytes: usize) {
     let fixture = Fixture::new("partial-measurement");
     let project = fixture.0.join("app");
     let artifact = project.join("target");
@@ -1015,12 +1084,17 @@ fn incomplete_artifact_measurement_preserves_visible_accessible_bytes() {
     fs::create_dir_all(&restricted).expect("restricted directory must exist");
     fs::write(project.join("Cargo.toml"), "[package]\nname='fixture'\n")
         .expect("Cargo marker must exist");
-    fs::write(artifact.join("visible.bin"), vec![1_u8; 64]).expect("visible artifact must exist");
+    if visible_bytes > 0 {
+        fs::write(artifact.join("visible.bin"), vec![1_u8; visible_bytes])
+            .expect("visible artifact must exist");
+    }
     fs::write(restricted.join("hidden.bin"), vec![2_u8; 32])
         .expect("restricted artifact must exist");
-    fs::set_permissions(&restricted, fs::Permissions::from_mode(0o000))
-        .expect("restricted permissions must be applied");
+    let denied_reads = DeniedDirectoryReads::new(&restricted);
 
+    let native = measure_directory_with_progress(&artifact, &|| false, &|_| {}, &|_, _, _| {});
+    let portable =
+        portable_measure_directory_with_progress(&artifact, &|| false, &|_| {}, &|_, _, _| {});
     let roots = vec![fixture.0.to_string_lossy().into_owned()];
     let rules = preview_all(
         &roots,
@@ -1030,17 +1104,24 @@ fn incomplete_artifact_measurement_preserves_visible_accessible_bytes() {
         &|_, _, _| {},
         &CleanupExclusions::default(),
     );
-    fs::set_permissions(&restricted, fs::Permissions::from_mode(0o700))
-        .expect("fixture permissions must be restored");
+    drop(denied_reads);
     let rust = rules
+        .rules
         .iter()
         .find(|rule| rule.rule_id == "project.rust-build-artifacts")
         .expect("Rust artifact rule must exist");
 
+    assert_eq!(native.measured.read_failures.count, 1);
+    assert_eq!(rules.read_failures, native.measured.read_failures);
+    assert_eq!(
+        portable.measured.read_failures,
+        native.measured.read_failures
+    );
+    assert_eq!(portable.measured.read_failures.count, 1);
     assert_eq!(rust.status, ScanItemStatus::Limited);
     assert!(!rust.selectable);
-    assert_eq!(rust.bytes, 64);
-    assert_eq!(rust.file_count, 1);
+    assert_eq!(rust.bytes, visible_bytes as u64);
+    assert_eq!(rust.file_count, u64::from(visible_bytes > 0));
     assert_eq!(rust.sources.len(), 1);
     assert_eq!(
         rust.sources[0].block_reason,
@@ -1048,11 +1129,9 @@ fn incomplete_artifact_measurement_preserves_visible_accessible_bytes() {
     );
 }
 
-#[cfg(unix)]
+#[cfg(any(unix, windows))]
 #[test]
 fn incomplete_candidate_does_not_block_complete_sibling_projects() {
-    use std::os::unix::fs::PermissionsExt;
-
     let _operation_lock = test_operation_lock();
     let fixture = Fixture::new("mixed-measurement");
     for project_name in ["complete", "limited"] {
@@ -1065,8 +1144,7 @@ fn incomplete_candidate_does_not_block_complete_sibling_projects() {
     }
     let restricted = fixture.0.join("limited/target/restricted");
     fs::create_dir_all(&restricted).expect("restricted directory must exist");
-    fs::set_permissions(&restricted, fs::Permissions::from_mode(0o000))
-        .expect("restricted permissions must be applied");
+    let denied_reads = DeniedDirectoryReads::new(&restricted);
 
     let roots = vec![fixture.0.to_string_lossy().into_owned()];
     let rules = preview_all(
@@ -1086,13 +1164,15 @@ fn incomplete_candidate_does_not_block_complete_sibling_projects() {
         true,
         &operation,
     );
-    fs::set_permissions(&restricted, fs::Permissions::from_mode(0o700))
-        .expect("fixture permissions must be restored");
+    drop(denied_reads);
     let rust = rules
+        .rules
         .iter()
         .find(|rule| rule.rule_id == "project.rust-build-artifacts")
         .expect("Rust artifact rule must exist");
 
+    assert_eq!(rules.read_failures.count, 1);
+    assert_eq!(rules.read_failures.permission_denied_count, 1);
     assert_eq!(rust.status, ScanItemStatus::Found);
     assert!(rust.selectable);
     assert_eq!(rust.bytes, 64);
@@ -1566,6 +1646,7 @@ fn real_repository_preview_and_dry_run_are_read_only() {
         &CleanupExclusions::default(),
     );
     let detected = rules
+        .rules
         .iter()
         .filter(|rule| rule.bytes > 0)
         .collect::<Vec<_>>();

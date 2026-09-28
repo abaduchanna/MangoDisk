@@ -102,6 +102,13 @@
     "history": "작업 기록",
     "settings": "설정"
   },
+  "fullDiskAccessGuidance": {
+    "summary": "전체 디스크 접근 권한을 켜서 더 완전한 결과 보기",
+    "title": "전체 디스크 접근 권한 켜기",
+    "instructions": "시스템 설정에서 MangoDisk의 전체 디스크 접근 권한을 켠 다음 돌아와서 다시 스캔하세요",
+    "skip": "나중에",
+    "openSettings": "전체 디스크 접근 권한 설정 열기"
+  },
   "privacy": {
     "title": "개인정보 정리",
     "idleTitle": "개인정보 흔적 찾기",
@@ -128,13 +135,8 @@
     "timeRangeLabel": "정리 기간",
     "toggleItem": "{item} 전환",
     "permission": {
-      "badge": "전체 디스크 접근 권한 필요",
-      "summary": "일부 데이터에는 전체 디스크 접근 권한이 필요합니다",
-      "title": "전체 디스크 접근 권한 필요",
-      "description": "더 많은 앱과 시스템 활동을 스캔하려면 권한을 켜세요",
-      "instructions": "시스템 설정에서 MangoDisk의 전체 디스크 접근 권한을 켠 뒤 다시 스캔하세요",
-      "skip": "나중에",
-      "openSettings": "시스템 설정 열기"
+      "badge": "접근 제한됨",
+      "description": "권한을 켜면 더 많은 앱과 시스템 활동을 스캔할 수 있습니다"
     },
     "details": {
       "open": "{item} 세부 정보 보기",
@@ -1473,16 +1475,10 @@
     "noManageableDescription": "켜거나 끌 수 있는 프로그램을 찾지 못했습니다",
     "summary": {
       "programs": "{count}개 앱이 자동으로 시작됩니다",
-      "permissionRequired": "시작 항목을 더 보려면 전체 디스크 접근 권한을 켜세요",
-      "openPrivacySettings": "전체 디스크 접근 권한 설정 열기",
       "enabled": "켜짐"
     },
     "permission": {
-      "title": "일부 시작 항목이 표시되지 않습니다",
-      "description": "더 많은 시작 항목을 스캔하려면 전체 디스크 접근 권한을 켜세요",
-      "instructions": "시스템 설정에서 MangoDisk의 전체 디스크 접근 권한을 켠 다음 돌아와서 다시 스캔하세요",
-      "skip": "나중에",
-      "openSettings": "시스템 설정 열기"
+      "description": "권한을 켜면 더 많은 시작 항목을 스캔할 수 있습니다"
     },
     "filters": {
       "all": "전체",
@@ -1751,6 +1747,14 @@
     "totalSize": "전체 {size}",
     "selectAll": "모두 선택",
     "selectRule": "정리 항목 선택: {name}",
+    "permission": {
+      "description": "권한을 켜면 더 많은 앱 캐시를 스캔할 수 있습니다",
+      "otherWarning": "일부 폴더를 완전히 검사하지 못해 결과가 불완전할 수 있습니다",
+      "otherTitle": "일부 폴더를 완전히 검사하지 못했습니다",
+      "otherDescription": "이번 검사에서 {count}개 검사 대상을 읽지 못했습니다",
+      "otherInstructions": "로그 폴더에서 읽기에 실패한 경로의 예와 시스템 오류를 확인하고 해결한 뒤 다시 검사하세요",
+      "protectedScanHint": "macOS에서 접근을 요청하면 허용 또는 허용 안 함을 선택하세요. 응답한 뒤 검사가 계속됩니다"
+    },
     "privilegedScan": {
       "required": "미확인",
       "sizePending": "관리자 권한 필요",
@@ -2614,7 +2618,7 @@
       },
       "system.error-reports": {
         "name": "Windows 오류 보고서",
-        "description": "Windows 오류 보고가 생성한 사용자 및 시스템 진단 보고서입니다.",
+        "description": "현재 사용자에 대해 생성된 오래된 Windows 오류 진단 보고서입니다.",
         "impact": "Windows는 계속 작동하지만, 제거된 보고서는 문제 해결에 더 이상 사용할 수 없습니다."
       },
       "system.stale-partial-downloads": {

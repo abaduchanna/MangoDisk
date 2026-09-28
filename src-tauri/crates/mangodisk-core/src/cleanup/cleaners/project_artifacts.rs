@@ -122,6 +122,7 @@ struct RulePlan {
 #[derive(Debug)]
 struct CatalogPlan {
     rules: Vec<RulePlan>,
+    read_failures: mangodisk_platform::FileReadFailures,
     limited: bool,
     elapsed_ms: u64,
 }
@@ -240,7 +241,7 @@ pub(super) fn preview_all(
     report_path: &(dyn Fn(&Path) + Sync),
     report_files: &(dyn Fn(&Path, u64, u64) + Sync),
     exclusions: &CleanupExclusions,
-) -> Vec<ScanRuleResult> {
+) -> super::CleanerScanPreview {
     let rules = match current_platform_rules() {
         Ok(rules) => rules,
         Err(error) => {
@@ -248,7 +249,7 @@ pub(super) fn preview_all(
                 "project_artifact_catalog_load_failed error={}",
                 mangodisk_platform::diagnostics::text(&error)
             );
-            return Vec::new();
+            return super::CleanerScanPreview::default();
         }
     };
     match build_plan_with_progress(ProjectPlanRequest {
@@ -268,7 +269,8 @@ pub(super) fn preview_all(
                 .flat_map(|rule| &rule.candidates)
                 .any(|candidate| candidate.codex_checkout.is_some())
                 .then(codex_worktrees::blocking_processes);
-            plan.rules
+            let results = plan
+                .rules
                 .iter()
                 .map(|rule| {
                     let complete_bytes: u64 = rule
@@ -299,7 +301,11 @@ pub(super) fn preview_all(
                         ScanItemStatus::Limited
                     } else if complete_bytes > 0 {
                         ScanItemStatus::Found
-                    } else if limited_bytes > 0 {
+                    } else if rule
+                        .candidates
+                        .iter()
+                        .any(|candidate| candidate.measurement_limited)
+                    {
                         ScanItemStatus::Limited
                     } else {
                         ScanItemStatus::Clean
@@ -326,14 +332,18 @@ pub(super) fn preview_all(
                     apply_codex_process_guard(&mut result, &rule.candidates, processes.as_ref());
                     result
                 })
-                .collect()
+                .collect();
+            super::CleanerScanPreview {
+                rules: results,
+                read_failures: plan.read_failures,
+            }
         }
         Err(error) => {
             log::warn!(
                 "project_artifact_preview_failed error={}",
                 mangodisk_platform::diagnostics::text(&error)
             );
-            rules
+            let results = rules
                 .iter()
                 .map(|rule| {
                     scan_result(
@@ -345,7 +355,11 @@ pub(super) fn preview_all(
                         CleanupSourceSummary::default(),
                     )
                 })
-                .collect()
+                .collect();
+            super::CleanerScanPreview {
+                rules: results,
+                ..Default::default()
+            }
         }
     }
 }
@@ -872,6 +886,7 @@ fn build_plan_with_progress(request: ProjectPlanRequest<'_>) -> Result<CatalogPl
                     candidates: Vec::new(),
                 })
                 .collect(),
+            read_failures: Default::default(),
             limited: false,
             elapsed_ms: started.elapsed().as_millis() as u64,
         });
@@ -970,7 +985,10 @@ fn build_plan_with_progress(request: ProjectPlanRequest<'_>) -> Result<CatalogPl
         });
     let mut protected_projects = HashMap::new();
     let limited = discovery_limited;
+    let mut read_failures = mangodisk_platform::FileReadFailures::default();
     for (draft, measured) in candidates {
+        // Keep failures even when an unreadable artifact has no measurable bytes.
+        read_failures.merge(measured.measured.read_failures);
         let measurement_limited = measured.measured.skipped_count > 0;
         if measurement_limited {
             // One unreadable descendant must not hide a large, otherwise
@@ -978,13 +996,19 @@ fn build_plan_with_progress(request: ProjectPlanRequest<'_>) -> Result<CatalogPl
             // but block only this candidate so complete sibling projects can
             // remain available through the same declarative rule.
             log::warn!(
-                "project_artifact_measurement_incomplete rule_id={} path={} skipped_count={}",
+                "project_artifact_measurement_incomplete rule_id={} path={} skipped_count={} read_failure_count={} permission_denied_count={} privacy_restriction_possible_count={}",
                 rules[draft.rule_index].id,
                 diagnostic_path(&draft.path),
-                measured.measured.skipped_count
+                measured.measured.skipped_count,
+                measured.measured.read_failures.count,
+                measured.measured.read_failures.permission_denied_count,
+                measured.measured.read_failures.privacy_restricted_count
             );
         }
-        if measured.measured.bytes == 0 && measured.measured.file_count == 0 {
+        if measured.measured.bytes == 0
+            && measured.measured.file_count == 0
+            && measured.measured.read_failures.count == 0
+        {
             continue;
         }
         candidates_by_rule[draft.rule_index].push(ArtifactCandidate {
@@ -1042,6 +1066,7 @@ fn build_plan_with_progress(request: ProjectPlanRequest<'_>) -> Result<CatalogPl
     );
     Ok(CatalogPlan {
         rules: plans,
+        read_failures,
         limited: limited || is_cancelled(),
         elapsed_ms: started.elapsed().as_millis() as u64,
     })
@@ -2422,6 +2447,7 @@ fn measure_artifacts(
                         bytes: 0,
                         file_count: 0,
                         skipped_count: 1,
+                        ..MeasureResult::default()
                     },
                     modified_at_ms: None,
                     authored_entry: None,
@@ -2471,6 +2497,7 @@ fn measure_directory_with_progress(
                     bytes: aggregate.bytes,
                     file_count: aggregate.file_count,
                     skipped_count: aggregate.skipped_count,
+                    read_failures: aggregate.read_failures,
                 },
                 modified_at_ms,
                 authored_entry: aggregate.flagged_entry,
@@ -2483,6 +2510,7 @@ fn measure_directory_with_progress(
                     bytes: 0,
                     file_count: 0,
                     skipped_count: 1,
+                    ..MeasureResult::default()
                 },
                 modified_at_ms: None,
                 authored_entry: None,
@@ -2520,7 +2548,12 @@ fn portable_measure_directory_with_progress(
         }
         let metadata = match fs::symlink_metadata(&path) {
             Ok(metadata) => metadata,
-            Err(_) => {
+            Err(error) => {
+                result.measured.read_failures.record(
+                    &path,
+                    &error,
+                    mangodisk_platform::FileReadStage::ReadMetadata,
+                );
                 result.measured.skipped_count = result.measured.skipped_count.saturating_add(1);
                 continue;
             }
@@ -2571,14 +2604,24 @@ fn portable_measure_directory_with_progress(
                                 // fail-closed and cannot enter execution.
                                 stack.push(entry.path());
                             }
-                            Err(_) => {
+                            Err(error) => {
+                                result.measured.read_failures.record(
+                                    &path,
+                                    &error,
+                                    mangodisk_platform::FileReadStage::ReadDirectory,
+                                );
                                 result.measured.skipped_count =
                                     result.measured.skipped_count.saturating_add(1)
                             }
                         }
                     }
                 }
-                Err(_) => {
+                Err(error) => {
+                    result.measured.read_failures.record(
+                        &path,
+                        &error,
+                        mangodisk_platform::FileReadStage::OpenDirectory,
+                    );
                     result.measured.skipped_count = result.measured.skipped_count.saturating_add(1)
                 }
             }
