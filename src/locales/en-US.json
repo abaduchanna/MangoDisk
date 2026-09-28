@@ -2088,7 +2088,7 @@
     "checkedApplications": "Apps checked",
     "scannedApplicationData": "Logical data checked",
     "scanHint": "Checks installed apps and related files without changing anything",
-    "searchPlaceholder": "Search apps or developers",
+    "searchPlaceholder": "Name, developer, or path",
     "filterLabel": "Filter applications by uninstall status",
     "all": "All",
     "ready": "Ready",

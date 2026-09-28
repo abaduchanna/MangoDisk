@@ -2088,7 +2088,7 @@
     "checkedApplications": "확인한 앱",
     "scannedApplicationData": "확인한 논리 데이터",
     "scanHint": "아무것도 변경하지 않고 설치된 앱과 관련 파일을 확인합니다",
-    "searchPlaceholder": "앱 또는 개발자 검색",
+    "searchPlaceholder": "앱, 개발자 또는 경로 검색",
     "filterLabel": "제거 상태로 앱 필터",
     "all": "전체",
     "ready": "준비됨",

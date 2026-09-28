@@ -2088,7 +2088,7 @@
     "checkedApplications": "已检查应用",
     "scannedApplicationData": "已核对逻辑数据",
     "scanHint": "检查已安装应用和相关文件，扫描不会修改任何内容",
-    "searchPlaceholder": "搜索应用或开发者",
+    "searchPlaceholder": "搜索应用、开发者或路径",
     "filterLabel": "按卸载状态筛选应用",
     "all": "全部",
     "ready": "可卸载",

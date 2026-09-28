@@ -2088,7 +2088,7 @@
     "checkedApplications": "已檢查應用程式",
     "scannedApplicationData": "已核對邏輯資料",
     "scanHint": "檢查已安裝應用程式和相關檔案，掃描不會修改任何內容",
-    "searchPlaceholder": "搜尋應用程式或開發者",
+    "searchPlaceholder": "搜尋應用程式、開發者或路徑",
     "filterLabel": "依解除安裝狀態篩選應用程式",
     "all": "全部",
     "ready": "可解除安裝",

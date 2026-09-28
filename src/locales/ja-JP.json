@@ -2088,7 +2088,7 @@
     "checkedApplications": "確認済みアプリ",
     "scannedApplicationData": "確認済み論理データ",
     "scanHint": "何も変更せずにインストール済みアプリと関連ファイルを確認します",
-    "searchPlaceholder": "アプリまたは開発者を検索",
+    "searchPlaceholder": "アプリ、開発者、パスを検索",
     "filterLabel": "アンインストール状態でアプリを絞り込む",
     "all": "すべて",
     "ready": "アンインストール可能",
