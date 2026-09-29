@@ -3,6 +3,7 @@ import { useI18n } from 'vue-i18n';
 import { computed, onDeactivated, ref } from 'vue';
 
 import MdFileEntryContextMenu from '@/components/custom/md-file-entry-context-menu.vue';
+import MdAnalysisEntryIcon from './md-analysis-entry-icon.vue';
 import MdNativeFileIcon from '@/components/custom/md-native-file-icon.vue';
 import MdIcon from '@/components/icons/md-icon.vue';
 import { ICON_NAMES } from '@/lib/models/ui';
@@ -19,6 +20,7 @@ const props = defineProps<{
   totalBytes: number;
   openDisabled: boolean;
   deleteDisabled: boolean;
+  deletingPath?: string | null;
 }>();
 
 const emit = defineEmits<{
@@ -128,6 +130,7 @@ function tooltipStyle() {
         v-if="tile.kind === TREEMAP_TILE_KINDS.entry"
         :open-disabled="openDisabled"
         :delete-disabled="deleteDisabled"
+        :reveal-disabled="deletingPath === tile.entry.path"
         @menu-state-change="setContextMenuOpen"
         @open="emit('openEntry', tile.entry)"
         @reveal="emit('reveal', tile.entry.path)"
@@ -138,7 +141,9 @@ function tooltipStyle() {
           class="treemap-tile"
           :class="tileClass(tile)"
           :style="tileStyle(tile, tileIndex)"
-          :aria-label="`${tile.entry.name} · ${ByteSizeService.bytes(tile.bytes)}`"
+          :aria-label="`${tile.entry.name} · ${deletingPath === tile.entry.path ? t('analysis.deleting') : ByteSizeService.bytes(tile.bytes)}`"
+          :disabled="openDisabled"
+          :aria-busy="deletingPath === tile.entry.path || undefined"
           @pointerenter="showTooltip(tile, $event)"
           @pointermove="updateTooltipPosition"
           @pointerleave="hideTooltip"
@@ -147,16 +152,16 @@ function tooltipStyle() {
           @dblclick="!tile.entry.isDirectory && emit('openEntry', tile.entry)"
           @keydown.enter="!tile.entry.isDirectory && emit('openEntry', tile.entry)"
         >
-          <MdNativeFileIcon
-            v-if="shouldLoadTileIcon(tile)"
-            :path="tile.entry.path"
-            :name="tile.entry.name"
-            :directory="tile.entry.isDirectory"
-            directory-mode="generic"
+          <MdAnalysisEntryIcon
+            v-if="shouldLoadTileIcon(tile) || deletingPath === tile.entry.path"
+            :entry="tile.entry"
+            :deleting="deletingPath === tile.entry.path"
           />
           <span class="tile-copy">
             <strong class="md-result-primary">{{ tile.entry.name }}</strong>
-            <small>{{ ByteSizeService.bytes(tile.bytes) }}</small>
+            <small>{{
+              deletingPath === tile.entry.path ? t('analysis.deleting') : ByteSizeService.bytes(tile.bytes)
+            }}</small>
           </span>
           <em>{{ tilePercentage(tile) }}%</em>
         </button>
@@ -198,7 +203,7 @@ function tooltipStyle() {
 
   <Teleport to="body">
     <div
-      v-if="hoveredTile && !contextMenuOpen"
+      v-if="!openDisabled && hoveredTile && !contextMenuOpen"
       class="treemap-pointer-tooltip"
       :style="tooltipStyle()"
       aria-hidden="true"
@@ -400,6 +405,7 @@ function tooltipStyle() {
   bottom: 8px;
 }
 
+.treemap-tile.tiny :deep(.analysis-entry-icon:not(.is-deleting)),
 .treemap-tile.tiny .tile-icon,
 .treemap-tile.tiny :deep(.file-type-icon),
 .treemap-tile.tiny :deep(.native-file-icon),

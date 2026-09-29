@@ -9,6 +9,22 @@ use std::time::Duration;
 use super::*;
 
 #[test]
+fn analysis_root_validation_preserves_platform_error_code() {
+    let _operation_lock = crate::shared::operation::test_operation_lock();
+    let fixture = tempfile::tempdir().unwrap();
+    let missing = fixture.path().join("missing");
+
+    let error = StorageTraversal::analyze_path_with_progress(
+        Some(missing.to_string_lossy().into_owned()),
+        true,
+        |_| {},
+    )
+    .expect_err("a missing analysis root should fail during path validation");
+
+    assert_eq!(error.code(), crate::shared::CoreErrorCode::Platform);
+}
+
+#[test]
 fn name_exclusions_apply_to_native_scans_cached_results_and_parent_deletion() {
     use crate::{
         AnalysisService, DuplicateFileService, DuplicateScanLocation, DuplicateScanLocationMode,

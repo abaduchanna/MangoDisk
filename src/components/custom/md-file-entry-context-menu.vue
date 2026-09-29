@@ -13,11 +13,13 @@ const props = withDefaults(
     entryKey?: string;
     openDisabled?: boolean;
     deleteDisabled?: boolean;
+    revealDisabled?: boolean;
   }>(),
   {
     entryKey: undefined,
     openDisabled: false,
     deleteDisabled: false,
+    revealDisabled: false,
   }
 );
 
@@ -52,7 +54,7 @@ watch(
         <MdIcon :name="ICON_NAMES.external" :size="16" />
         {{ t('common.open') }}
       </ContextMenuItem>
-      <ContextMenuItem @select="emit('reveal')">
+      <ContextMenuItem :disabled="revealDisabled" @select="emit('reveal')">
         <MdIcon :name="ICON_NAMES.folder" :size="16" />
         {{ t('common.showInFileManager') }}
       </ContextMenuItem>

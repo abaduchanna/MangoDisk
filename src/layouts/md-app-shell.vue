@@ -677,6 +677,7 @@ async function cancelDeepCleanup() {
           :busy="analysisStore.pending"
           :cancelling="analysisStore.cancelling"
           :deleting="analysisStore.deleting"
+          :deleting-path="analysisStore.deletingPath"
           @analyze="analyze"
           @cancel="analysisStore.cancel()"
           @error="store.reportError"

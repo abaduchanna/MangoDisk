@@ -27,6 +27,9 @@ pub enum CoreErrorReason {
     ScanResourcesReleasing,
     QuickScanUnavailable,
     AnalysisRootExcluded,
+    DirectoryNotEmpty,
+    DeleteIncomplete,
+    DeleteRecoveryFailed,
 }
 
 impl CoreErrorReason {
@@ -38,6 +41,9 @@ impl CoreErrorReason {
             Self::ScanResourcesReleasing => "scanResourcesReleasing",
             Self::QuickScanUnavailable => "quickScanUnavailable",
             Self::AnalysisRootExcluded => "analysisRootExcluded",
+            Self::DirectoryNotEmpty => "directoryNotEmpty",
+            Self::DeleteIncomplete => "deleteIncomplete",
+            Self::DeleteRecoveryFailed => "deleteRecoveryFailed",
         }
     }
 }

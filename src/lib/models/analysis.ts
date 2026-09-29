@@ -39,6 +39,7 @@ export interface AnalysisResult {
 }
 
 export interface AnalysisDeleteResult {
+  requiresRescan: boolean;
   removedPath: string;
   releasedBytes: number;
   removedFileCount: number;

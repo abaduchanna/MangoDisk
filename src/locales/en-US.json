@@ -1711,6 +1711,22 @@
     "scanExclusionsChanged": {
       "title": "Scan exclusions changed",
       "message": "Scan again to apply your exclusions before cleaning"
+    },
+    "directoryNotEmpty": {
+      "title": "Folder deletion incomplete",
+      "message": "The folder still contains items. Close related apps and try again. Deleted content cannot be restored"
+    },
+    "deleteIncomplete": {
+      "title": "Deletion incomplete",
+      "message": "Remaining content was preserved. Check file access or permissions before retrying. Deleted content cannot be restored"
+    },
+    "deleteRecoveryFailed": {
+      "title": "Remaining content could not be restored",
+      "message": "Remaining content may be in a temporary location. Check the log to locate it before deleting again"
+    },
+    "analysisRefreshFailedAfterDelete": {
+      "title": "Deleted, but the list could not be refreshed",
+      "message": "Analyze this folder again to see its latest contents"
     }
   },
   "folderPicker": {
@@ -1933,7 +1949,8 @@
     "emptyDescription": "Analyze how files and folders use space in the selected location",
     "folderFileSummary": "{folders} folder · {files} file | {folders} folders · {files} files",
     "folderSpaceSummary": "{folders} folder · {size} | {folders} folders · {size}",
-    "exclusionHint": "This view counts scanned content only; exclusions do not change the disk's actual used space"
+    "exclusionHint": "This view counts scanned content only; exclusions do not change the disk's actual used space",
+    "deleting": "Deleting…"
   },
   "storageScanExclusions": {
     "title": "Scan exclusions",

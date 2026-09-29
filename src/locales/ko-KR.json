@@ -1711,6 +1711,22 @@
     "scanExclusionsChanged": {
       "title": "스캔 제외가 변경됨",
       "message": "다시 스캔하여 새 제외 설정을 적용한 후 정리하세요"
+    },
+    "directoryNotEmpty": {
+      "title": "폴더 삭제가 완료되지 않았습니다",
+      "message": "폴더에 항목이 남아 있습니다. 관련 앱을 닫고 다시 시도하세요. 삭제된 내용은 복원할 수 없습니다"
+    },
+    "deleteIncomplete": {
+      "title": "삭제가 완료되지 않았습니다",
+      "message": "남은 내용은 보존되었습니다. 파일 사용 상태나 접근 권한을 확인한 후 다시 시도하세요. 삭제된 내용은 복원할 수 없습니다"
+    },
+    "deleteRecoveryFailed": {
+      "title": "남은 내용을 원래 위치로 복원하지 못했습니다",
+      "message": "남은 내용이 임시 위치에 있을 수 있습니다. 다시 삭제하기 전에 로그에서 위치를 확인하세요"
+    },
+    "analysisRefreshFailedAfterDelete": {
+      "title": "삭제했지만 목록을 새로 고치지 못했습니다",
+      "message": "최신 내용을 보려면 이 폴더를 다시 분석하세요"
     }
   },
   "folderPicker": {
@@ -1933,7 +1949,8 @@
     "emptyDescription": "선택한 위치에서 파일과 폴더가 공간을 어떻게 사용하는지 분석합니다",
     "folderFileSummary": "폴더 {folders}개 · 파일 {files}개",
     "folderSpaceSummary": "폴더 {folders}개 · {size}",
-    "exclusionHint": "여기에는 분석 대상만 집계됩니다. 제외 설정은 디스크의 실제 사용 공간을 변경하지 않습니다"
+    "exclusionHint": "여기에는 분석 대상만 집계됩니다. 제외 설정은 디스크의 실제 사용 공간을 변경하지 않습니다",
+    "deleting": "삭제 중…"
   },
   "storageScanExclusions": {
     "title": "스캔 제외",

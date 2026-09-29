@@ -84,6 +84,17 @@ pub(super) fn resolve_entry_candidate(
     })
 }
 
+/// Expires authoritative snapshots whose contents may have changed after a failed delete.
+pub(super) fn invalidate_changed_path(changed_path: &Path) -> Result<(), String> {
+    let mut sessions = lock_sessions()?;
+    sessions.retain(|session| {
+        let root = Path::new(&session.result.root);
+        !current_platform().path_is_same_or_child(root, changed_path)
+            && !current_platform().path_is_same_or_child(changed_path, root)
+    });
+    Ok(())
+}
+
 /// Removes the deleted item from its source session and expires overlapping snapshots.
 ///
 /// Other cached roots may contain aggregate fingerprints that changed after this deletion.

@@ -22,6 +22,7 @@ const props = defineProps<{
   viewMode: AnalysisViewId;
   openDisabled: boolean;
   deleteDisabled: boolean;
+  deletingPath?: string | null;
 }>();
 
 const emit = defineEmits<{
@@ -82,6 +83,7 @@ const emit = defineEmits<{
         :total-bytes="result.totalBytes"
         :open-disabled="openDisabled"
         :delete-disabled="deleteDisabled"
+        :deleting-path="deletingPath"
         @activate="emit('activate', $event)"
         @open-entry="emit('openEntry', $event)"
         @reveal="emit('reveal', $event)"
@@ -92,6 +94,7 @@ const emit = defineEmits<{
         :entries="entries"
         :open-disabled="openDisabled"
         :delete-disabled="deleteDisabled"
+        :deleting-path="deletingPath"
         @activate="emit('activate', $event)"
         @open-entry="emit('openEntry', $event)"
         @reveal="emit('reveal', $event)"

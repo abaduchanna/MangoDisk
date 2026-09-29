@@ -44,7 +44,11 @@ pub(crate) struct AnalysisEntryCandidate {
 #[serde(rename_all = "camelCase")]
 pub struct AnalysisDeleteResult {
     pub removed_path: String,
-    /// Physical storage released by the removed entry.
+    /// The original path was recreated or could not be verified absent.
+    pub requires_rescan: bool,
+    /// Scan-time allocated bytes to remove from the displayed snapshot.
+    /// This is not a live measurement of storage reclaimed by the filesystem.
     pub released_bytes: u64,
+    /// Scan-time file count used only for snapshot reconciliation.
     pub removed_file_count: u64,
 }

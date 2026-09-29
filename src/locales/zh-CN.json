@@ -1711,6 +1711,22 @@
     "scanExclusionsChanged": {
       "title": "扫描排除已更改",
       "message": "请重新扫描，应用新的排除设置后再清理"
+    },
+    "directoryNotEmpty": {
+      "title": "文件夹未能完全删除",
+      "message": "文件夹仍有内容。请关闭相关程序后重试，已删除内容无法恢复"
+    },
+    "deleteIncomplete": {
+      "title": "删除未完成",
+      "message": "剩余内容已保留。请检查文件占用或访问权限后重试，已删除内容无法恢复"
+    },
+    "deleteRecoveryFailed": {
+      "title": "剩余内容未能恢复原位",
+      "message": "剩余内容可能保留在临时位置。请查看日志定位，避免再次删除"
+    },
+    "analysisRefreshFailedAfterDelete": {
+      "title": "删除已完成，列表刷新失败",
+      "message": "请重新分析当前文件夹，查看最新内容"
     }
   },
   "folderPicker": {
@@ -1933,7 +1949,8 @@
     "emptyDescription": "分析所选位置中文件和文件夹的空间占用",
     "folderFileSummary": "{folders} 个文件夹 · {files} 个文件",
     "folderSpaceSummary": "{folders} 个文件夹 · {size}",
-    "exclusionHint": "此处仅统计参与分析的内容；排除设置不会改变磁盘实际已用空间"
+    "exclusionHint": "此处仅统计参与分析的内容；排除设置不会改变磁盘实际已用空间",
+    "deleting": "正在删除…"
   },
   "storageScanExclusions": {
     "title": "扫描排除",

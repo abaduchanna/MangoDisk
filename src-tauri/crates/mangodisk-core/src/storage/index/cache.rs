@@ -7,7 +7,7 @@ use std::{
 
 use mangodisk_platform::{
     current_platform, FileSpaceUsage, FilesystemChangeMonitor, FilesystemChangeStatus,
-    FilesystemChangeToken, Platform, ScanPurpose,
+    FilesystemChangeToken, Platform, ScanPurpose, SkipReason,
 };
 
 use crate::{
@@ -346,6 +346,14 @@ fn read_analysis_children(
                 return None;
             }
             let metadata = fs::symlink_metadata(&path).ok()?;
+            // A directory omitted by the scan's system-safety policy has no aggregate.
+            // Do not reintroduce it as a misleading zero-byte entry during result assembly.
+            if metadata.is_dir()
+                && current_platform().should_skip(&path, root, ScanPurpose::Analysis)
+                    == Some(SkipReason::SystemCritical)
+            {
+                return None;
+            }
             (!is_link_like(&metadata) && !excluded_names.matches_entry(&path, metadata.is_dir()))
                 .then_some((entry, path, metadata))
         })

@@ -11,6 +11,14 @@ const { t } = useI18n({ useScope: 'global' });
 
 const errorMessage = computed(() => {
   switch (store.errorReason) {
+    case 'analysisRefreshFailedAfterDelete':
+      return t('errorReasons.analysisRefreshFailedAfterDelete.message');
+    case 'directoryNotEmpty':
+      return t('errorReasons.directoryNotEmpty.message');
+    case 'deleteIncomplete':
+      return t('errorReasons.deleteIncomplete.message');
+    case 'deleteRecoveryFailed':
+      return t('errorReasons.deleteRecoveryFailed.message');
     case 'resourceBusy':
       return t('errorReasons.resourceBusy.message');
     case 'accessDeniedOrBusy':
@@ -36,6 +44,14 @@ const errorMessage = computed(() => {
 
 const errorTitle = computed(() => {
   switch (store.errorReason) {
+    case 'analysisRefreshFailedAfterDelete':
+      return t('errorReasons.analysisRefreshFailedAfterDelete.title');
+    case 'directoryNotEmpty':
+      return t('errorReasons.directoryNotEmpty.title');
+    case 'deleteIncomplete':
+      return t('errorReasons.deleteIncomplete.title');
+    case 'deleteRecoveryFailed':
+      return t('errorReasons.deleteRecoveryFailed.title');
     case 'resourceBusy':
       return t('errorReasons.resourceBusy.title');
     case 'accessDeniedOrBusy':

@@ -22,7 +22,10 @@ export type CommandErrorReason =
   | 'folderUnavailable'
   | 'folderSelectionLimitExceeded'
   | 'analysisRootExcluded'
-  | 'scanExclusionsChanged';
+  | 'scanExclusionsChanged'
+  | 'directoryNotEmpty'
+  | 'deleteIncomplete'
+  | 'deleteRecoveryFailed';
 
 const COMMAND_ERROR_CODES: ReadonlySet<string> = new Set<CommandErrorCode>([
   'invalidInput',
@@ -44,6 +47,9 @@ const COMMAND_ERROR_REASONS: ReadonlySet<string> = new Set<CommandErrorReason>([
   'quickScanUnavailable',
   'analysisRootExcluded',
   'scanExclusionsChanged',
+  'directoryNotEmpty',
+  'deleteIncomplete',
+  'deleteRecoveryFailed',
 ]);
 
 /** Recognizes the stable error envelope returned by native commands. */

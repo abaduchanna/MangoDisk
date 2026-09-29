@@ -2,7 +2,7 @@
 import MdTooltip from '@/components/custom/md-tooltip.vue';
 import { useI18n } from 'vue-i18n';
 import MdFileEntryContextMenu from '@/components/custom/md-file-entry-context-menu.vue';
-import MdNativeFileIcon from '@/components/custom/md-native-file-icon.vue';
+import MdAnalysisEntryIcon from './md-analysis-entry-icon.vue';
 import MdIcon from '@/components/icons/md-icon.vue';
 import { ICON_NAMES } from '@/lib/models/ui';
 import type { DirectoryEntryInfo } from '@/lib/models/analysis';
@@ -18,6 +18,7 @@ defineProps<{
   fileCount: number;
   openDisabled: boolean;
   deleteDisabled: boolean;
+  deletingPath?: string | null;
 }>();
 
 const emit = defineEmits<{
@@ -47,6 +48,7 @@ const emit = defineEmits<{
         :key="entry.path"
         :open-disabled="openDisabled"
         :delete-disabled="deleteDisabled"
+        :reveal-disabled="deletingPath === entry.path"
         @open="emit('openEntry', entry)"
         @reveal="emit('reveal', entry.path)"
         @delete="emit('delete', entry)"
@@ -56,21 +58,21 @@ const emit = defineEmits<{
             ><button
               class="folder-entry"
               type="button"
+              :disabled="openDisabled"
+              :aria-busy="deletingPath === entry.path || undefined"
               @click="emit('activate', entry)"
               @dblclick="!entry.isDirectory && emit('openEntry', entry)"
               @keydown.enter="!entry.isDirectory && emit('openEntry', entry)"
             >
-              <MdNativeFileIcon
-                :path="entry.path"
-                :name="entry.name"
-                :directory="entry.isDirectory"
-                directory-mode="generic"
-                compact
-              />
+              <MdAnalysisEntryIcon :entry="entry" :deleting="deletingPath === entry.path" compact />
               <span class="item-copy">
                 <strong class="md-result-primary">{{ entry.name }}</strong>
                 <small>
-                  {{ t('common.fileCount', { count: FormatUtils.integer(entry.fileCount) }, entry.fileCount) }}
+                  {{
+                    deletingPath === entry.path
+                      ? t('analysis.deleting')
+                      : t('common.fileCount', { count: FormatUtils.integer(entry.fileCount) }, entry.fileCount)
+                  }}
                 </small>
               </span>
               <span class="item-metrics">

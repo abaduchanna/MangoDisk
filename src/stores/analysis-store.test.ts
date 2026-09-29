@@ -186,8 +186,28 @@ describe('analysis store', () => {
     expect(analysisStore.deleting).toBe(false);
   });
 
+  it('refreshes a recreated original path instead of removing its new contents from view', async () => {
+    vi.spyOn(AnalysisService, 'deletePermanently').mockResolvedValue({
+      requiresRescan: true,
+      removedPath: entry.path,
+      releasedBytes: entry.bytes,
+      removedFileCount: 1,
+    });
+    const refreshed = { ...result, scanId: 99, entries: [{ ...entry, bytes: 1 }] };
+    const analyze = vi.spyOn(AnalysisService, 'analyze').mockResolvedValue(refreshed);
+    vi.spyOn(useAppStore(), 'refreshSystemDisk').mockResolvedValue(true);
+    const store = useAnalysisStore();
+    store.result = { ...result, entries: [entry] };
+    store.cache = { [AnalysisCacheUtils.key(result.root)]: store.result };
+    await store.deletePermanently(entry);
+    expect(analyze).toHaveBeenCalledOnce();
+    expect(store.result).toEqual(refreshed);
+    expect(store.deletingPath).toBeNull();
+  });
+
   it('refreshes shared disk capacity after a completed deletion', async () => {
     vi.spyOn(AnalysisService, 'deletePermanently').mockResolvedValue({
+      requiresRescan: false,
       removedPath: entry.path,
       releasedBytes: entry.bytes,
       removedFileCount: entry.fileCount,
@@ -219,5 +239,182 @@ describe('analysis store', () => {
     expect(appStore.errorCode).toBe('operationBusy');
     expect(appStore.errorReason).toBe('scanResourcesReleasing');
     expect(analysisStore.pending).toBe(false);
+  });
+  it('marks only the requested path busy and rejects duplicate deletion requests', async () => {
+    let finish: (value: {
+      requiresRescan: boolean;
+      removedPath: string;
+      releasedBytes: number;
+      removedFileCount: number;
+    }) => void = () => undefined;
+    const remove = vi.spyOn(AnalysisService, 'deletePermanently').mockImplementation(
+      () =>
+        new Promise(resolve => {
+          finish = resolve;
+        })
+    );
+    vi.spyOn(useAppStore(), 'refreshSystemDisk').mockResolvedValue(true);
+    const store = useAnalysisStore();
+    store.result = { ...result, entries: [entry] };
+    store.cache = { [AnalysisCacheUtils.key(result.root)]: store.result };
+    const request = store.deletePermanently(entry);
+    expect(store.deletingPath).toBe(entry.path);
+    expect(store.deleting).toBe(true);
+    await store.deletePermanently(entry);
+    expect(remove).toHaveBeenCalledOnce();
+    finish({ requiresRescan: false, removedPath: entry.path, releasedBytes: 64, removedFileCount: 1 });
+    await request;
+    expect(store.deletingPath).toBeNull();
+    expect(store.deleting).toBe(false);
+  });
+
+  it('refreshes a partial deletion and expires ancestor and descendant snapshots', async () => {
+    const failure = {
+      code: 'operationFailed',
+      retryable: true,
+      details: { reason: 'directoryNotEmpty', mutationState: 'mayHaveChanged' },
+    };
+    vi.spyOn(AnalysisService, 'deletePermanently').mockRejectedValue(failure);
+    let finishRefresh: (value: AnalysisResult) => void = () => undefined;
+    const scan = vi.spyOn(AnalysisService, 'analyze').mockImplementation(
+      () =>
+        new Promise(resolve => {
+          finishRefresh = resolve;
+        })
+    );
+    const refreshDisk = vi.spyOn(useAppStore(), 'refreshSystemDisk').mockResolvedValue(true);
+    const store = useAnalysisStore();
+    store.result = { ...result, entries: [entry] };
+    store.cache = {
+      '/fixture': store.result,
+      '/': { ...result, root: '/' },
+      [entry.path]: { ...result, root: entry.path },
+      '/unrelated': { ...result, root: '/unrelated' },
+    };
+    store.cacheOrder = Object.keys(store.cache);
+    const request = store.deletePermanently(entry);
+    await vi.waitFor(() => expect(scan).toHaveBeenCalledOnce());
+    expect(store.deletingPath).toBeNull();
+    expect(store.pending).toBe(true);
+    expect(Object.keys(store.cache)).toEqual(['/unrelated']);
+    const refreshed = { ...result, scanId: 8, entries: [{ ...entry, bytes: 20 }], totalBytes: 20 };
+    finishRefresh(refreshed);
+    await request;
+    expect(store.result).toEqual(refreshed);
+    expect(store.cache['/']).toBeUndefined();
+    expect(store.cache[entry.path]).toBeUndefined();
+    expect(store.deletingPath).toBeNull();
+    expect(useAppStore().errorReason).toBe('directoryNotEmpty');
+    expect(refreshDisk).toHaveBeenCalledOnce();
+  });
+
+  it('does not revive old results when refreshing a partial deletion fails', async () => {
+    vi.spyOn(AnalysisService, 'deletePermanently').mockRejectedValue({
+      code: 'operationFailed',
+      retryable: true,
+      details: { mutationState: 'mayHaveChanged', reason: 'deleteRecoveryFailed' },
+    });
+    vi.spyOn(AnalysisService, 'analyze').mockRejectedValue(new Error('unavailable'));
+    vi.spyOn(useAppStore(), 'refreshSystemDisk').mockResolvedValue(true);
+    const store = useAnalysisStore();
+    store.result = { ...result, entries: [entry] };
+    store.cache = { '/fixture': store.result };
+    await store.deletePermanently(entry);
+    expect(store.result).toBeNull();
+    expect(store.cache).toEqual({});
+    expect(store.deletingPath).toBeNull();
+    expect(useAppStore().errorReason).toBe('deleteRecoveryFailed');
+  });
+
+  it('shows a partial deletion failure before recovery scanning and allows cancellation', async () => {
+    vi.spyOn(AnalysisService, 'deletePermanently').mockRejectedValue({
+      code: 'operationFailed',
+      retryable: true,
+      details: { mutationState: 'mayHaveChanged', reason: 'directoryNotEmpty' },
+    });
+    let finishScan: (value: AnalysisResult) => void = () => undefined;
+    const analyze = vi.spyOn(AnalysisService, 'analyze').mockImplementation(
+      () =>
+        new Promise(resolve => {
+          finishScan = resolve;
+        })
+    );
+    const cancel = vi.spyOn(AnalysisService, 'cancel').mockResolvedValue();
+    const store = useAnalysisStore();
+    store.result = { ...result, entries: [entry] };
+    store.cache = { [AnalysisCacheUtils.key(result.root)]: store.result };
+
+    const request = store.deletePermanently(entry);
+    await vi.waitFor(() => expect(analyze).toHaveBeenCalledOnce());
+    expect(useAppStore().errorReason).toBe('directoryNotEmpty');
+    expect(store.result).toBeNull();
+    expect(store.deleting).toBe(false);
+    expect(store.pending).toBe(true);
+    await store.cancel();
+    expect(cancel).toHaveBeenCalledOnce();
+    finishScan(result);
+    await request;
+    expect(store.pending).toBe(false);
+    expect(useAppStore().errorReason).toBe('directoryNotEmpty');
+  });
+
+  it('reports when deletion succeeds but its result cannot be refreshed', async () => {
+    vi.spyOn(AnalysisService, 'deletePermanently').mockResolvedValue({
+      requiresRescan: true,
+      removedPath: entry.path,
+      releasedBytes: entry.bytes,
+      removedFileCount: 1,
+    });
+    vi.spyOn(AnalysisService, 'analyze').mockRejectedValue({
+      code: 'permissionDenied',
+      retryable: false,
+      details: {},
+    });
+    vi.spyOn(useAppStore(), 'refreshSystemDisk').mockResolvedValue(true);
+    const store = useAnalysisStore();
+    store.result = { ...result, entries: [entry] };
+    store.cache = { [AnalysisCacheUtils.key(result.root)]: store.result };
+
+    await store.deletePermanently(entry);
+    expect(store.result).toBeNull();
+    expect(store.pending).toBe(false);
+    expect(useAppStore().errorReason).toBe('analysisRefreshFailedAfterDelete');
+  });
+
+  it('keeps an unchanged result when deletion is rejected before mutation', async () => {
+    vi.spyOn(AnalysisService, 'deletePermanently').mockRejectedValue({
+      code: 'operationFailed',
+      retryable: true,
+      details: { reason: 'itemChanged' },
+    });
+    const scan = vi.spyOn(AnalysisService, 'analyze');
+    const store = useAnalysisStore();
+    store.result = { ...result, entries: [entry] };
+    await store.deletePermanently(entry);
+    expect(scan).not.toHaveBeenCalled();
+    expect(store.result?.entries).toEqual([entry]);
+    expect(store.deletingPath).toBeNull();
+  });
+
+  it('does not retain an ancestor scan ID that Core expires after successful deletion', async () => {
+    vi.spyOn(AnalysisService, 'deletePermanently').mockResolvedValue({
+      requiresRescan: false,
+      removedPath: entry.path,
+      releasedBytes: 64,
+      removedFileCount: 1,
+    });
+    vi.spyOn(useAppStore(), 'refreshSystemDisk').mockResolvedValue(true);
+    const store = useAnalysisStore();
+    store.result = { ...result, entries: [entry] };
+    store.cache = {
+      '/fixture': store.result,
+      '/': { ...result, root: '/' },
+      '/unrelated': { ...result, root: '/unrelated' },
+    };
+    await store.deletePermanently(entry);
+    expect(store.cache['/']).toBeUndefined();
+    expect(store.cache['/unrelated']).toBeDefined();
+    expect(store.result?.entries).toEqual([]);
+    expect(store.result?.totalBytes).toBe(0);
   });
 });

@@ -42,6 +42,7 @@ const props = defineProps<{
   busy: boolean;
   cancelling: boolean;
   deleting: boolean;
+  deletingPath?: string | null;
 }>();
 
 const emit = defineEmits<{
@@ -368,6 +369,7 @@ function navigateHistory(index: number) {
           :file-count="fileCount"
           :open-disabled="busy || deleting"
           :delete-disabled="busy || deleting || !resultMatchesExclusions"
+          :deleting-path="deletingPath"
           @activate="activateEntry"
           @open-entry="openEntry"
           @reveal="emit('reveal', $event)"
@@ -381,6 +383,7 @@ function navigateHistory(index: number) {
           :view-mode="viewMode"
           :open-disabled="busy || deleting"
           :delete-disabled="busy || deleting || !resultMatchesExclusions"
+          :deleting-path="deletingPath"
           @update:view-mode="viewMode = $event"
           @open-exclusions="emit('openExclusions')"
           @activate="activateEntry"

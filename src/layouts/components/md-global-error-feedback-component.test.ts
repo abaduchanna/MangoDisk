@@ -43,4 +43,26 @@ describe('global error feedback', () => {
 
     wrapper.unmount();
   });
+  it.each([
+    'directoryNotEmpty',
+    'deleteIncomplete',
+    'deleteRecoveryFailed',
+    'analysisRefreshFailedAfterDelete',
+  ] as const)('explains %s in every language', async reason => {
+    setActivePinia(createPinia());
+    const wrapper = mount(MdGlobalErrorFeedback, { global: { plugins: [i18n] } });
+    const store = useAppStore();
+    store.errorCode = 'operationFailed';
+    store.errorReason = reason;
+    for (const locale of Object.values(LANGUAGE_IDS)) {
+      i18n.global.locale.value = locale;
+      vi.mocked(toast.error).mockClear();
+      await nextTick();
+      expect(toast.error).toHaveBeenCalledWith(
+        i18n.global.t(`errorReasons.${reason}.title`),
+        expect.objectContaining({ description: i18n.global.t(`errorReasons.${reason}.message`) })
+      );
+    }
+    wrapper.unmount();
+  });
 });

@@ -95,4 +95,22 @@ describe('analysis details virtualization', () => {
     expect(wrapper.get('.details-head-grid button').attributes('data-active')).toBe('true');
     wrapper.unmount();
   });
+  it('renders loading only for the deleting entry and clears it without recycling other rows', async () => {
+    const wrapper = mount(MdAnalysisDetailsTable, {
+      attachTo: document.body,
+      props: { entries, openDisabled: false, deleteDisabled: false },
+      global,
+    });
+    await flushPromises();
+    const before = wrapper.findAll('.virtual-row').map(row => row.element);
+    await wrapper.setProps({ deletingPath: entries[0]!.path, openDisabled: true, deleteDisabled: true });
+    expect(wrapper.findAll('.md-spinner')).toHaveLength(1);
+    const busy = wrapper.get('[aria-busy="true"]');
+    expect(busy.attributes('disabled')).toBeDefined();
+    expect(busy.text()).toContain(i18n.global.t('analysis.deleting'));
+    expect(wrapper.findAll('.virtual-row').map(row => row.element)).toEqual(before);
+    await wrapper.setProps({ deletingPath: null, openDisabled: false, deleteDisabled: false });
+    expect(wrapper.findAll('.md-spinner')).toHaveLength(0);
+    wrapper.unmount();
+  });
 });

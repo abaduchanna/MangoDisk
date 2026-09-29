@@ -225,7 +225,7 @@ impl StorageTraversal {
         let root = resolve_analysis_root(path)?;
         let root = current_platform()
             .canonicalize_no_links(&root)
-            .map_err(|error| error.to_string())?;
+            .map_err(CoreError::from)?;
         if !root.is_dir() {
             return Err(CoreError::invalid_input(
                 "the analysis root must be a directory",

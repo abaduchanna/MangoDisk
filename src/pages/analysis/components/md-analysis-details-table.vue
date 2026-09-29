@@ -14,7 +14,7 @@ import {
 } from 'vue';
 import { observeElementRect, useVirtualizer, type Range } from '@tanstack/vue-virtual';
 
-import MdNativeFileIcon from '@/components/custom/md-native-file-icon.vue';
+import MdAnalysisEntryIcon from './md-analysis-entry-icon.vue';
 import MdFileEntryContextMenu from '@/components/custom/md-file-entry-context-menu.vue';
 import MdIconAction from '@/components/custom/md-icon-action.vue';
 import MdResultTable from '@/components/custom/md-result-table.vue';
@@ -35,6 +35,7 @@ const props = defineProps<{
   entries: DirectoryEntryInfo[];
   openDisabled: boolean;
   deleteDisabled: boolean;
+  deletingPath?: string | null;
 }>();
 
 const emit = defineEmits<{
@@ -214,6 +215,7 @@ function sortControlLabel(key: AnalysisSortKey, column: string) {
             :entry-key="entry.path"
             :open-disabled="openDisabled"
             :delete-disabled="deleteDisabled"
+            :reveal-disabled="deletingPath === entry.path"
             @open="emit('openEntry', entry)"
             @reveal="emit('reveal', entry.path)"
             @delete="emit('delete', entry)"
@@ -226,18 +228,15 @@ function sortControlLabel(key: AnalysisSortKey, column: string) {
                   ><button
                     class="details-name"
                     type="button"
+                    :disabled="openDisabled"
+                    :aria-busy="deletingPath === entry.path || undefined"
                     @click="emit('activate', entry)"
                     @dblclick="!entry.isDirectory && emit('openEntry', entry)"
                     @keydown.enter="!entry.isDirectory && emit('openEntry', entry)"
                   >
-                    <MdNativeFileIcon
-                      :path="entry.path"
-                      :name="entry.name"
-                      :directory="entry.isDirectory"
-                      directory-mode="generic"
-                      compact
-                    />
+                    <MdAnalysisEntryIcon :entry="entry" :deleting="deletingPath === entry.path" compact />
                     <strong class="md-result-primary">{{ entry.name }}</strong>
+                    <span v-if="deletingPath === entry.path" class="deletion-label">{{ t('analysis.deleting') }}</span>
                   </button></MdTooltip
                 >
                 <span class="details-actions">
@@ -252,6 +251,7 @@ function sortControlLabel(key: AnalysisSortKey, column: string) {
                   <MdIconAction
                     variant="ghost"
                     :label="t('common.showInFileManager')"
+                    :disabled="deletingPath === entry.path"
                     @click="emit('reveal', entry.path)"
                   >
                     <MdIcon :name="ICON_NAMES.folder" :size="16" />
@@ -364,6 +364,12 @@ function sortControlLabel(key: AnalysisSortKey, column: string) {
   font-size: var(--font-content-primary);
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.deletion-label {
+  flex: none;
+  @apply text-muted-foreground;
+  font-size: var(--font-content-secondary);
 }
 
 .details-actions {
