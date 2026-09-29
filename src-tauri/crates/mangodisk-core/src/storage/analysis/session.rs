@@ -152,6 +152,7 @@ mod tests {
             scanned_at_ms: 1,
             total_bytes: 4,
             skipped_count: 0,
+            truncated: false,
             entries: vec![DirectoryEntryInfo {
                 name: "sample.bin".to_string(),
                 path: path.to_string(),

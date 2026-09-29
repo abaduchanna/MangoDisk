@@ -16,6 +16,7 @@ const result: AnalysisResult = {
   scannedAtMs: 1_000,
   totalBytes: 64,
   skippedCount: 0,
+  truncated: false,
   entries: [],
 };
 

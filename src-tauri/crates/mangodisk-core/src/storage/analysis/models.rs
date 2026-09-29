@@ -25,6 +25,8 @@ pub struct AnalysisResult {
     /// Physical storage charged to all direct result entries.
     pub total_bytes: u64,
     pub skipped_count: u64,
+    /// True when direct children were omitted from the displayed result.
+    pub truncated: bool,
     pub entries: Vec<DirectoryEntryInfo>,
 }
 

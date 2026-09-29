@@ -1949,6 +1949,7 @@
     "emptyDescription": "分析所选位置中文件和文件夹的空间占用",
     "folderFileSummary": "{folders} 个文件夹 · {files} 个文件",
     "folderSpaceSummary": "{folders} 个文件夹 · {size}",
+    "limitedEntries": "最多显示占用空间最大的 100 项",
     "exclusionHint": "此处仅统计参与分析的内容；排除设置不会改变磁盘实际已用空间",
     "deleting": "正在删除…"
   },

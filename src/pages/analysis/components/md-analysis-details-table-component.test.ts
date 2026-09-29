@@ -66,7 +66,15 @@ describe('analysis details virtualization', () => {
       attachTo: document.body,
       props: {
         entries,
-        result: { scanId: 1, root: '/files', scannedAtMs: 0, totalBytes: 1, skippedCount: 0, entries },
+        result: {
+          scanId: 1,
+          root: '/files',
+          scannedAtMs: 0,
+          totalBytes: 1,
+          skippedCount: 0,
+          truncated: false,
+          entries,
+        },
         exclusionsActive: false,
         folderCount: 0,
         viewMode: 'details',

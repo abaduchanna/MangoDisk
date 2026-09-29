@@ -2,6 +2,7 @@
 import { useI18n } from 'vue-i18n';
 
 import MdScanExclusionLink from '@/components/custom/md-scan-exclusion-link.vue';
+import MdTooltip from '@/components/custom/md-tooltip.vue';
 import MdIcon from '@/components/icons/md-icon.vue';
 import { ANALYSIS_VIEW_IDS } from '@/lib/models/analysis';
 import { ICON_NAMES } from '@/lib/models/ui';
@@ -48,6 +49,14 @@ const emit = defineEmits<{
             )
           }}
         </p>
+        <MdTooltip
+          v-if="result.truncated && viewMode === ANALYSIS_VIEW_IDS.details"
+          :text="t('analysis.limitedEntries')"
+        >
+          <button type="button" class="md-help-action" :aria-label="t('analysis.limitedEntries')">
+            <MdIcon :name="ICON_NAMES.help" :size="14" aria-hidden="true" />
+          </button>
+        </MdTooltip>
         <MdScanExclusionLink
           v-if="exclusionsActive"
           :hint="t('analysis.exclusionHint')"

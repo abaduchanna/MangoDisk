@@ -1949,6 +1949,7 @@
     "emptyDescription": "Analyze how files and folders use space in the selected location",
     "folderFileSummary": "{folders} folder · {files} file | {folders} folders · {files} files",
     "folderSpaceSummary": "{folders} folder · {size} | {folders} folders · {size}",
+    "limitedEntries": "Showing up to 100 largest items",
     "exclusionHint": "This view counts scanned content only; exclusions do not change the disk's actual used space",
     "deleting": "Deleting…"
   },

@@ -9,6 +9,37 @@ use std::time::Duration;
 use super::*;
 
 #[test]
+fn cached_child_navigation_does_not_emit_scan_progress() {
+    let _operation_lock = crate::shared::operation::test_operation_lock();
+    cache::clear_all().expect("clear the analysis cache before navigation validation");
+    let fixture = tempfile::tempdir().unwrap();
+    let child = fixture.path().join("child");
+    fs::create_dir(&child).unwrap();
+    fs::write(child.join("sample.bin"), vec![1_u8; 4096]).unwrap();
+    let scan_events = Arc::new(Mutex::new(Vec::new()));
+    let events = Arc::clone(&scan_events);
+    StorageTraversal::analyze_path_with_diagnostics(
+        Some(current_platform().display_path(fixture.path())),
+        true,
+        move |progress| events.lock().unwrap().push(progress),
+    )
+    .expect("scan the parent fixture");
+    assert!(!scan_events.lock().unwrap().is_empty());
+
+    scan_events.lock().unwrap().clear();
+    let events = Arc::clone(&scan_events);
+    let (result, diagnostics) = StorageTraversal::analyze_path_with_diagnostics(
+        Some(current_platform().display_path(&child)),
+        false,
+        move |progress| events.lock().unwrap().push(progress),
+    )
+    .expect("navigate to an unvisited child using the parent snapshot");
+    assert_eq!(diagnostics.fast_path, "cache");
+    assert_eq!(result.entries.len(), 1);
+    assert!(scan_events.lock().unwrap().is_empty());
+}
+
+#[test]
 fn analysis_root_validation_preserves_platform_error_code() {
     let _operation_lock = crate::shared::operation::test_operation_lock();
     let fixture = tempfile::tempdir().unwrap();

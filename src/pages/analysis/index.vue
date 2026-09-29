@@ -131,6 +131,12 @@ const canGoForward = computed(
 // page-level action label and make the right-aligned header change width.
 const showPrimaryAnalysisProgress = computed(() => props.busy && primaryAnalysisPending.value);
 const folderNavigationPending = computed(() => props.busy && !primaryAnalysisPending.value);
+// Starting the native request does not imply a scan: Core can still reuse its
+// index for an unvisited child. Only real scan progress replaces stale browser
+// data; cache navigation keeps the mounted list and its sorting state.
+const showFullAnalysisProgress = computed(
+  () => props.busy && (primaryAnalysisPending.value || props.progress !== null)
+);
 
 watch(
   () => props.disk?.mountPoint,
@@ -300,7 +306,7 @@ function navigateHistory(index: number) {
 
     <article class="browser-card">
       <MdAnalysisBrowserToolbar
-        v-if="result && !showPrimaryAnalysisProgress"
+        v-if="result && !showFullAnalysisProgress"
         :breadcrumbs="breadcrumbs"
         :busy="busy || deleting"
         :preserve-busy-appearance="folderNavigationPending"
@@ -312,12 +318,13 @@ function navigateHistory(index: number) {
         @home="analyze(homePath)"
         @navigate="analyze"
       />
-      <!-- Folder navigation keeps its toolbar; a primary analysis replaces the stale browser. -->
+      <!-- A cache hit keeps the browser; a real scan replaces stale navigation and totals. -->
       <MdDelayedOperationWorkspace
+        :key="showFullAnalysisProgress ? 'full' : 'navigation'"
         class="analysis-overlay"
-        :class="{ 'analysis-overlay--full': !result || showPrimaryAnalysisProgress }"
+        :class="{ 'analysis-overlay--full': !result || showFullAnalysisProgress }"
         :active="busy"
-        :delay="showPrimaryAnalysisProgress ? 0 : undefined"
+        :delay="showFullAnalysisProgress ? 0 : undefined"
         mode="overlay"
         role="status"
         aria-live="polite"
@@ -355,7 +362,7 @@ function navigateHistory(index: number) {
       </MdEmptyState>
 
       <div
-        v-else-if="!showPrimaryAnalysisProgress"
+        v-else-if="!showFullAnalysisProgress"
         class="browser-content"
         :class="{ 'browser-content--details': viewMode === ANALYSIS_VIEW_IDS.details }"
         :inert="busy || undefined"
@@ -367,6 +374,7 @@ function navigateHistory(index: number) {
           :total-bytes="result.totalBytes"
           :folder-count="folderCount"
           :file-count="fileCount"
+          :truncated="result.truncated"
           :open-disabled="busy || deleting"
           :delete-disabled="busy || deleting || !resultMatchesExclusions"
           :deleting-path="deletingPath"

@@ -20,6 +20,7 @@ use crate::{
 };
 
 const ANALYSIS_CACHE_ROOT_LIMIT: usize = 2;
+const ANALYSIS_VISIBLE_ENTRY_LIMIT: usize = 100;
 const ANALYSIS_CACHE_UNAVAILABLE_ERROR: &str = "the analysis cache is unavailable";
 
 static ANALYSIS_CACHE: OnceLock<Mutex<AnalysisCache>> = OnceLock::new();
@@ -368,13 +369,14 @@ fn build_analysis_result(
     indexed_file: impl FnMut(&Path) -> Option<IndexedFile>,
 ) -> AnalysisResult {
     let mut entries = build_analysis_entries(children, directory_aggregate, indexed_file);
+    let truncated = entries.len() > ANALYSIS_VISIBLE_ENTRY_LIMIT;
     entries.sort_by(|left, right| {
         right
             .bytes
             .cmp(&left.bytes)
             .then_with(|| left.path.cmp(&right.path))
     });
-    entries.truncate(80);
+    entries.truncate(ANALYSIS_VISIBLE_ENTRY_LIMIT);
 
     AnalysisResult {
         scan_id: 0,
@@ -382,6 +384,7 @@ fn build_analysis_result(
         scanned_at_ms: root_aggregate.scanned_at_ms,
         total_bytes: root_aggregate.bytes,
         skipped_count: root_aggregate.skipped_count,
+        truncated,
         entries,
     }
 }
@@ -811,6 +814,46 @@ fn evict_cached_root(cache: &mut AnalysisCache, root: &Path) -> Vec<FilesystemCh
 mod tests {
     use super::*;
     use crate::storage::large_files::LARGE_FILE_CANDIDATE_FLOOR_BYTES;
+
+    #[test]
+    fn analysis_result_limits_entries_only_when_more_than_one_hundred_exist() {
+        let root = tempfile::tempdir().unwrap();
+        for index in 1..=ANALYSIS_VISIBLE_ENTRY_LIMIT {
+            fs::write(root.path().join(format!("{index:03}.bin")), []).unwrap();
+        }
+        let build = || {
+            let children = read_analysis_children(
+                root.path(),
+                &[],
+                &mangodisk_platform::NameExclusions::default(),
+            )
+            .unwrap();
+            build_analysis_result(
+                root.path(),
+                DirectoryAggregate::default(),
+                children,
+                |_| None,
+                |path| {
+                    let bytes = path.file_stem()?.to_str()?.parse().ok()?;
+                    Some(IndexedFile {
+                        bytes,
+                        logical_bytes: bytes,
+                        modified_at_ms: None,
+                    })
+                },
+            )
+        };
+        let exact = build();
+        assert_eq!(exact.entries.len(), ANALYSIS_VISIBLE_ENTRY_LIMIT);
+        assert!(!exact.truncated);
+
+        fs::write(root.path().join("101.bin"), []).unwrap();
+        let limited = build();
+        assert_eq!(limited.entries.len(), ANALYSIS_VISIBLE_ENTRY_LIMIT);
+        assert!(limited.truncated);
+        assert_eq!(limited.entries.first().unwrap().name, "101.bin");
+        assert_eq!(limited.entries.last().unwrap().name, "002.bin");
+    }
 
     fn store_test_analysis_root(root: &Path, scanned_at_ms: u64) {
         let aggregate = DirectoryAggregate {

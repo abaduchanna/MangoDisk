@@ -15,6 +15,7 @@ const result: AnalysisResult = {
   scannedAtMs: 1_000,
   totalBytes: 64,
   skippedCount: 0,
+  truncated: false,
   entries: [],
 };
 
@@ -68,5 +69,16 @@ describe('analysis result exclusions', () => {
     await wrapper.get('.exclusion-link').trigger('click');
 
     expect(wrapper.emitted('openExclusions')).toHaveLength(1);
+  });
+
+  it('keeps the limit help beside the summary in details mode', async () => {
+    const wrapper = mountPane(false);
+    await wrapper.setProps({ result: { ...result, truncated: true } });
+    expect(wrapper.find('.md-help-action').exists()).toBe(false);
+
+    await wrapper.setProps({ viewMode: 'details' });
+    expect(wrapper.get('.space-summary .md-help-action').attributes('aria-label')).toBe(
+      'Showing up to 100 largest items'
+    );
   });
 });

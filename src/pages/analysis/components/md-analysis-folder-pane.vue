@@ -16,6 +16,7 @@ defineProps<{
   totalBytes: number;
   folderCount: number;
   fileCount: number;
+  truncated: boolean;
   openDisabled: boolean;
   deleteDisabled: boolean;
   deletingPath?: string | null;
@@ -41,6 +42,11 @@ const emit = defineEmits<{
           )
         }}
       </p>
+      <MdTooltip v-if="truncated" :text="t('analysis.limitedEntries')">
+        <button type="button" class="md-help-action" :aria-label="t('analysis.limitedEntries')">
+          <MdIcon :name="ICON_NAMES.help" :size="14" aria-hidden="true" />
+        </button>
+      </MdTooltip>
     </header>
     <div class="folder-list scrollbar-stable">
       <MdFileEntryContextMenu
@@ -109,7 +115,7 @@ const emit = defineEmits<{
 .folder-pane > header {
   display: flex;
   align-items: center;
-  justify-content: space-between;
+  gap: 4px;
   padding: 2px 12px;
 }
 

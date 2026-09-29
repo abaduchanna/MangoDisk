@@ -1949,6 +1949,7 @@
     "emptyDescription": "선택한 위치에서 파일과 폴더가 공간을 어떻게 사용하는지 분석합니다",
     "folderFileSummary": "폴더 {folders}개 · 파일 {files}개",
     "folderSpaceSummary": "폴더 {folders}개 · {size}",
+    "limitedEntries": "공간을 가장 많이 차지하는 항목 최대 100개만 표시합니다",
     "exclusionHint": "여기에는 분석 대상만 집계됩니다. 제외 설정은 디스크의 실제 사용 공간을 변경하지 않습니다",
     "deleting": "삭제 중…"
   },

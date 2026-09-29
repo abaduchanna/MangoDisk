@@ -1949,6 +1949,7 @@
     "emptyDescription": "選択した場所でファイルとフォルダーが使用している容量を分析します",
     "folderFileSummary": "{folders} フォルダー · {files} ファイル",
     "folderSpaceSummary": "{folders} フォルダー · {size}",
+    "limitedEntries": "使用容量の大きい項目を最大 100 件表示しています",
     "exclusionHint": "分析対象のみを集計します。除外してもディスクの実使用量は変わりません",
     "deleting": "削除中…"
   },

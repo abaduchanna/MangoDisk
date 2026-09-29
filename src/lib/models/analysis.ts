@@ -35,6 +35,7 @@ export interface AnalysisResult {
   scannedAtMs: number;
   totalBytes: number;
   skippedCount: number;
+  truncated: boolean;
   entries: DirectoryEntryInfo[];
 }
 
