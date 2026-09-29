@@ -690,6 +690,7 @@ impl Platform for WindowsPlatform {
         file_layout::analyze_records(
             self,
             file_layout::AnalysisScanRequest {
+                name_exclusions: query.name_exclusions,
                 excluded_roots: query.excluded_roots,
                 root: query.root,
                 purpose: query.purpose,

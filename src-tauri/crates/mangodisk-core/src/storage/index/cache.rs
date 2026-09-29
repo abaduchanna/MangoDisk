@@ -51,7 +51,7 @@ struct AnalysisCache {
     /// Identifies the shared storage-scan exclusion configuration used to build each root.
     scan_configurations: HashMap<PathBuf, [u8; 32]>,
     /// Retains active exclusions so cached descendant pages omit excluded placeholders.
-    scan_exclusions: HashMap<PathBuf, Vec<PathBuf>>,
+    scan_exclusions: HashMap<PathBuf, (Vec<PathBuf>, mangodisk_platform::NameExclusions)>,
     /// Monotonic operation identifiers prevent an older concurrent scan from replacing a newer
     /// snapshot of the same root after it finishes later.
     publish_generations: HashMap<PathBuf, u64>,
@@ -93,6 +93,7 @@ pub(crate) struct SnapshotPublication {
     expected_mutation_revision: u64,
     configuration_fingerprint: [u8; 32],
     excluded_roots: Vec<PathBuf>,
+    excluded_names: Option<mangodisk_platform::NameExclusions>,
 }
 
 impl SnapshotPublication {
@@ -111,6 +112,7 @@ impl SnapshotPublication {
             expected_mutation_revision,
             configuration_fingerprint: [0; 32],
             excluded_roots: Vec::new(),
+            excluded_names: None,
         }
     }
 
@@ -119,6 +121,14 @@ impl SnapshotPublication {
         configuration_fingerprint: [u8; 32],
     ) -> Self {
         self.configuration_fingerprint = configuration_fingerprint;
+        self
+    }
+
+    pub(crate) fn with_excluded_names(
+        mut self,
+        names: &mangodisk_platform::NameExclusions,
+    ) -> Self {
+        self.excluded_names = Some(names.clone());
         self
     }
 
@@ -288,7 +298,7 @@ pub(crate) fn analysis_result(root: &Path) -> Result<Option<AnalysisResult>, Str
         return Ok(None);
     };
 
-    let children = read_analysis_children(root, &excluded_roots)?;
+    let children = read_analysis_children(root, &excluded_roots.0, &excluded_roots.1)?;
     let cache = cache()
         .lock()
         .map_err(|_| ANALYSIS_CACHE_UNAVAILABLE_ERROR.to_string())?;
@@ -307,8 +317,9 @@ pub(crate) fn analysis_result_from_snapshot(
     directories: &HashMap<PathBuf, DirectoryAggregate>,
     files: &HashMap<PathBuf, IndexedFile>,
     excluded_roots: &[PathBuf],
+    excluded_names: &mangodisk_platform::NameExclusions,
 ) -> Result<AnalysisResult, String> {
-    let children = read_analysis_children(root, excluded_roots)?;
+    let children = read_analysis_children(root, excluded_roots, excluded_names)?;
     Ok(build_analysis_result(
         root,
         root_aggregate,
@@ -321,6 +332,7 @@ pub(crate) fn analysis_result_from_snapshot(
 fn read_analysis_children(
     root: &Path,
     excluded_roots: &[PathBuf],
+    excluded_names: &mangodisk_platform::NameExclusions,
 ) -> Result<Vec<(fs::DirEntry, PathBuf, fs::Metadata)>, String> {
     Ok(fs::read_dir(root)
         .map_err(|error| format!("failed to read the analysis root: {error}"))?
@@ -334,7 +346,8 @@ fn read_analysis_children(
                 return None;
             }
             let metadata = fs::symlink_metadata(&path).ok()?;
-            (!is_link_like(&metadata)).then_some((entry, path, metadata))
+            (!is_link_like(&metadata) && !excluded_names.matches_entry(&path, metadata.is_dir()))
+                .then_some((entry, path, metadata))
         })
         .collect())
 }
@@ -531,9 +544,13 @@ pub(crate) fn store_memory_only(
         cache
             .scan_configurations
             .insert(root.to_path_buf(), publication.configuration_fingerprint);
-        cache
-            .scan_exclusions
-            .insert(root.to_path_buf(), publication.excluded_roots);
+        cache.scan_exclusions.insert(
+            root.to_path_buf(),
+            (
+                publication.excluded_roots,
+                publication.excluded_names.unwrap_or_default(),
+            ),
+        );
         cache
             .publish_generations
             .insert(root.to_path_buf(), publication.generation);

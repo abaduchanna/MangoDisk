@@ -1,3 +1,4 @@
+use crate::filesystem::ScanExclusionOptions;
 use std::{
     collections::{HashMap, VecDeque},
     path::PathBuf,
@@ -19,7 +20,7 @@ struct CustomCleanupSession {
     rules: Vec<CustomCleanupRule>,
     effective_rules: Vec<CustomCleanupRule>,
     include_standard_rules: bool,
-    excluded_paths: Vec<String>,
+    exclusion_options: ScanExclusionOptions,
     empty_directory_authorizations: Arc<EmptyDirectoryAuthorizations>,
 }
 
@@ -45,9 +46,10 @@ pub(super) fn publish(
     rules: Vec<CustomCleanupRule>,
     effective_rules: Vec<CustomCleanupRule>,
     include_standard_rules: bool,
-    excluded_paths: Vec<String>,
+    exclusion_options: impl Into<ScanExclusionOptions>,
     empty_directory_authorizations: EmptyDirectoryAuthorizations,
 ) -> Result<u64, String> {
+    let exclusion_options = exclusion_options.into();
     let scan_id = NEXT_CUSTOM_CLEANUP_SCAN_ID.fetch_add(1, Ordering::Relaxed);
     let rule_count = rules.len();
     let empty_directory_count = empty_directory_authorizations
@@ -60,7 +62,7 @@ pub(super) fn publish(
         rules,
         effective_rules,
         include_standard_rules,
-        excluded_paths,
+        exclusion_options,
         empty_directory_authorizations: Arc::new(empty_directory_authorizations),
     });
     sessions.truncate(CUSTOM_CLEANUP_SESSION_LIMIT);
@@ -78,7 +80,7 @@ pub(super) fn resolve(
     scan_id: u64,
     requested_rules: &[CustomCleanupRule],
     include_standard_rules: bool,
-    excluded_paths: &[String],
+    exclusion_options: &ScanExclusionOptions,
     validate_exclusions: bool,
 ) -> Result<ResolvedCustomCleanupSession, String> {
     let sessions = lock_sessions()?;
@@ -102,12 +104,14 @@ pub(super) fn resolve(
         );
         return Err("the custom cleanup scope no longer matches the scan result".to_string());
     }
-    if validate_exclusions && session.excluded_paths != excluded_paths {
+    if session.exclusion_options.names != exclusion_options.names
+        || (validate_exclusions && session.exclusion_options.paths != exclusion_options.paths)
+    {
         log::warn!(
             "custom_cleanup_session_resolution_failed scan_id={} reason=exclusionsChanged expected_count={} requested_count={}",
             scan_id,
-            session.excluded_paths.len(),
-            excluded_paths.len()
+            session.exclusion_options.len(),
+            exclusion_options.len()
         );
         return Err("the cleanup exclusions no longer match the scan result".to_string());
     }
@@ -152,16 +156,57 @@ mod tests {
         .expect("publish the custom cleanup session");
 
         assert_eq!(
-            resolve(scan_id, &rules, false, &[], false)
-                .expect("resolve the matching custom cleanup session")
-                .rules,
+            resolve(
+                scan_id,
+                &rules,
+                false,
+                &ScanExclusionOptions::default(),
+                false
+            )
+            .expect("resolve the matching custom cleanup session")
+            .rules,
             rules
         );
-        assert!(resolve(scan_id, &[rule("/different")], false, &[], false).is_err());
-        assert!(resolve(scan_id, &rules, true, &[], false).is_err());
-        assert!(resolve(scan_id, &rules, false, &["/excluded".to_string()], true).is_err());
-        assert!(resolve(scan_id, &rules, false, &["/excluded".to_string()], false).is_ok());
-        assert!(resolve(u64::MAX, &rules, false, &[], false).is_err());
+        assert!(resolve(
+            scan_id,
+            &[rule("/different")],
+            false,
+            &ScanExclusionOptions::default(),
+            false
+        )
+        .is_err());
+        assert!(resolve(
+            scan_id,
+            &rules,
+            true,
+            &ScanExclusionOptions::default(),
+            false
+        )
+        .is_err());
+        assert!(resolve(
+            scan_id,
+            &rules,
+            false,
+            &vec!["/excluded".to_string()].into(),
+            true
+        )
+        .is_err());
+        assert!(resolve(
+            scan_id,
+            &rules,
+            false,
+            &vec!["/excluded".to_string()].into(),
+            false
+        )
+        .is_ok());
+        assert!(resolve(
+            u64::MAX,
+            &rules,
+            false,
+            &ScanExclusionOptions::default(),
+            false
+        )
+        .is_err());
     }
 
     #[test]
@@ -176,7 +221,21 @@ mod tests {
         )
         .expect("publish a mixed cleanup session");
 
-        assert!(resolve(scan_id, &rules, true, &[], false).is_ok());
-        assert!(resolve(scan_id, &rules, true, &[], true).is_err());
+        assert!(resolve(
+            scan_id,
+            &rules,
+            true,
+            &ScanExclusionOptions::default(),
+            false
+        )
+        .is_ok());
+        assert!(resolve(
+            scan_id,
+            &rules,
+            true,
+            &ScanExclusionOptions::default(),
+            true
+        )
+        .is_err());
     }
 }

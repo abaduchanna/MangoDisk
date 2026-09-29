@@ -4,10 +4,42 @@ import { MAX_SCAN_EXCLUDED_FOLDERS, SCAN_EXCLUSION_PREFERENCES_SCHEMA_VERSION } 
 import * as StorageScanPreferenceUtils from '@/lib/utils/storage-scan-preference';
 
 describe('StorageScanPreferenceUtils', () => {
+  it('migrates v2 without inventing name rules or widening scopes', () => {
+    expect(
+      StorageScanPreferenceUtils.parse({ schemaVersion: 2, folders: [{ path: '/fixture', scopes: ['cleanup'] }] })
+    ).toEqual({ schemaVersion: 3, folders: [{ path: '/fixture', scopes: ['cleanup'] }], names: [] });
+  });
+
+  it('validates exact names and compares name policies independently of rule order', () => {
+    for (const name of ['', '.', '..', '*.tmp', 'a/b', 'a\\b', ' cache', 'a\nfile'])
+      expect(StorageScanPreferenceUtils.validExcludedName(name)).toBe(false);
+    const names = [
+      { name: 'node_modules', kind: 'folder' as const, scopes: ['cleanup' as const] },
+      { name: '.DS_Store', kind: 'file' as const, scopes: ['analysis' as const] },
+    ];
+    const parsed = StorageScanPreferenceUtils.parse({ schemaVersion: 3, folders: [], names });
+    expect(StorageScanPreferenceUtils.namesForScope(parsed.names, 'cleanup')).toEqual([
+      { name: 'node_modules', kind: 'folder' },
+    ]);
+    expect(StorageScanPreferenceUtils.sameExcludedNames(names, [...names].reverse())).toBe(true);
+    expect(StorageScanPreferenceUtils.sameExcludedNames(names, [{ name: 'NODE_MODULES', kind: 'folder' }])).toBe(false);
+    expect(() =>
+      StorageScanPreferenceUtils.parse({ schemaVersion: 3, folders: [], names: [...names, names[0]] })
+    ).toThrow('namesInvalid');
+    expect(() =>
+      StorageScanPreferenceUtils.parse({
+        schemaVersion: 3,
+        folders: [],
+        names: [{ name: 'cache', kind: 'file', scopes: [] }],
+      })
+    ).toThrow('namesInvalid');
+  });
+
   it('normalizes paths and collapses nested exclusions only within each scope', () => {
     expect(
       StorageScanPreferenceUtils.parse({
         schemaVersion: SCAN_EXCLUSION_PREFERENCES_SCHEMA_VERSION,
+        names: [],
         folders: [
           { path: '/tmp/cache/nested', scopes: ['cleanup'] },
           { path: '/tmp/cache', scopes: ['cleanup', 'largeFiles'] },
@@ -17,6 +49,7 @@ describe('StorageScanPreferenceUtils', () => {
       })
     ).toEqual({
       schemaVersion: SCAN_EXCLUSION_PREFERENCES_SCHEMA_VERSION,
+      names: [],
       folders: [
         { path: '/tmp/cache/nested', scopes: ['cleanup'] },
         { path: '/tmp/cache', scopes: ['cleanup', 'largeFiles'] },
@@ -48,6 +81,7 @@ describe('StorageScanPreferenceUtils', () => {
     expect(
       StorageScanPreferenceUtils.parse({
         schemaVersion: SCAN_EXCLUSION_PREFERENCES_SCHEMA_VERSION,
+        names: [],
         folders: [{ path: '\\\\?\\C:\\Users\\fixture\\Downloads', scopes: ['largeFiles'] }],
       }).folders[0]?.path
     ).toBe('C:\\Users\\fixture\\Downloads');
@@ -60,6 +94,7 @@ describe('StorageScanPreferenceUtils', () => {
     expect(() =>
       StorageScanPreferenceUtils.parse({
         schemaVersion: SCAN_EXCLUSION_PREFERENCES_SCHEMA_VERSION,
+        names: [],
         folders: Array.from({ length: MAX_SCAN_EXCLUDED_FOLDERS + 1 }, (_, index) => ({
           path: `/tmp/${index}`,
           scopes: ['cleanup'],

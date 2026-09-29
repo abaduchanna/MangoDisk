@@ -175,12 +175,36 @@ describe('cleanup workflow completion', () => {
     await vi.waitFor(() => expect(scanRequest).toHaveBeenCalledOnce());
     expect(store.scan).toEqual(previousScan);
     expect(store.selectedRuleIds).toEqual(['project.rust-build-artifacts']);
-    expect(scanRequest).toHaveBeenCalledWith(STANDARD_CLEANUP_SCAN_SCOPE, expect.any(Function), ['/fixture/excluded']);
+    expect(scanRequest).toHaveBeenCalledWith(
+      STANDARD_CLEANUP_SCAN_SCOPE,
+      expect.any(Function),
+      ['/fixture/excluded'],
+      []
+    );
 
     finishScan(nextScan);
     expect(await pending).toBe(true);
     expect(store.scan).toEqual(nextScan);
     expect(store.scanExcludedFolders).toEqual(['/fixture/excluded']);
+  });
+
+  it('blocks changed name exclusions and leftovers without invoking cleanup', async () => {
+    const store = useCleanupStore();
+    const preferences = useStorageScanPreferencesStore();
+    const execute = vi.spyOn(CleanupService, 'executeWithProgress');
+    store.scan = cleanupScan({ rules: [{ ruleId: 'custom.fixture', category: 'custom' }] });
+    store.selectedRuleIds = ['custom.fixture'];
+    preferences.names = [{ name: 'node_modules', kind: 'folder', scopes: ['cleanup'] }];
+    expect(await store.execute(false)).toBe(false);
+    expect(execute).not.toHaveBeenCalled();
+    expect(useAppStore().errorReason).toBe('scanExclusionsChanged');
+    store.scanExcludedNames = [{ name: 'node_modules', kind: 'folder' }];
+    expect(await store.validateNameExclusionsForExecution()).toBe(true);
+    expect(await store.validateNameExclusionsForExecution(true)).toBe(false);
+    preferences.names = [];
+    expect(await store.validateNameExclusionsForExecution(true)).toBe(false);
+    store.scanExcludedNames = [];
+    expect(await store.validateNameExclusionsForExecution(true)).toBe(true);
   });
 
   it('does not pass project-artifact exclusions into a custom-only scan', async () => {
@@ -191,7 +215,7 @@ describe('cleanup workflow completion', () => {
     const request = vi.spyOn(CleanupService, 'scanWithProgress').mockResolvedValue(scan);
 
     expect(await store.scanCandidates(scope)).toBe(true);
-    expect(request).toHaveBeenCalledWith(scope, expect.any(Function), []);
+    expect(request).toHaveBeenCalledWith(scope, expect.any(Function), [], []);
     expect(store.scanExcludedFolders).toEqual([]);
   });
 
@@ -224,6 +248,7 @@ describe('cleanup workflow completion', () => {
       STANDARD_CLEANUP_SCAN_SCOPE,
       expect.any(String),
       expect.any(Function),
+      [],
       []
     );
   });
@@ -244,6 +269,7 @@ describe('cleanup workflow completion', () => {
       store.scanScope,
       expect.any(String),
       expect.any(Function),
+      [],
       []
     );
     expect(store.scan?.rules[0]?.ruleId).toBe('custom.fixture');
@@ -265,6 +291,7 @@ describe('cleanup workflow completion', () => {
       store.scanScope,
       expect.any(String),
       expect.any(Function),
+      [],
       []
     );
   });
@@ -417,6 +444,7 @@ describe('cleanup workflow completion', () => {
       STANDARD_CLEANUP_SCAN_SCOPE,
       '00000000-0000-4000-8000-000000000001',
       expect.any(Function),
+      [],
       []
     );
     expect(store.result).toEqual(previewResult);
@@ -473,6 +501,7 @@ describe('cleanup workflow completion', () => {
       STANDARD_CLEANUP_SCAN_SCOPE,
       '00000000-0000-4000-8000-000000000003',
       expect.any(Function),
+      [],
       []
     );
   });
@@ -510,6 +539,7 @@ describe('cleanup workflow completion', () => {
       scope,
       '00000000-0000-4000-8000-000000000004',
       expect.any(Function),
+      [],
       []
     );
   });
@@ -569,6 +599,7 @@ describe('cleanup workflow completion', () => {
       authorizedScope,
       '00000000-0000-4000-8000-000000000005',
       expect.any(Function),
+      [],
       []
     );
   });

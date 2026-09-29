@@ -466,8 +466,17 @@ watch(
           :metric-label="t('cleanup.summarySpace')"
           :metric-value="ByteSizeService.bytes(totalFoundBytes)"
         >
-          <template v-if="cleanupStore.scanExcludedFolders.length" #status>
-            <MdScanExclusionLink :hint="t('storageScanExclusions.cleanupResultHint')" @open="emit('openExclusions')" />
+          <template v-if="cleanupStore.scanExcludedFolders.length || cleanupStore.scanExcludedNames.length" #status>
+            <MdScanExclusionLink
+              :hint="
+                t(
+                  cleanupStore.scanExcludedNames.length
+                    ? 'storageScanExclusions.cleanupNamesResultHint'
+                    : 'storageScanExclusions.cleanupResultHint'
+                )
+              "
+              @open="emit('openExclusions')"
+            />
           </template>
           <template v-if="scan.accessLimited || scan.readFailureCount || scan.missingCustomRootCount" #actions>
             <div class="flex max-w-full flex-wrap items-center justify-end gap-x-3 gap-y-1 text-right">

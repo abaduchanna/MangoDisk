@@ -186,6 +186,7 @@ function ruleValueDetail(
   selection: 'all' | 'partial' | 'none',
   selectedRuleBytes: number
 ): string | undefined {
+  if (rule.status === 'excluded') return t('storageScanExclusions.unsupportedCleaner');
   if (rule.status === 'requiresElevation') return t('cleanup.privilegedScan.sizePending');
   if (selection !== 'none' && selectedRuleBytes !== rule.bytes) {
     return t('cleanup.totalSize', { size: ByteSizeService.bytes(rule.bytes) });
@@ -575,7 +576,9 @@ watch(
                 :value="
                   row.rule.status === 'requiresElevation'
                     ? t('cleanup.privilegedScan.required')
-                    : ByteSizeService.bytes(row.selection === 'none' ? row.rule.bytes : row.selectedBytes)
+                    : row.rule.status === 'excluded'
+                      ? t('storageScanExclusions.skipped')
+                      : ByteSizeService.bytes(row.selection === 'none' ? row.rule.bytes : row.selectedBytes)
                 "
                 :value-detail="ruleValueDetail(row.rule, row.selection, row.selectedBytes)"
                 :value-tone="row.rule.status === 'requiresElevation' ? 'warning' : 'default'"

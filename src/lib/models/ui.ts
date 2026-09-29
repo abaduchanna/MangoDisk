@@ -37,6 +37,7 @@ export const ICON_NAMES = {
   search: 'search',
   grid: 'grid',
   list: 'list',
+  filterX: 'filterX',
   folder: 'folder',
   linuxFolder: 'linuxFolder',
   folderOpen: 'folderOpen',

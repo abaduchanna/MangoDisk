@@ -1686,7 +1686,7 @@
     },
     "analysisRootExcluded": {
       "title": "Selected location is excluded",
-      "message": "In Settings > Excluded folders, turn off Disk Space Analysis for the matching folder and try again"
+      "message": "In Settings > Scan exclusions, adjust the matching path or name rule for Disk Space Analysis and try again"
     },
     "resourceBusy": {
       "title": "Item is in use",
@@ -1707,6 +1707,10 @@
     "quickScanUnavailable": {
       "title": "Quick Scan is unavailable",
       "message": "Spotlight is not ready for this location. Use Complete Scan instead"
+    },
+    "scanExclusionsChanged": {
+      "title": "Scan exclusions changed",
+      "message": "Scan again to apply your exclusions before cleaning"
     }
   },
   "folderPicker": {
@@ -1932,13 +1936,14 @@
     "exclusionHint": "This view counts scanned content only; exclusions do not change the disk's actual used space"
   },
   "storageScanExclusions": {
-    "title": "Excluded folders",
+    "title": "Scan exclusions",
     "activeLabel": "Exclusions on",
-    "resultHint": "This scan used folder exclusions, so results may omit content from those folders",
-    "cleanupResultHint": "Project build artifact scans skip excluded folders; other cleanup items are unaffected",
-    "description": "Choose which features skip these folders",
+    "resultHint": "Exclusions were applied to this scan. Results may be incomplete",
+    "cleanupResultHint": "Exclusions were applied. Path exclusions only affect project build artifacts",
+    "description": "Choose what to skip and where exclusions apply",
     "chooseFolders": "Choose folders to exclude",
     "folderCount": "{count} folder | {count} folders",
+    "nameCount": "{count} name | {count} names",
     "addFolder": "Add Folder",
     "addingFolder": "Adding…",
     "removeFolder": "Remove this folder",
@@ -1946,7 +1951,29 @@
     "cleanupScopeHint": "This folder is skipped when looking for development project build artifacts. Other Deep Cleanup items may still clean its contents",
     "limitReached": "You can exclude up to {count} folders",
     "save": "Save",
-    "saving": "Saving…"
+    "saving": "Saving…",
+    "pathsTab": "By path",
+    "namesTab": "By name",
+    "addName": "Add name",
+    "objectType": "Type",
+    "folderKind": "Folder",
+    "fileKind": "File",
+    "exactName": "Exact name",
+    "namePlaceholder": "e.g. node_modules",
+    "add": "Add",
+    "quickFill": "Quick fill",
+    "invalidName": "Enter a valid full name without paths or wildcards",
+    "duplicateName": "This name rule already exists",
+    "removeName": "Remove {name}",
+    "emptyNames": "Add a file or folder name to exclude",
+    "nameMatchHint": "Enter the full name, including letter case. Do not include a path or wildcards",
+    "nameUsageHint": "Match full file or folder names at any level within the scan scope. Names are case-sensitive",
+    "nameCleanupScopeHint": "Deep Cleanup preserves matching files and folders, including all contents of matching folders",
+    "nameExampleHint": "For example, node_modules matches folders with that name across projects. Enter a name without a path or wildcards",
+    "nameLimitReached": "You can add up to {count} name rules",
+    "skipped": "Skipped",
+    "unsupportedCleaner": "Cannot safely apply name exclusions",
+    "cleanupNamesResultHint": "Name exclusions are active. Unsupported cleaners and application leftovers were skipped"
   },
   "largeFiles": {
     "title": "Large File Cleanup",
@@ -2357,9 +2384,9 @@
     "title": "Settings",
     "generalSection": "General",
     "scanAnalysisSection": "Scanning & analysis",
-    "scanExclusionsTitle": "Excluded Folders",
-    "scanExclusionsDescription": "Choose which scans skip each folder",
-    "scanExclusionsCount": "{count} folders",
+    "scanExclusionsTitle": "Scan exclusions",
+    "scanExclusionsDescription": "Skip paths or names in selected features",
+    "scanExclusionsCount": "{count} rules",
     "supportSection": "Support",
     "aboutSection": "About",
     "languageTitle": "Language",
@@ -3821,7 +3848,8 @@
       "preflightFailed": "The selected files could not be checked safely. Nothing changed",
       "executionFailed": "Cleanup did not finish. No other files were removed",
       "verificationFailed": "Cleanup finished, but MangoDisk could not confirm the result. Scan again",
-      "cleanerUnavailable": "This cleanup option is currently unavailable. Nothing changed"
+      "cleanerUnavailable": "This cleanup option is currently unavailable. Nothing changed",
+      "nameExclusionsUnsupported": "Skipped because this cleanup item cannot safely apply name exclusions"
     }
   },
   "monitoring": {

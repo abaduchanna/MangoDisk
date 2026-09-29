@@ -382,11 +382,37 @@ pub(crate) fn delete_analysis_candidate_permanently(
             .to_string()
             .into());
     }
-    delete_path_permanently(
-        prepared,
-        candidate.expected_logical_bytes,
-        candidate.expected_file_count,
-    )?;
+    let names = mangodisk_platform::NameExclusions::compile(&candidate.exclusions.names)?;
+    let overlaps_path = candidate.exclusions.paths.iter().any(|excluded| {
+        let excluded = Path::new(excluded);
+        current_platform().path_is_same_or_child(&target, excluded)
+            || (candidate.is_directory
+                && current_platform().path_is_same_or_child(excluded, &target))
+    });
+    if overlaps_path || names.intersects_tree(&target, &|| false)? {
+        log::info!(
+            "analysis_delete_excluded path={} outcome=retained",
+            diagnostic_path(&target)
+        );
+        return Err(PermanentDeleteError::before_mutation(
+            "the item contains content excluded from this scan",
+        ));
+    }
+    if candidate.is_directory && !names.is_empty() {
+        delete_directory_tree_with_name_exclusions(
+            prepared,
+            candidate.expected_logical_bytes,
+            candidate.expected_file_count,
+            &names,
+            &|| false,
+        )?;
+    } else {
+        delete_path_permanently(
+            prepared,
+            candidate.expected_logical_bytes,
+            candidate.expected_file_count,
+        )?;
+    }
     let removed_usage = FileSpaceUsage {
         logical_bytes: candidate.expected_logical_bytes,
         allocated_bytes: candidate.expected_allocated_bytes,
@@ -462,6 +488,31 @@ pub(crate) fn delete_directory_tree_permanently_with_cancellation(
     )
 }
 
+/// Keeps the exclusion boundary inside the final deletion traversal, after staging.
+/// A matching descendant stops deletion and restores the remaining directory tree.
+pub(crate) fn delete_directory_tree_with_name_exclusions(
+    target: PreparedPermanentDelete,
+    expected_bytes: u64,
+    expected_item_count: u64,
+    names: &mangodisk_platform::NameExclusions,
+    is_cancelled: &(dyn Fn() -> bool + Sync),
+) -> Result<PermanentDeleteOutcome, PermanentDeleteError> {
+    if names.matches_path(&target.path) {
+        return Err(PermanentDeleteError::before_mutation(
+            "the directory is excluded by name",
+        ));
+    }
+    delete_via_staging(
+        target,
+        expected_bytes,
+        expected_item_count,
+        StagedRemoval::NameProtectedDirectoryTree {
+            names,
+            is_cancelled,
+        },
+    )
+}
+
 /// Deletes files from a staged directory tree while retaining directories that
 /// were already empty before cleanup.
 ///
@@ -524,6 +575,10 @@ pub(crate) fn delete_empty_directory_permanently(
 
 #[derive(Clone, Copy)]
 enum StagedRemoval<'a> {
+    NameProtectedDirectoryTree {
+        names: &'a mangodisk_platform::NameExclusions,
+        is_cancelled: &'a (dyn Fn() -> bool + Sync),
+    },
     File,
     EmptyDirectory,
     DirectoryTree,
@@ -590,6 +645,26 @@ fn delete_via_staging(
         had_irreversible_mutation: false,
     };
     let removal_result = match removal {
+        StagedRemoval::NameProtectedDirectoryTree {
+            names,
+            is_cancelled,
+        } => {
+            let mut outcome = PermanentDeleteOutcome::default();
+            remove_directory_tree_entry(
+                &staged_target,
+                is_cancelled,
+                &mut outcome,
+                Some((names, &staged_target)),
+            )
+            .map(|()| StagedRemovalSuccess {
+                outcome,
+                restore_remainder: false,
+            })
+            .map_err(|error| StagedRemovalFailure {
+                error,
+                verified_outcome: Some(outcome),
+            })
+        }
         StagedRemoval::File => fs::remove_file(&staged_target)
             .map(|_| StagedRemovalSuccess {
                 outcome: expected_outcome,
@@ -733,7 +808,7 @@ fn remove_directory_tree_cancellable(
     is_cancelled: &(dyn Fn() -> bool + Sync),
 ) -> Result<PermanentDeleteOutcome, StagedRemovalFailure> {
     let mut outcome = PermanentDeleteOutcome::default();
-    remove_directory_tree_entry(root, is_cancelled, &mut outcome).map_err(|error| {
+    remove_directory_tree_entry(root, is_cancelled, &mut outcome, None).map_err(|error| {
         StagedRemovalFailure {
             error,
             verified_outcome: Some(outcome),
@@ -746,6 +821,7 @@ fn remove_directory_tree_entry(
     path: &Path,
     is_cancelled: &(dyn Fn() -> bool + Sync),
     outcome: &mut PermanentDeleteOutcome,
+    names: Option<(&mangodisk_platform::NameExclusions, &Path)>,
 ) -> Result<(), std::io::Error> {
     if is_cancelled() {
         return Err(std::io::Error::new(
@@ -754,6 +830,13 @@ fn remove_directory_tree_entry(
         ));
     }
     let metadata = fs::symlink_metadata(path)?;
+    if names
+        .is_some_and(|(policy, root)| path != root && policy.matches_entry(path, metadata.is_dir()))
+    {
+        return Err(std::io::Error::other(
+            "an excluded name appeared during directory deletion",
+        ));
+    }
     #[cfg(unix)]
     if metadata.file_type().is_symlink() {
         fs::remove_file(path)?;
@@ -786,7 +869,7 @@ fn remove_directory_tree_entry(
                 "directory tree deletion cancelled",
             ));
         }
-        remove_directory_tree_entry(&entry?.path(), is_cancelled, outcome)?;
+        remove_directory_tree_entry(&entry?.path(), is_cancelled, outcome, names)?;
     }
     if is_cancelled() {
         return Err(std::io::Error::new(
@@ -1580,6 +1663,47 @@ mod permanent_delete_tests {
     }
 
     #[test]
+    fn name_guard_restores_descendants_created_after_preflight() {
+        for kind in [
+            mangodisk_platform::ExcludedNameKind::File,
+            mangodisk_platform::ExcludedNameKind::Folder,
+        ] {
+            let sandbox = DeleteSandbox::new();
+            let path = sandbox.0.join("guarded-directory");
+            fs::create_dir(&path).unwrap();
+            let prepared = prepare_path_for_permanent_delete(&path).unwrap();
+            let names = mangodisk_platform::NameExclusions::compile(&[
+                mangodisk_platform::ScanNameExclusion {
+                    name: "keep".into(),
+                    kind,
+                },
+            ])
+            .unwrap();
+            // The parent identity remains valid when a protected child appears after preflight.
+            let protected = path.join("keep");
+            match kind {
+                mangodisk_platform::ExcludedNameKind::File => {
+                    fs::write(&protected, b"protected").unwrap()
+                }
+                mangodisk_platform::ExcludedNameKind::Folder => fs::create_dir(&protected).unwrap(),
+            }
+            let error =
+                delete_directory_tree_with_name_exclusions(prepared, 0, 0, &names, &|| false)
+                    .unwrap_err();
+            assert!(error.to_string().contains("excluded name"));
+            assert!(
+                protected.exists(),
+                "the matching child must survive staging and rollback"
+            );
+            assert!(sandbox.0.read_dir().unwrap().all(|entry| !entry
+                .unwrap()
+                .file_name()
+                .to_string_lossy()
+                .starts_with(".mangodisk-delete-")));
+        }
+    }
+
+    #[test]
     fn cancellable_directory_delete_reports_live_removed_content() {
         let sandbox = DeleteSandbox::new();
         let path = sandbox.0.join("cancellable-directory");
@@ -1825,6 +1949,7 @@ mod permanent_delete_tests {
         fs::write(path.join("new-after-analysis.bin"), b"new")
             .expect("write the new analysis fixture");
         let candidate = AnalysisEntryCandidate {
+            exclusions: Default::default(),
             root: sandbox.0.to_string_lossy().into_owned(),
             path: path.to_string_lossy().into_owned(),
             expected_logical_bytes: b"payload".len() as u64,

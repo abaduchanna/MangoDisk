@@ -1,4 +1,5 @@
 use mangodisk_core::{AnalysisResult, AnalysisService};
+use mangodisk_core::{ScanExclusionOptions, ScanNameExclusion};
 
 use crate::events;
 
@@ -10,12 +11,16 @@ pub async fn analyze_path(
     path: Option<String>,
     refresh: bool,
     excluded_paths: Vec<String>,
+    excluded_names: Option<Vec<ScanNameExclusion>>,
 ) -> CommandResult<AnalysisResult> {
     run_blocking("analyze_path", move || {
         AnalysisService::analyze_with_exclusions_progress(
             path,
             refresh,
-            excluded_paths,
+            ScanExclusionOptions {
+                paths: excluded_paths,
+                names: excluded_names.unwrap_or_default(),
+            },
             move |progress| {
                 events::emit(&app, events::ANALYSIS_PROGRESS, progress);
             },

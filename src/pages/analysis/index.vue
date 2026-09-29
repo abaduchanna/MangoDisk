@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import type { ScanNameExclusion } from '@/lib/models/storage-scan';
 import { useI18n } from 'vue-i18n';
 import { computed, nextTick, ref, watch } from 'vue';
 
@@ -33,6 +34,7 @@ const { t } = useI18n({ useScope: 'global' });
 const props = defineProps<{
   result: AnalysisResult | null;
   excludedFolders: string[];
+  excludedNames?: ScanNameExclusion[];
   homePath: string;
   disk: DiskInfo | null;
   disks: DiskInfo[];
@@ -77,13 +79,24 @@ const fileCount = computed(() => entries.value.reduce((total, entry) => total + 
 const hasRelevantExclusions = computed(() => {
   if (!props.result) return false;
   const rootKey = PathUtils.comparisonKey(props.result.root);
-  return props.excludedFolders.some(folder => {
-    const folderKey = PathUtils.comparisonKey(folder);
-    return PathUtils.isSameOrChildKey(folderKey, rootKey) || PathUtils.isSameOrChildKey(rootKey, folderKey);
-  });
+  return (
+    !!props.excludedNames?.length ||
+    props.excludedFolders.some(folder => {
+      const folderKey = PathUtils.comparisonKey(folder);
+      return PathUtils.isSameOrChildKey(folderKey, rootKey) || PathUtils.isSameOrChildKey(rootKey, folderKey);
+    })
+  );
 });
-const resultMatchesExclusions = computed(() =>
-  StorageScanPreferenceUtils.sameExcludedFolders(props.excludedFolders, scanPreferencesStore.pathsForScope('analysis'))
+const resultMatchesExclusions = computed(
+  () =>
+    StorageScanPreferenceUtils.sameExcludedFolders(
+      props.excludedFolders,
+      scanPreferencesStore.pathsForScope('analysis')
+    ) &&
+    StorageScanPreferenceUtils.sameExcludedNames(
+      props.excludedNames ?? [],
+      scanPreferencesStore.namesForScope('analysis')
+    )
 );
 const activeDisk = computed(() =>
   DiskUtils.findForPath(

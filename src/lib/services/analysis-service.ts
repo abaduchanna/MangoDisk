@@ -1,3 +1,4 @@
+import type { ScanNameExclusion } from '@/lib/models/storage-scan';
 import { invoke } from '@tauri-apps/api/core';
 import { listen, type UnlistenFn } from '@tauri-apps/api/event';
 
@@ -6,11 +7,17 @@ import type { AnalysisDeleteResult, AnalysisResult } from '@/lib/models/analysis
 import type { TraversalProgress } from '@/lib/models/progress';
 
 export class AnalysisService {
-  static analyze(path: string | undefined, refresh: boolean, excludedFolders: string[]): Promise<AnalysisResult> {
+  static analyze(
+    path: string | undefined,
+    refresh: boolean,
+    excludedFolders: string[],
+    excludedNames: ScanNameExclusion[] = []
+  ): Promise<AnalysisResult> {
     return invoke<AnalysisResult>('analyze_path', {
       path: path?.trim() || null,
       refresh,
       excludedPaths: excludedFolders,
+      excludedNames,
     });
   }
 

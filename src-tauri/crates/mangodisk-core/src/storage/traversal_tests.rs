@@ -8,7 +8,290 @@ use std::time::Duration;
 
 use super::*;
 
+#[test]
+fn name_exclusions_apply_to_native_scans_cached_results_and_parent_deletion() {
+    use crate::{
+        AnalysisService, DuplicateFileService, DuplicateScanLocation, DuplicateScanLocationMode,
+        ExcludedNameKind, LargeFileService, ScanExclusionOptions, ScanNameExclusion,
+    };
+    let _operation_lock = crate::shared::operation::test_operation_lock();
+    let fixture = tempfile::tempdir().unwrap();
+    let root = fixture.path();
+    fs::create_dir_all(root.join("node_modules/package")).unwrap();
+    fs::create_dir_all(root.join("parent/node_modules")).unwrap();
+    for index in 0..1000 {
+        fs::write(
+            root.join(format!("node_modules/package/file-{index}.js")),
+            [1; 32],
+        )
+        .unwrap();
+    }
+    let data = vec![5; LARGE_FILE_CANDIDATE_FLOOR_BYTES as usize + 4096];
+    fs::write(root.join("first.bin"), &data).unwrap();
+    fs::write(root.join("second.bin"), &data).unwrap();
+    fs::write(root.join(".DS_Store"), [7; 16]).unwrap();
+    fs::write(root.join("parent/source.txt"), b"source").unwrap();
+    let root_text =
+        current_platform().display_path(&current_platform().canonicalize_no_links(root).unwrap());
+    let options = ScanExclusionOptions {
+        paths: Vec::new(),
+        names: vec![
+            ScanNameExclusion {
+                name: "node_modules".into(),
+                kind: ExcludedNameKind::Folder,
+            },
+            ScanNameExclusion {
+                name: ".DS_Store".into(),
+                kind: ExcludedNameKind::File,
+            },
+        ],
+    };
+    let unfiltered = AnalysisService::analyze_with_exclusions_progress(
+        Some(root_text.clone()),
+        true,
+        Vec::new(),
+        |_| {},
+    )
+    .unwrap();
+    assert!(unfiltered.entries.iter().any(|e| e.name == "node_modules"));
+    for refresh in [false, false] {
+        let result = AnalysisService::analyze_with_exclusions_progress(
+            Some(root_text.clone()),
+            refresh,
+            options.clone(),
+            |_| {},
+        )
+        .unwrap();
+        assert!(!result
+            .entries
+            .iter()
+            .any(|e| e.name == "node_modules" || e.name == ".DS_Store"));
+        assert_eq!(result.entries.iter().map(|e| e.file_count).sum::<u64>(), 3);
+        let parent = result.entries.iter().find(|e| e.name == "parent").unwrap();
+        assert!(
+            AnalysisService::delete_entry_permanently(result.scan_id, parent.path.clone()).is_err()
+        );
+        assert!(root.join("parent/source.txt").exists());
+        assert!(
+            root.join("parent/node_modules").is_dir(),
+            "an empty excluded directory is still protected"
+        );
+    }
+    let large = LargeFileService::find_with_progress(
+        vec![root_text.clone()],
+        1,
+        LargeFileScanMode::Complete,
+        options.clone(),
+        |_| {},
+    )
+    .unwrap();
+    assert_eq!(large.entries.len(), 2);
+    let duplicates = DuplicateFileService::find_paged_with_locations_and_exclusions(
+        vec![DuplicateScanLocation {
+            path: root_text.clone(),
+            mode: DuplicateScanLocationMode::Cleanable,
+        }],
+        options.clone(),
+        1,
+        |_| {},
+        |_| {},
+    )
+    .unwrap();
+    assert_eq!(duplicates.scanned_file_count, 3);
+    assert_eq!(duplicates.groups.len(), 1);
+    let excluded_root = root.join("node_modules").to_string_lossy().into_owned();
+    assert!(AnalysisService::analyze_with_exclusions_progress(
+        Some(excluded_root),
+        true,
+        options,
+        |_| {}
+    )
+    .is_err());
+    let restored = AnalysisService::analyze_with_exclusions_progress(
+        Some(root_text),
+        false,
+        Vec::new(),
+        |_| {},
+    )
+    .unwrap();
+    assert!(restored.entries.iter().any(|e| e.name == "node_modules"));
+}
+
 struct DirectoryCleanup(PathBuf);
+
+#[test]
+fn duplicate_directory_aggregation_preserves_excluded_empty_folders() {
+    let _operation_lock = crate::shared::operation::test_operation_lock();
+    let fixture = tempfile::tempdir().unwrap();
+    for copy in ["first", "second"] {
+        fs::create_dir_all(fixture.path().join(copy).join("node_modules")).unwrap();
+        fs::write(fixture.path().join(copy).join("source.txt"), b"same source").unwrap();
+    }
+    let root = current_platform()
+        .canonicalize_no_links(fixture.path())
+        .unwrap();
+    let result = crate::DuplicateFileService::find_paged_with_locations_and_exclusions(
+        vec![crate::DuplicateScanLocation {
+            path: root.to_string_lossy().into_owned(),
+            mode: crate::DuplicateScanLocationMode::Cleanable,
+        }],
+        crate::ScanExclusionOptions {
+            paths: Vec::new(),
+            names: vec![crate::ScanNameExclusion {
+                name: "node_modules".into(),
+                kind: crate::ExcludedNameKind::Folder,
+            }],
+        },
+        1,
+        |_| {},
+        |_| {},
+    )
+    .unwrap();
+    assert_eq!(result.groups.len(), 1);
+    assert!(
+        result
+            .groups
+            .iter()
+            .all(|group| group.kind == crate::storage::duplicates::DuplicateGroupKind::File),
+        "a parent containing an excluded empty folder must not become a deletable directory group"
+    );
+}
+
+#[cfg(target_os = "macos")]
+#[test]
+fn analysis_parent_deletion_preserves_exclusions_using_system_path_aliases() {
+    let _operation_lock = crate::shared::operation::test_operation_lock();
+    let fixture = tempfile::tempdir().unwrap();
+    let root = current_platform()
+        .canonicalize_no_links(fixture.path())
+        .unwrap();
+    let protected = root.join("parent/keep");
+    fs::create_dir_all(&protected).unwrap();
+    fs::write(root.join("parent/source.txt"), b"source").unwrap();
+    let alias = Path::new("/var").join(protected.strip_prefix("/private/var").unwrap());
+    let result = crate::AnalysisService::analyze_with_exclusions_progress(
+        Some(root.to_string_lossy().into_owned()),
+        true,
+        vec![alias.to_string_lossy().into_owned()],
+        |_| {},
+    )
+    .unwrap();
+    let parent = result
+        .entries
+        .iter()
+        .find(|entry| entry.name == "parent")
+        .unwrap();
+    let deletion =
+        crate::AnalysisService::delete_entry_permanently(result.scan_id, parent.path.clone());
+    assert!(
+        deletion.is_err(),
+        "the canonical parent must retain the excluded alias: {deletion:?}"
+    );
+    assert!(protected.is_dir());
+}
+
+#[test]
+fn analysis_parent_deletion_preserves_restored_missing_exclusion() {
+    let _operation_lock = crate::shared::operation::test_operation_lock();
+    let fixture = tempfile::tempdir().unwrap();
+    let root = current_platform()
+        .canonicalize_no_links(fixture.path())
+        .unwrap();
+    fs::create_dir_all(root.join("parent")).unwrap();
+    fs::create_dir_all(root.join("other")).unwrap();
+    fs::write(root.join("parent/source.txt"), b"source").unwrap();
+    let protected = root.join("parent/keep");
+    let requested = root.join("other/../parent/keep");
+    let result = crate::AnalysisService::analyze_with_exclusions_progress(
+        Some(root.to_string_lossy().into_owned()),
+        true,
+        vec![requested.to_string_lossy().into_owned()],
+        |_| {},
+    )
+    .unwrap();
+    fs::create_dir(&protected).unwrap();
+    fs::write(protected.join("keep.txt"), b"protected").unwrap();
+    let parent = result
+        .entries
+        .iter()
+        .find(|entry| entry.name == "parent")
+        .unwrap();
+    let deletion =
+        crate::AnalysisService::delete_entry_permanently(result.scan_id, parent.path.clone());
+    assert!(
+        deletion.is_err(),
+        "a restored excluded directory must block parent deletion: {deletion:?}"
+    );
+    assert!(protected.join("keep.txt").exists());
+}
+
+#[cfg(target_os = "macos")]
+#[test]
+fn analysis_parent_deletion_preserves_restored_missing_alias_exclusion() {
+    let _operation_lock = crate::shared::operation::test_operation_lock();
+    let fixture = tempfile::tempdir().unwrap();
+    let root = current_platform()
+        .canonicalize_no_links(fixture.path())
+        .unwrap();
+    fs::create_dir(root.join("parent")).unwrap();
+    fs::write(root.join("parent/source.txt"), b"source").unwrap();
+    let protected = root.join("parent/keep");
+    let alias = Path::new("/var").join(protected.strip_prefix("/private/var").unwrap());
+    let result = crate::AnalysisService::analyze_with_exclusions_progress(
+        Some(root.to_string_lossy().into_owned()),
+        true,
+        vec![alias.to_string_lossy().into_owned()],
+        |_| {},
+    )
+    .unwrap();
+    fs::create_dir(&protected).unwrap();
+    let parent = result
+        .entries
+        .iter()
+        .find(|entry| entry.name == "parent")
+        .unwrap();
+    let deletion =
+        crate::AnalysisService::delete_entry_permanently(result.scan_id, parent.path.clone());
+    assert!(
+        deletion.is_err(),
+        "a restored alias exclusion must block parent deletion: {deletion:?}"
+    );
+    assert!(protected.is_dir());
+}
+
+#[test]
+fn analysis_parent_deletion_preserves_resolved_exclusions_on_repeated_scans() {
+    let _operation_lock = crate::shared::operation::test_operation_lock();
+    let fixture = tempfile::tempdir().unwrap();
+    let root = current_platform()
+        .canonicalize_no_links(fixture.path())
+        .unwrap();
+    let protected = root.join("parent/keep");
+    fs::create_dir_all(&protected).unwrap();
+    fs::write(root.join("parent/source.txt"), b"source").unwrap();
+    let requested = protected.join("..").join("keep");
+    for refresh in [true, false] {
+        let result = crate::AnalysisService::analyze_with_exclusions_progress(
+            Some(root.to_string_lossy().into_owned()),
+            refresh,
+            vec![requested.to_string_lossy().into_owned()],
+            |_| {},
+        )
+        .unwrap();
+        let parent = result
+            .entries
+            .iter()
+            .find(|entry| entry.name == "parent")
+            .unwrap();
+        assert!(crate::AnalysisService::delete_entry_permanently(
+            result.scan_id,
+            parent.path.clone()
+        )
+        .is_err());
+        assert!(protected.is_dir());
+        assert!(root.join("parent/source.txt").exists());
+    }
+}
 
 #[cfg(windows)]
 #[test]
@@ -388,7 +671,7 @@ fn analysis_exclusions_prune_results_and_invalidate_the_previous_snapshot() {
         validated_exclusions.roots()
     );
 
-    let complete = StorageTraversal::analyze_path_with_exclusions_progress(
+    let complete = crate::AnalysisService::analyze_with_exclusions_progress(
         Some(root_value.clone()),
         true,
         Vec::new(),
@@ -448,7 +731,7 @@ fn analysis_rejects_a_root_covered_by_an_exclusion() {
         path.clone(),
         current_platform().display_path(fixture.path()),
     ] {
-        let error = StorageTraversal::analyze_path_with_exclusions_progress(
+        let error = crate::AnalysisService::analyze_with_exclusions_progress(
             Some(path.clone()),
             true,
             vec![excluded],

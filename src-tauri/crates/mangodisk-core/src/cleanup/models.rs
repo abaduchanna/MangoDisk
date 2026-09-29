@@ -205,6 +205,8 @@ pub enum ScanItemStatus {
     /// to a cleanup request. This differs from `Limited`, which means the scan
     /// could not establish a complete result.
     ReviewOnly,
+    /// A user exclusion cannot safely be honored by this atomic or tool-owned cleaner.
+    Excluded,
     Limited,
     /// The target is known to exist, but measuring or changing it requires an explicit elevation
     /// boundary. Adapters may offer a user-initiated privileged refresh without elevating the
@@ -467,6 +469,7 @@ pub struct CleanupPlan {
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub enum CleanupActionReason {
+    NameExclusionsUnsupported,
     Cancelled,
     RunningProcesses,
     ItemsSkipped,

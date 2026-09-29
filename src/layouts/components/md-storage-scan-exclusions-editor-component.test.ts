@@ -40,6 +40,7 @@ describe('shared scan exclusion editor', () => {
 
     finishLoad({
       schemaVersion: SCAN_EXCLUSION_PREFERENCES_SCHEMA_VERSION,
+      names: [],
       folders: [{ path: '/saved/folder', scopes: ['largeFiles'] }],
     });
     await opening;

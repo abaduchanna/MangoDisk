@@ -73,7 +73,8 @@ describe('PreferenceStorageService', () => {
       recentFolders: ['/workspace'],
     };
     const storageScanPreferences = {
-      schemaVersion: 2 as const,
+      names: [],
+      schemaVersion: 3 as const,
       folders: [{ path: '/workspace/cache', scopes: ['largeFiles' as const] }],
     };
 
@@ -94,12 +95,14 @@ describe('PreferenceStorageService', () => {
 
     expect(await PreferenceStorageService.loadLegacyLargeFilePreferences()).toEqual(preferences);
     await PreferenceStorageService.migrateScanExclusionPreferences({
-      schemaVersion: 2,
+      names: [],
+      schemaVersion: 3,
       folders: [{ path: '/workspace/cache', scopes: ['largeFiles'] }],
     });
 
     expect(await PreferenceStorageService.loadScanExclusionPreferences()).toEqual({
-      schemaVersion: 2,
+      names: [],
+      schemaVersion: 3,
       folders: [{ path: '/workspace/cache', scopes: ['largeFiles'] }],
     });
     expect(await PreferenceStorageService.loadLegacyLargeFilePreferences()).toBeNull();

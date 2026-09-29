@@ -3,11 +3,9 @@ use std::path::{Path, PathBuf};
 use mangodisk_platform::{current_platform, Platform};
 
 use crate::{
-    filesystem::metadata::diagnostic_path,
+    filesystem::{exclusion_paths::resolve_exclusion_paths, metadata::diagnostic_path},
     shared::{CoreError, CoreResult},
 };
-
-pub(crate) const MAX_STORAGE_SCAN_EXCLUDED_PATHS: usize = 50;
 
 /// Owns the shared user exclusion policy for storage discovery scans.
 ///
@@ -17,6 +15,7 @@ pub(crate) const MAX_STORAGE_SCAN_EXCLUDED_PATHS: usize = 50;
 #[derive(Debug)]
 pub(crate) struct StorageScanExclusions {
     roots: Vec<PathBuf>,
+    names: mangodisk_platform::NameExclusions,
     /// Selected descendant roots join the prune set later, but are not user exclusions.
     configured_root_count: usize,
     configuration_fingerprint: [u8; 32],
@@ -26,89 +25,47 @@ pub(crate) struct StorageScanExclusions {
 }
 
 impl StorageScanExclusions {
-    pub(crate) fn resolve(scan_root: &Path, requested: &[String]) -> CoreResult<Self> {
-        if requested.len() > MAX_STORAGE_SCAN_EXCLUDED_PATHS {
-            log::warn!(
-                "storage_scan_exclusion_rejected scan_root={} requested_count={} limit={} reason=tooManyPaths outcome=blocked",
-                diagnostic_path(scan_root),
-                requested.len(),
-                MAX_STORAGE_SCAN_EXCLUDED_PATHS
+    pub(crate) fn resolve_options(
+        scan_root: &Path,
+        options: &crate::filesystem::ScanExclusionOptions,
+    ) -> CoreResult<Self> {
+        let mut resolved = Self::resolve(scan_root, &options.paths)?;
+        resolved.names = mangodisk_platform::NameExclusions::compile(&options.names)
+            .map_err(CoreError::invalid_input)?;
+        if !options.names.is_empty() {
+            let mut names = options.names.clone();
+            names.sort_by(|a, b| {
+                a.name
+                    .cmp(&b.name)
+                    .then_with(|| format!("{:?}", a.kind).cmp(&format!("{:?}", b.kind)))
+            });
+            let mut hasher = blake3::Hasher::new();
+            hasher.update(&resolved.configuration_fingerprint);
+            hasher.update(b"scan-name-exclusions-v1");
+            hasher.update(
+                &serde_json::to_vec(&names)
+                    .map_err(|error| CoreError::invalid_input(error.to_string()))?,
             );
-            return Err(CoreError::invalid_input(
-                "too many storage-scan exclusion paths were requested",
-            ));
+            resolved.configuration_fingerprint = *hasher.finalize().as_bytes();
+            log::info!("storage_scan_name_exclusions_configured root={} rule_count={} rules={} outcome=active", diagnostic_path(scan_root), names.len(), mangodisk_platform::diagnostics::text(&format!("{names:?}")));
         }
+        Ok(resolved)
+    }
 
+    pub(crate) fn names(&self) -> &mangodisk_platform::NameExclusions {
+        &self.names
+    }
+
+    /// Callers supply the canonical scan root and canonical traversal candidates.
+    pub(crate) fn resolve(scan_root: &Path, requested: &[String]) -> CoreResult<Self> {
+        let resolved = resolve_exclusion_paths(requested)?;
         let requested_count = requested.len();
-        let mut unavailable_count = 0;
+        let unavailable_count = resolved.iter().filter(|root| root.unavailable).count();
         let mut out_of_scope_count = 0;
         let mut configured_paths = Vec::<PathBuf>::new();
         let mut roots = Vec::<PathBuf>::new();
-        for value in requested {
-            let value = value.trim();
-            if value.is_empty() {
-                log::warn!(
-                    "storage_scan_exclusion_rejected scan_root={} reason=emptyPath outcome=blocked",
-                    diagnostic_path(scan_root)
-                );
-                return Err(CoreError::invalid_input(
-                    "storage-scan exclusion paths must not be empty",
-                ));
-            }
-            let requested_path = PathBuf::from(value);
-            if !requested_path.is_absolute() {
-                log::warn!(
-                    "storage_scan_exclusion_rejected scan_root={} path={} reason=notAbsolute outcome=blocked",
-                    diagnostic_path(scan_root),
-                    diagnostic_path(&requested_path)
-                );
-                return Err(CoreError::invalid_input(
-                    "storage-scan exclusion paths must be absolute",
-                ));
-            }
-            let exists = requested_path.try_exists().map_err(|error| {
-                log::warn!(
-                    "storage_scan_exclusion_rejected scan_root={} path={} reason=inspectFailed error={} outcome=blocked",
-                    diagnostic_path(scan_root),
-                    diagnostic_path(&requested_path),
-                    mangodisk_platform::diagnostics::text(&error)
-                );
-                CoreError::operation_failed(format!(
-                    "failed to inspect a storage-scan exclusion path: {error}"
-                ))
-            })?;
-            let path = if exists {
-                let canonical = current_platform()
-                    .canonicalize_no_links(&requested_path)
-                    .map_err(|error| {
-                        log::warn!(
-                            "storage_scan_exclusion_rejected scan_root={} path={} reason=canonicalizeFailed error={} outcome=blocked",
-                            diagnostic_path(scan_root),
-                            diagnostic_path(&requested_path),
-                            mangodisk_platform::diagnostics::text(&error)
-                        );
-                        CoreError::invalid_input(error.to_string())
-                    })?;
-                if !canonical.is_dir() {
-                    log::warn!(
-                        "storage_scan_exclusion_rejected scan_root={} path={} reason=notDirectory outcome=blocked",
-                        diagnostic_path(scan_root),
-                        diagnostic_path(&requested_path)
-                    );
-                    return Err(CoreError::invalid_input(
-                        "storage-scan exclusion paths must be directories",
-                    ));
-                }
-                canonical
-            } else {
-                unavailable_count += 1;
-                log::info!(
-                    "storage_scan_exclusion_resolved scan_root={} path={} outcome=protected_if_restored",
-                    diagnostic_path(scan_root),
-                    diagnostic_path(&requested_path)
-                );
-                requested_path
-            };
+        for resolved_path in resolved {
+            let path = resolved_path.path;
             configured_paths.push(path.clone());
             if !current_platform().path_is_same_or_child(&path, scan_root)
                 && !current_platform().path_is_same_or_child(scan_root, &path)
@@ -151,6 +108,7 @@ impl StorageScanExclusions {
         let configured_root_count = roots.len();
         Ok(Self {
             roots,
+            names: mangodisk_platform::NameExclusions::default(),
             configured_root_count,
             configuration_fingerprint,
             requested_count,
@@ -191,9 +149,11 @@ impl StorageScanExclusions {
     }
 
     pub(crate) fn matches(&self, path: &Path) -> bool {
-        self.roots
-            .iter()
-            .any(|root| current_platform().path_is_same_or_child(path, root))
+        self.names.matches_path(path)
+            || self
+                .roots
+                .iter()
+                .any(|root| current_platform().path_is_same_or_child(path, root))
     }
 
     pub(crate) fn active_count(&self) -> usize {
@@ -315,14 +275,18 @@ mod tests {
     #[test]
     fn temporarily_unavailable_folder_is_pruned_if_it_reappears_during_a_scan() {
         let fixture = tempfile::tempdir().expect("create storage exclusion fixture");
-        let root = fixture.path();
-        let excluded = root.join("reappearing");
+        // Production traversal canonicalizes its root before resolving exclusions. Keep the
+        // requested spelling separate so this also covers temporary-directory aliases on macOS.
+        let root = current_platform()
+            .canonicalize_no_links(fixture.path())
+            .unwrap();
+        let excluded = fixture.path().join("reappearing");
         let exclusions =
-            StorageScanExclusions::resolve(root, &[excluded.to_string_lossy().into_owned()])
+            StorageScanExclusions::resolve(&root, &[excluded.to_string_lossy().into_owned()])
                 .expect("resolve a temporarily unavailable folder");
 
         fs::create_dir(&excluded).expect("restore the excluded folder");
-        assert!(exclusions.matches(&excluded.join("candidate.bin")));
+        assert!(exclusions.matches(&root.join("reappearing/candidate.bin")));
     }
 
     #[test]
@@ -362,7 +326,7 @@ mod tests {
         .expect_err("relative exclusions must be rejected");
         assert!(error.to_string().contains("must be absolute"));
 
-        let requested = (0..=MAX_STORAGE_SCAN_EXCLUDED_PATHS)
+        let requested = (0..=50)
             .map(|index| {
                 std::env::temp_dir()
                     .join(format!("mangodisk-missing-exclusion-{index}"))

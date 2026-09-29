@@ -31,6 +31,7 @@ pub struct AnalysisResult {
 /// Captures an entry from an authoritative analysis snapshot.
 #[derive(Debug, Clone)]
 pub(crate) struct AnalysisEntryCandidate {
+    pub(crate) exclusions: crate::filesystem::ScanExclusionOptions,
     pub(crate) root: String,
     pub(crate) path: String,
     pub(crate) expected_logical_bytes: u64,

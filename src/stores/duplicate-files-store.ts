@@ -1,3 +1,4 @@
+import type { ScanNameExclusion } from '@/lib/models/storage-scan';
 import { defineStore } from 'pinia';
 
 import { DUPLICATE_RESULT_PAGE_SIZE, DUPLICATE_SCAN_LOCATION_MODES } from '@/lib/models/duplicate-file';
@@ -34,6 +35,7 @@ interface DuplicateFilesState {
   activeOperationId: number | null;
   lastGroupSequence: number;
   resultExcludedFolders: string[];
+  resultExcludedNames: ScanNameExclusion[];
 }
 
 function countGroupsInCategory(groups: readonly DuplicateGroup[], category: FileCategoryId): number {
@@ -54,6 +56,7 @@ export const useDuplicateFilesStore = defineStore('duplicate-files', {
     activeOperationId: null,
     lastGroupSequence: 0,
     resultExcludedFolders: [],
+    resultExcludedNames: [],
   }),
   getters: {
     hasMore: state => state.nextPageOffset !== null,
@@ -61,13 +64,20 @@ export const useDuplicateFilesStore = defineStore('duplicate-files', {
   actions: {
     invalidateResultForExclusionChange() {
       if (!this.result) return;
+      const currentNames = useStorageScanPreferencesStore().namesForScope('duplicateFiles');
       const currentExclusions = useStorageScanPreferencesStore().pathsForScope('duplicateFiles');
-      if (StorageScanPreferenceUtils.sameExcludedFolders(this.resultExcludedFolders, currentExclusions)) return;
+      if (
+        StorageScanPreferenceUtils.sameExcludedFolders(this.resultExcludedFolders, currentExclusions) &&
+        StorageScanPreferenceUtils.sameExcludedNames(this.resultExcludedNames, currentNames)
+      )
+        return;
       LoggerService.info(LOG_DOMAINS.duplicateFiles, LOG_EVENTS.staleScanResultIgnored, {
         operation: 'exclusion_preferences_changed',
         scanId: this.result.scanId,
         previousExcludedFolderCount: this.resultExcludedFolders.length,
         currentExcludedFolderCount: currentExclusions.length,
+        previousExcludedNameCount: this.resultExcludedNames.length,
+        currentExcludedNameCount: currentNames.length,
       });
       this.clearResult();
     },
@@ -88,12 +98,14 @@ export const useDuplicateFilesStore = defineStore('duplicate-files', {
         return;
       }
       if (this.loading || this.deleting) return;
+      const requestedNames = preferencesStore.namesForScope('duplicateFiles');
       const requestedExclusions = preferencesStore.pathsForScope('duplicateFiles');
       const retainCurrentResult = Boolean(
         this.result &&
         PathUtils.sameRootScope(this.result.roots, roots) &&
         PathUtils.sameRootScope(this.result.protectedRoots, protectedRoots) &&
-        StorageScanPreferenceUtils.sameExcludedFolders(this.resultExcludedFolders, requestedExclusions)
+        StorageScanPreferenceUtils.sameExcludedFolders(this.resultExcludedFolders, requestedExclusions) &&
+        StorageScanPreferenceUtils.sameExcludedNames(this.resultExcludedNames, requestedNames)
       );
       this.loading = true;
       this.cancelling = false;
@@ -112,6 +124,7 @@ export const useDuplicateFilesStore = defineStore('duplicate-files', {
         roots: roots.slice(0, 8),
         protectedRootCount: protectedRoots.length,
         excludedFolderCount: requestedExclusions.length,
+        excludedNameCount: requestedNames.length,
         minimumBytes,
       });
       let unlistenProgress: (() => void) | undefined;
@@ -140,12 +153,20 @@ export const useDuplicateFilesStore = defineStore('duplicate-files', {
             this.applyGroupBatch(batch, roots, protectedRoots);
           }),
         ]);
-        const result = await DuplicateFileService.find(locations, minimumBytes, requestedExclusions);
+        const result = await DuplicateFileService.find(locations, minimumBytes, requestedExclusions, requestedNames);
         // Settings can change during hashing. Discard results produced with a
         // threshold that no longer matches the active workflow.
-        if (appStore.settings.duplicateFileMinimumBytes === minimumBytes) {
+        if (
+          appStore.settings.duplicateFileMinimumBytes === minimumBytes &&
+          StorageScanPreferenceUtils.sameExcludedFolders(
+            requestedExclusions,
+            preferencesStore.pathsForScope('duplicateFiles')
+          ) &&
+          StorageScanPreferenceUtils.sameExcludedNames(requestedNames, preferencesStore.namesForScope('duplicateFiles'))
+        ) {
           this.result = result;
           this.resultExcludedFolders = requestedExclusions;
+          this.resultExcludedNames = requestedNames;
           this.resultComplete = true;
           this.nextPageOffset = result.groups.length < result.returnedGroupCount ? result.groups.length : null;
         } else {
@@ -163,6 +184,7 @@ export const useDuplicateFilesStore = defineStore('duplicate-files', {
             roots: roots.slice(0, 8),
             protectedRootCount: protectedRoots.length,
             excludedFolderCount: requestedExclusions.length,
+            excludedNameCount: requestedNames.length,
             minimumBytes,
             operationId: this.activeOperationId,
             error,
@@ -278,6 +300,7 @@ export const useDuplicateFilesStore = defineStore('duplicate-files', {
     clearResult() {
       this.result = null;
       this.resultExcludedFolders = [];
+      this.resultExcludedNames = [];
       this.resultComplete = false;
       this.loadingMore = false;
       this.nextPageOffset = null;

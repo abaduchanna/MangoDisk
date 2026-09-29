@@ -1,3 +1,4 @@
+use crate::filesystem::ScanExclusionOptions;
 use std::time::Instant;
 
 use crate::{
@@ -36,16 +37,20 @@ impl AnalysisService {
     pub fn analyze_with_exclusions_progress(
         path: Option<String>,
         refresh: bool,
-        excluded_paths: Vec<String>,
+        excluded_paths: impl Into<ScanExclusionOptions>,
         callback: impl ProgressSink,
     ) -> CoreResult<AnalysisResult> {
-        let result = StorageTraversal::analyze_path_with_exclusions_progress(
+        let excluded_paths = excluded_paths.into();
+        let snapshot = StorageTraversal::analyze_path_with_exclusions_snapshot(
             path,
             refresh,
             excluded_paths,
             move |progress| callback.report(progress),
         )?;
-        Ok(publish_result_session(result)?)
+        Ok(super::session::publish_result_with_exclusions(
+            snapshot.result,
+            snapshot.exclusions,
+        )?)
     }
 
     pub(crate) fn analyze_with_diagnostics(

@@ -53,6 +53,7 @@ describe('scan exclusion settings', () => {
 
     finishLoad({
       schemaVersion: SCAN_EXCLUSION_PREFERENCES_SCHEMA_VERSION,
+      names: [],
       folders: [{ path: '/saved/folder', scopes: ['largeFiles'] }],
     });
     await flushPromises();

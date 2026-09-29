@@ -209,6 +209,11 @@ pub trait Platform: Send + Sync {
     fn is_allowed_system_path_alias(&self, _path: &Path) -> bool {
         false
     }
+    /// Returns fixed OS compatibility spellings for an already resolved path. This is lexical
+    /// and never follows user-created links; callers can compile aliases outside traversal loops.
+    fn system_path_aliases(&self, _canonical: &Path) -> Vec<PathBuf> {
+        Vec::new()
+    }
     /// Converts a native path to the stable representation exposed across adapter boundaries.
     /// The default preserves Unix path text; Windows removes canonicalization-only prefixes.
     fn display_path(&self, path: &Path) -> String {

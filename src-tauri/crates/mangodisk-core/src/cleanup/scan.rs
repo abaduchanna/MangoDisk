@@ -1,3 +1,4 @@
+use crate::filesystem::ScanExclusionOptions;
 use std::{
     collections::{BTreeMap, HashMap},
     fs,
@@ -195,16 +196,17 @@ impl CleanupScanService {
         )
     }
 
-    pub fn scan_with_excluded_paths(
-        excluded_paths: Vec<String>,
+    pub fn scan_with_exclusions(
+        exclusion_options: impl Into<ScanExclusionOptions>,
         callback: impl ProgressSink,
     ) -> CoreResult<CleanupScanResult> {
+        let exclusion_options = exclusion_options.into();
         Self::scan_cleanup_candidates_with_options(
             Vec::new(),
             false,
             Vec::new(),
             true,
-            excluded_paths,
+            exclusion_options,
             callback,
         )
     }
@@ -255,11 +257,12 @@ impl CleanupScanService {
         )
     }
 
-    pub fn scan_with_selected_volumes_and_excluded_paths(
+    pub fn scan_with_selected_volumes_and_exclusions(
         volume_roots: Vec<String>,
-        excluded_paths: Vec<String>,
+        exclusion_options: impl Into<ScanExclusionOptions>,
         callback: impl ProgressSink,
     ) -> CoreResult<CleanupScanResult> {
+        let exclusion_options = exclusion_options.into();
         let volume_roots = super::volume_scope::resolve_selected_volume_roots(
             &volume_roots,
             super::volume_scope::SelectedVolumeScopeOperation::Scan,
@@ -269,7 +272,7 @@ impl CleanupScanService {
             true,
             Vec::new(),
             true,
-            excluded_paths,
+            exclusion_options,
             callback,
         )
     }
@@ -289,18 +292,19 @@ impl CleanupScanService {
         )
     }
 
-    pub fn scan_with_custom_rules_and_excluded_paths(
+    pub fn scan_with_custom_rules_and_exclusions(
         custom_rules: Vec<CustomCleanupRule>,
         include_standard_rules: bool,
-        excluded_paths: Vec<String>,
+        exclusion_options: impl Into<ScanExclusionOptions>,
         callback: impl ProgressSink,
     ) -> CoreResult<CleanupScanResult> {
+        let exclusion_options = exclusion_options.into();
         Self::scan_cleanup_candidates_with_options(
             Vec::new(),
             false,
             custom_rules,
             include_standard_rules,
-            excluded_paths,
+            exclusion_options,
             callback,
         )
     }
@@ -310,26 +314,29 @@ impl CleanupScanService {
         deep_project_discovery: bool,
         custom_rules: Vec<CustomCleanupRule>,
         include_standard_rules: bool,
-        excluded_paths: Vec<String>,
+        exclusion_options: impl Into<ScanExclusionOptions>,
         callback: impl ProgressSink,
     ) -> CoreResult<CleanupScanResult> {
+        let exclusion_options = exclusion_options.into();
         let operation = OperationGuard::start(CoordinatedOperationKind::CleanupScan)?;
-        // The setting belongs to project-artifact discovery, not custom-only rules.
-        let excluded_paths = if include_standard_rules {
-            excluded_paths
-        } else {
-            Vec::new()
-        };
-        let exclusions = CleanupExclusions::resolve(&excluded_paths)?;
-        if !excluded_paths.is_empty() {
+        // Preserve legacy path scope; name rules apply to custom-only scans as well.
+        let mut exclusion_options = exclusion_options;
+        if !include_standard_rules {
+            exclusion_options.paths.clear();
+        }
+        let exclusions = CleanupExclusions::resolve_options(&exclusion_options)?;
+        if !exclusion_options.is_empty() {
             log::info!(
-                "cleanup_scan_exclusion_policy operation_id={} scope={} excluded_path_count={}",
+                "cleanup_scan_exclusion_policy operation_id={} path_scope=projectArtifactsOnly name_scope=allCleanup excluded_path_count={} excluded_name_count={}",
                 operation.id(),
-                "projectArtifactsOnly",
-                excluded_paths.len()
+                exclusion_options.paths.len(),
+                exclusion_options.names.len()
             );
         }
-        let filesystem_exclusions = CleanupExclusions::default();
+        let filesystem_exclusions = CleanupExclusions::resolve_options(&ScanExclusionOptions {
+            paths: Vec::new(),
+            names: exclusion_options.names.clone(),
+        })?;
         let started = Instant::now();
         // Windows process enumeration can take hundreds of milliseconds. It is
         // independent from inventory capture and traversal, so start it early.
@@ -666,7 +673,7 @@ impl CleanupScanService {
                     custom_rules,
                     effective_custom_rules,
                     include_standard_rules,
-                    excluded_paths,
+                    exclusion_options,
                     empty_directory_authorizations,
                 )
             })
@@ -1096,7 +1103,8 @@ fn measure_root_task(
     } else {
         None
     };
-    if let Some(rule_index) = aggregate_rule_index.filter(|_| !context.exclusions.intersects(path))
+    if let Some(rule_index) = aggregate_rule_index
+        .filter(|_| !context.exclusions.has_names() && !context.exclusions.intersects(path))
     {
         let is_cancelled = || context.cancelled.load(Ordering::Relaxed);
         // Native traversal can take several seconds for package-manager

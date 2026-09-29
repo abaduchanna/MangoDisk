@@ -130,7 +130,7 @@ describe('analysis store', () => {
 
     await analysisStore.analyze('/fixture');
 
-    expect(analyze).toHaveBeenCalledWith('/fixture', false, ['/fixture/cache']);
+    expect(analyze).toHaveBeenCalledWith('/fixture', false, ['/fixture/cache'], []);
     expect(analysisStore.scanExcludedFolders).toEqual(['/fixture/cache']);
     expect(analysisStore.result).toEqual(result);
   });
@@ -151,7 +151,7 @@ describe('analysis store', () => {
     expect(analysisStore.cache).toEqual({});
     expect(analysisStore.cacheOrder).toEqual([]);
     await analysisStore.analyze('/fixture');
-    expect(analyze).toHaveBeenCalledWith('/fixture', false, ['/fixture/cache']);
+    expect(analyze).toHaveBeenCalledWith('/fixture', false, ['/fixture/cache'], []);
   });
 
   it('ignores a scan that finishes after its exclusions change', async () => {

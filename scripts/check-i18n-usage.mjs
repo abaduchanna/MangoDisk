@@ -328,6 +328,7 @@ const dynamicKeyGroups = {
     'executionFailed',
     'verificationFailed',
     'cleanerUnavailable',
+    'nameExclusionsUnsupported',
   ],
 };
 

@@ -226,6 +226,7 @@ pub(super) fn find_candidates(
 /// Only a volume root has the complete file-ID namespace. Subdirectories keep
 /// using generic traversal instead of filtering a whole-volume result by text.
 pub(super) struct AnalysisScanRequest<'a> {
+    pub(super) name_exclusions: &'a crate::NameExclusions,
     pub(super) excluded_roots: &'a [PathBuf],
     pub(super) root: &'a Path,
     pub(super) purpose: ScanPurpose,
@@ -242,6 +243,13 @@ pub(super) fn analyze_records(
 ) -> Result<Option<FastAnalysisSummary>, FastAnalysisScanError> {
     // Volume-wide layout reads cannot prune subtrees before enumeration.
     // Let the caller use its directory walker when a narrowed scope is requested.
+    if !request.name_exclusions.is_empty() {
+        log::info!(
+            "windows_file_layout_analysis_fallback root={} reason=nameExclusionsRequireDirectoryTraversal outcome=directoryTraversal",
+            crate::diagnostics::text(&request.root.display())
+        );
+        return Ok(None);
+    }
     if !request.excluded_roots.is_empty() || env::var_os(DISABLE_FILE_LAYOUT_ENV).is_some() {
         return Ok(None);
     }

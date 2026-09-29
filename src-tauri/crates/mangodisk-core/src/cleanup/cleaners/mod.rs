@@ -221,6 +221,21 @@ pub(super) fn preview_all(request: CleanerPreviewRequest<'_>) -> CleanerScanPrev
         "cleanup_cleaner_group_preview_finished group=projectArtifacts elapsed_ms={}",
         project_artifacts_started.elapsed().as_millis()
     );
+    if exclusions.has_names() {
+        // These cleaners delegate to tools or own atomic/structured stores. Until they expose
+        // an exclusion-aware contract, keep their rows visible and block execution explicitly.
+        let mut limited = preview_limited_all();
+        limited.retain(|rule| !project_artifacts::contains(&rule.rule_id));
+        for rule in &mut limited {
+            rule.status = ScanItemStatus::Excluded;
+        }
+        log::info!("cleanup_specialized_exclusions_skipped rule_count={} rule_ids={:?} reason=nameExclusionsUnsupported outcome=skipped", limited.len(), limited.iter().map(|r| &r.rule_id).collect::<Vec<_>>());
+        limited.extend(project_artifact_results.rules);
+        return CleanerScanPreview {
+            rules: limited,
+            read_failures: project_artifact_results.read_failures,
+        };
+    }
     let registered_started = Instant::now();
     let mut results = CLEANERS
         .iter()
@@ -547,6 +562,23 @@ where
     let mut actions = Vec::with_capacity(ids.len());
     for id in direct_ids {
         progress(id, None);
+        if exclusions.has_names() {
+            log::info!("cleanup_specialized_execution_blocked operation_id={} rule_id={} reason=nameExclusionsUnsupported outcome=unchanged", operation.id(), id);
+            let action = CleanupActionResult {
+                rule_id: id.clone(),
+                action_kind: CleanupActionKind::Command,
+                status: CleanupActionStatus::Blocked,
+                reason_code: Some(CleanupActionReason::NameExclusionsUnsupported),
+                bytes_expected: 0,
+                released_bytes: 0,
+                affected_item_count: 0,
+                failed_item_count: 0,
+                running_processes: Vec::new(),
+            };
+            progress(id, Some(&action));
+            actions.push(action);
+            continue;
+        }
         // The immediately invoked closure preserves the original early-return
         // structure. Platform-specific branches use `#[cfg]`; a continuous
         // `else if` chain would become an incomplete expression on targets

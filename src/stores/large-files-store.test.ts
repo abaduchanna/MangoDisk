@@ -143,7 +143,13 @@ describe('large files store', () => {
 
     await store.find(['/fixture', '/other', '/fixture/nested'], 50, 'complete');
 
-    expect(find).toHaveBeenCalledWith(['/fixture', '/other', '/fixture/nested'], 50, 'complete', ['/fixture/cache']);
+    expect(find).toHaveBeenCalledWith(
+      ['/fixture', '/other', '/fixture/nested'],
+      50,
+      'complete',
+      ['/fixture/cache'],
+      []
+    );
     expect(store.resultExcludedFolders).toEqual(['/fixture/cache']);
   });
   it('passes a parent and its mounted volume to Core without dropping either selection', async () => {
@@ -152,7 +158,7 @@ describe('large files store', () => {
     vi.spyOn(LargeFileService, 'listenProgress').mockResolvedValue(() => undefined);
     const find = vi.spyOn(LargeFileService, 'find').mockResolvedValue(createResult());
     await useLargeFilesStore().find(['/', '/Volumes/External'], 50, 'complete');
-    expect(find).toHaveBeenCalledWith(['/', '/Volumes/External'], 50, 'complete', []);
+    expect(find).toHaveBeenCalledWith(['/', '/Volumes/External'], 50, 'complete', [], []);
   });
   it('does not start a scan with no selected locations', async () => {
     const find = vi.spyOn(LargeFileService, 'find');

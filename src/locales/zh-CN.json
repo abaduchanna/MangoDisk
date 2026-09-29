@@ -1686,7 +1686,7 @@
     },
     "analysisRootExcluded": {
       "title": "所选位置已被排除",
-      "message": "请在设置的“排除文件夹”中，取消对应文件夹的“磁盘空间分析”勾选后重试"
+      "message": "在“设置 > 扫描排除”中调整匹配的路径或名称规则，取消对空间分析的排除后重试"
     },
     "resourceBusy": {
       "title": "项目正在使用",
@@ -1707,6 +1707,10 @@
     "quickScanUnavailable": {
       "title": "快速扫描暂不可用",
       "message": "Spotlight 尚未准备好此位置，请改用完整扫描"
+    },
+    "scanExclusionsChanged": {
+      "title": "扫描排除已更改",
+      "message": "请重新扫描，应用新的排除设置后再清理"
     }
   },
   "folderPicker": {
@@ -1932,13 +1936,14 @@
     "exclusionHint": "此处仅统计参与分析的内容；排除设置不会改变磁盘实际已用空间"
   },
   "storageScanExclusions": {
-    "title": "排除文件夹",
+    "title": "扫描排除",
     "activeLabel": "已启用排除",
-    "resultHint": "本次扫描启用了排除设置，结果可能不包含这些文件夹中的内容",
-    "cleanupResultHint": "项目构建产物扫描会跳过排除文件夹；其他清理项不受影响",
-    "description": "选择哪些功能跳过这些文件夹",
+    "resultHint": "本次扫描已应用排除规则，结果可能不完整",
+    "cleanupResultHint": "本次扫描已应用排除规则；路径排除仅作用于项目构建产物",
+    "description": "选择要跳过的内容及适用功能",
     "chooseFolders": "选择要排除的文件夹",
     "folderCount": "{count} 个文件夹",
+    "nameCount": "{count} 个名称",
     "addFolder": "添加文件夹",
     "addingFolder": "正在添加…",
     "removeFolder": "移除此文件夹",
@@ -1946,7 +1951,29 @@
     "cleanupScopeHint": "查找开发项目的构建产物时会跳过此文件夹；其他深度清理项仍可能清理其中内容",
     "limitReached": "最多可以排除 {count} 个文件夹",
     "save": "保存",
-    "saving": "正在保存…"
+    "saving": "正在保存…",
+    "pathsTab": "指定路径",
+    "namesTab": "按名称",
+    "addName": "添加名称",
+    "objectType": "对象",
+    "folderKind": "文件夹",
+    "fileKind": "文件",
+    "exactName": "完整名称",
+    "namePlaceholder": "例如 node_modules",
+    "add": "添加",
+    "quickFill": "快捷填写",
+    "invalidName": "请输入有效的完整名称，不含路径或通配符",
+    "duplicateName": "这条名称规则已存在",
+    "removeName": "移除 {name}",
+    "emptyNames": "添加要排除的文件或文件夹名称",
+    "nameMatchHint": "输入完整名称，区分大小写，不含路径或通配符",
+    "nameUsageHint": "匹配扫描范围内任意层级的完整文件名或文件夹名，区分大小写",
+    "nameCleanupScopeHint": "深度清理时保留匹配的文件或文件夹；匹配文件夹时，其内容也会保留",
+    "nameExampleHint": "例如 node_modules 会匹配各个项目中的同名文件夹，不含路径或通配符",
+    "nameLimitReached": "最多可以添加 {count} 条名称规则",
+    "skipped": "已跳过",
+    "unsupportedCleaner": "无法安全应用名称排除",
+    "cleanupNamesResultHint": "已应用名称排除，不支持的清理项和应用残留已跳过"
   },
   "largeFiles": {
     "title": "大文件清理",
@@ -2357,9 +2384,9 @@
     "title": "设置",
     "generalSection": "常规",
     "scanAnalysisSection": "扫描与分析",
-    "scanExclusionsTitle": "排除文件夹",
-    "scanExclusionsDescription": "设置各功能扫描时要跳过的文件夹",
-    "scanExclusionsCount": "{count} 个文件夹",
+    "scanExclusionsTitle": "扫描排除",
+    "scanExclusionsDescription": "按路径或名称设置各功能要跳过的内容",
+    "scanExclusionsCount": "{count} 条规则",
     "supportSection": "支持",
     "aboutSection": "关于",
     "languageTitle": "界面语言",
@@ -3821,7 +3848,8 @@
       "preflightFailed": "无法安全检查所选文件，未做任何更改",
       "executionFailed": "清理未能完成，没有删除其他文件",
       "verificationFailed": "清理已执行，但 MangoDisk 无法确认结果，请重新扫描",
-      "cleanerUnavailable": "此清理功能暂时不可用，未做任何更改"
+      "cleanerUnavailable": "此清理功能暂时不可用，未做任何更改",
+      "nameExclusionsUnsupported": "此清理项无法安全应用名称排除，已跳过"
     }
   },
   "monitoring": {

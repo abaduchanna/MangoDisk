@@ -97,18 +97,25 @@ const scanHint = computed(() =>
 const resultMatchesScope = computed(() =>
   Boolean(props.result && PathUtils.sameSelectedPaths(props.result.roots, selectedScopePaths.value))
 );
-const resultMatchesExclusions = computed(() =>
-  StorageScanPreferenceUtils.sameExcludedFolders(
-    storageScanPreferencesStore.pathsForScope('largeFiles'),
-    largeFilesStore.resultExcludedFolders
-  )
+const resultMatchesExclusions = computed(
+  () =>
+    StorageScanPreferenceUtils.sameExcludedFolders(
+      storageScanPreferencesStore.pathsForScope('largeFiles'),
+      largeFilesStore.resultExcludedFolders
+    ) &&
+    StorageScanPreferenceUtils.sameExcludedNames(
+      storageScanPreferencesStore.namesForScope('largeFiles'),
+      largeFilesStore.resultExcludedNames
+    )
 );
 const resultMatchesConfiguration = computed(() => resultMatchesScope.value && resultMatchesExclusions.value);
-const resultHasRelevantExclusions = computed(() =>
-  StorageScanPreferenceUtils.hasExcludedFolderInScanRoots(
-    props.result?.roots ?? [],
-    largeFilesStore.resultExcludedFolders
-  )
+const resultHasRelevantExclusions = computed(
+  () =>
+    largeFilesStore.resultExcludedNames.length > 0 ||
+    StorageScanPreferenceUtils.hasExcludedFolderInScanRoots(
+      props.result?.roots ?? [],
+      largeFilesStore.resultExcludedFolders
+    )
 );
 const minimumEntries = computed(() => (props.result?.entries ?? []).filter(entry => entry.bytes >= props.minimumBytes));
 const minimumLabel = computed(

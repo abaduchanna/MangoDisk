@@ -4,6 +4,7 @@ import { flushPromises, mount } from '@vue/test-utils';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { i18n } from '@/i18n';
+import { Select } from '@/components/ui/select';
 import { LANGUAGE_IDS } from '@/lib/models/settings';
 import { FileManagerService } from '@/lib/services/file-manager-service';
 import { FolderSelectionService } from '@/lib/services/folder-selection-service';
@@ -86,6 +87,56 @@ describe('storage-scan exclusions dialog', () => {
     vi.restoreAllMocks();
   });
 
+  it('adds an exact folder name and explicitly opts it into deep cleanup', async () => {
+    const wrapper = mountDialog([]);
+    await wrapper.findAll('.exclusion-tabs button')[1]!.trigger('click');
+    await wrapper.get('.name-empty').trigger('click');
+    await wrapper.get('.name-form input').setValue('node_modules');
+    await wrapper.get('.name-form').trigger('submit');
+    await wrapper.get('.name-scopes button').trigger('click');
+    await wrapper.findAll('footer button').at(-1)!.trigger('click');
+    expect(wrapper.emitted('save')).toEqual([
+      [[], [{ name: 'node_modules', kind: 'folder', scopes: ['cleanup', 'largeFiles', 'duplicateFiles'] }]],
+    ]);
+  });
+
+  it('discards a cancelled name and saves only confirmed additions', async () => {
+    const wrapper = mountDialog([]);
+    await wrapper.findAll('.exclusion-tabs button')[1]!.trigger('click');
+    await wrapper.get('.name-empty').trigger('click');
+    await wrapper.get('.name-form input').setValue('cancelled-name');
+    await wrapper.get('.name-form footer button').trigger('click');
+    await wrapper.get('.name-empty').trigger('click');
+    expect(wrapper.get('.name-form input').element).toHaveProperty('value', '');
+    await wrapper.get('.name-form input').setValue('node_modules');
+    await wrapper.get('.name-form').trigger('submit');
+    await wrapper.findAll('.exclusion-tabs button')[0]!.trigger('click');
+    await wrapper.get('.exclusion-footer-actions').findAll('button').at(-1)!.trigger('click');
+    expect(wrapper.emitted('save')).toEqual([
+      [[], [{ name: 'node_modules', kind: 'folder', scopes: ['largeFiles', 'duplicateFiles'] }]],
+    ]);
+  });
+
+  it('rejects patterns and preserves both tab drafts until save', async () => {
+    const wrapper = mountDialog();
+    await wrapper.findAll('.exclusion-tabs button')[1]!.trigger('click');
+    await wrapper.get('.name-empty').trigger('click');
+    await wrapper.get('.name-form input').setValue('*.tmp');
+    await wrapper.get('.name-form').trigger('submit');
+    expect(wrapper.get('[role="alert"]').text()).toContain('wildcards');
+    await wrapper.get('.name-form input').setValue('.DS_Store');
+    wrapper.getComponent(Select).vm.$emit('update:modelValue', 'file');
+    await flushPromises();
+    await wrapper.get('.name-form').trigger('submit');
+    await wrapper.findAll('.exclusion-tabs button')[0]!.trigger('click');
+    expect(wrapper.findAll('.exclusion-row')).toHaveLength(2);
+    await wrapper.findAll('.exclusion-tabs button')[1]!.trigger('click');
+    expect(wrapper.get('.name-value').text()).toBe('.DS_Store');
+    await wrapper.setProps({ modelValue: false });
+    await wrapper.setProps({ modelValue: true });
+    expect(wrapper.findAll('.name-row')).toHaveLength(0);
+  });
+
   it('uses legacy WebKit-safe semantic surfaces for folder interactions', () => {
     expect(exclusionsDialogSource).toContain('background: var(--surface-primary-subtle)');
     expect(exclusionsDialogSource).toContain('background: var(--surface-muted-subtle)');
@@ -104,7 +155,7 @@ describe('storage-scan exclusions dialog', () => {
 
   it('keeps the footer focused on the save and cancel actions', () => {
     const wrapper = mountDialog([{ path: '/fixture/cache', scopes: ['largeFiles'] }]);
-    const footer = wrapper.get('footer');
+    const footer = wrapper.get('.exclusion-footer');
 
     expect(footer.attributes('data-align')).toBeUndefined();
     expect(footer.find('.exclusion-note').exists()).toBe(false);
@@ -164,6 +215,7 @@ describe('storage-scan exclusions dialog', () => {
           { path: '/fixture/cache', scopes: ['largeFiles', 'duplicateFiles'] },
           { path: '/fixture/downloads', scopes: ['largeFiles'] },
         ],
+        [],
       ],
     ]);
   });
@@ -184,7 +236,7 @@ describe('storage-scan exclusions dialog', () => {
     await checkboxes[3]!.trigger('click');
     await wrapper.get('.exclusion-footer-actions').findAll('button').at(-1)!.trigger('click');
 
-    expect(wrapper.emitted('save')).toEqual([[[{ path: '/fixture/cache', scopes: ['largeFiles', 'analysis'] }]]]);
+    expect(wrapper.emitted('save')).toEqual([[[{ path: '/fixture/cache', scopes: ['largeFiles', 'analysis'] }], []]]);
   });
 
   it('removes a folder from the draft and saves the remaining list', async () => {
@@ -193,7 +245,7 @@ describe('storage-scan exclusions dialog', () => {
     await wrapper.get('[aria-label="Remove this folder"]').trigger('click');
     await wrapper.findAll('button').at(-1)?.trigger('click');
 
-    expect(wrapper.emitted('save')).toEqual([[[{ path: '/fixture/downloads', scopes: ['largeFiles'] }]]]);
+    expect(wrapper.emitted('save')).toEqual([[[{ path: '/fixture/downloads', scopes: ['largeFiles'] }], []]]);
     expect(wrapper.text()).toContain('Save');
   });
 
@@ -245,7 +297,7 @@ describe('storage-scan exclusions dialog', () => {
     expect(saveButton.attributes('disabled')).toBeUndefined();
     await saveButton.trigger('click');
     expect(wrapper.emitted('save')).toEqual([
-      [[{ path: '/fixture/selected', scopes: ['cleanup', 'largeFiles', 'duplicateFiles'] }]],
+      [[{ path: '/fixture/selected', scopes: ['cleanup', 'largeFiles', 'duplicateFiles'] }], []],
     ]);
   });
 

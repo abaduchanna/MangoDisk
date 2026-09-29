@@ -3,6 +3,7 @@ import { defineStore } from 'pinia';
 import {
   SCAN_EXCLUSION_PREFERENCES_SCHEMA_VERSION,
   type ScanExcludedFolder,
+  type ScanExcludedName,
   type ScanExclusionScope,
   type ScanExclusionPreferences,
 } from '@/lib/models/storage-scan';
@@ -14,6 +15,7 @@ import * as StorageScanPreferenceUtils from '@/lib/utils/storage-scan-preference
 
 interface StorageScanPreferencesState {
   folders: ScanExcludedFolder[];
+  names: ScanExcludedName[];
   initialized: boolean;
 }
 
@@ -40,9 +42,11 @@ function changedFolders(previous: readonly ScanExcludedFolder[], current: readon
 export const useStorageScanPreferencesStore = defineStore('storage-scan-preferences', {
   state: (): StorageScanPreferencesState => ({
     folders: [],
+    names: [],
     initialized: false,
   }),
   getters: {
+    namesForScope: state => (scope: ScanExclusionScope) => StorageScanPreferenceUtils.namesForScope(state.names, scope),
     pathsForScope: state => (scope: ScanExclusionScope) =>
       StorageScanPreferenceUtils.pathsForScope(state.folders, scope),
   },
@@ -72,7 +76,22 @@ export const useStorageScanPreferencesStore = defineStore('storage-scan-preferen
       }
       if (saved !== null) {
         try {
-          this.folders = StorageScanPreferenceUtils.parse(saved).folders;
+          const preferences = StorageScanPreferenceUtils.parse(saved);
+          this.folders = preferences.folders;
+          this.names = preferences.names;
+          if ((saved as { schemaVersion?: number }).schemaVersion === 2) {
+            try {
+              await PreferenceStorageService.saveScanExclusionPreferences(preferences);
+              LoggerService.info(LOG_DOMAINS.storageScan, LOG_EVENTS.storageScanPreferencesMigrated, {
+                fromSchemaVersion: 2,
+                toSchemaVersion: SCAN_EXCLUSION_PREFERENCES_SCHEMA_VERSION,
+                excludedFolderCount: preferences.folders.length,
+                excludedNameCount: 0,
+              });
+            } catch (error) {
+              LoggerService.warn(LOG_DOMAINS.storageScan, LOG_EVENTS.storageScanPreferencesMigrationFailed, { error });
+            }
+          }
         } catch (error) {
           LoggerService.warn(LOG_DOMAINS.storageScan, LOG_EVENTS.storageScanPreferencesInvalid, {
             source: 'scanExclusionPreferences',
@@ -129,24 +148,34 @@ export const useStorageScanPreferencesStore = defineStore('storage-scan-preferen
         LoggerService.warn(LOG_DOMAINS.storageScan, LOG_EVENTS.storageScanPreferencesMigrationFailed, { error });
       }
     },
-    async saveFolders(folders: ScanExcludedFolder[]) {
+    async saveFolders(folders: ScanExcludedFolder[], names?: ScanExcludedName[]) {
       await this.initialize();
       const preferences = StorageScanPreferenceUtils.parse({
         schemaVersion: SCAN_EXCLUSION_PREFERENCES_SCHEMA_VERSION,
         folders,
+        names: names ?? this.names,
       });
       try {
         await PreferenceStorageService.saveScanExclusionPreferences(preferences);
         const changes = changedFolders(this.folders, preferences.folders);
+        const previousNames = this.names;
         this.folders = preferences.folders;
+        this.names = preferences.names;
         LoggerService.info(LOG_DOMAINS.storageScan, LOG_EVENTS.storageScanExclusionsUpdated, {
           excludedFolderCount: preferences.folders.length,
           changedFolderCount: changes.length,
           changedFolders: changes,
-          cleanupCount: this.pathsForScope('cleanup').length,
-          largeFileCount: this.pathsForScope('largeFiles').length,
-          duplicateFileCount: this.pathsForScope('duplicateFiles').length,
-          analysisCount: this.pathsForScope('analysis').length,
+          previousNames,
+          names: preferences.names,
+          excludedNameCount: preferences.names.length,
+          cleanupPathCount: this.pathsForScope('cleanup').length,
+          cleanupNameCount: this.namesForScope('cleanup').length,
+          largeFilePathCount: this.pathsForScope('largeFiles').length,
+          largeFileNameCount: this.namesForScope('largeFiles').length,
+          duplicateFilePathCount: this.pathsForScope('duplicateFiles').length,
+          duplicateFileNameCount: this.namesForScope('duplicateFiles').length,
+          analysisPathCount: this.pathsForScope('analysis').length,
+          analysisNameCount: this.namesForScope('analysis').length,
         });
       } catch (error) {
         LoggerService.warn(LOG_DOMAINS.storageScan, LOG_EVENTS.storageScanPreferencesSaveFailed, { error });

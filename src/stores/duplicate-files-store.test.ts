@@ -219,7 +219,12 @@ describe('duplicate files store pagination', () => {
 
     await store.find(locations, useAppStore().settings.duplicateFileMinimumBytes);
 
-    expect(find).toHaveBeenCalledWith(locations, useAppStore().settings.duplicateFileMinimumBytes, ['/fixture/cache']);
+    expect(find).toHaveBeenCalledWith(
+      locations,
+      useAppStore().settings.duplicateFileMinimumBytes,
+      ['/fixture/cache'],
+      []
+    );
     expect(store.resultExcludedFolders).toEqual(['/fixture/cache']);
   });
 

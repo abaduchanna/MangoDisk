@@ -1,3 +1,5 @@
+mod name_exclusions;
+pub use name_exclusions::{ExcludedNameKind, NameExclusions, ScanNameExclusion};
 mod ai_models;
 mod applications;
 mod directory_aggregate;

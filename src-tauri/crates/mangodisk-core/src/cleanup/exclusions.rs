@@ -3,85 +3,67 @@ use std::path::{Path, PathBuf};
 use mangodisk_platform::{current_platform, Platform};
 
 use crate::{
-    filesystem::metadata::diagnostic_path,
+    filesystem::{exclusion_paths::resolve_exclusion_paths, metadata::diagnostic_path},
     shared::{CoreError, CoreResult},
 };
 
-const MAX_EXCLUDED_PATHS: usize = 50;
-
-/// Resolved roots used only by project-artifact discovery and execution.
-/// Declarative rules and other specialized cleaners ignore them.
+/// Legacy path roots protect project artifacts; exact names protect every supported cleaner.
 #[derive(Debug, Clone, Default)]
 pub(super) struct CleanupExclusions {
+    names: mangodisk_platform::NameExclusions,
     roots: Vec<PathBuf>,
     aliases: Vec<PathBuf>,
 }
 
 impl CleanupExclusions {
-    pub(super) fn resolve(requested: &[String]) -> CoreResult<Self> {
-        if requested.len() > MAX_EXCLUDED_PATHS {
-            log::warn!(
-                "cleanup_exclusion_rejected requested_count={} limit={} reason=tooManyPaths outcome=blocked",
-                requested.len(),
-                MAX_EXCLUDED_PATHS
+    pub(super) fn resolve_options(
+        options: &crate::filesystem::ScanExclusionOptions,
+    ) -> CoreResult<Self> {
+        let mut policy = Self::resolve(&options.paths)?;
+        policy.names = mangodisk_platform::NameExclusions::compile(&options.names)
+            .map_err(CoreError::invalid_input)?;
+        if !options.names.is_empty() {
+            log::info!(
+                "cleanup_name_exclusions_configured rule_count={} rules={} outcome=active",
+                options.names.len(),
+                mangodisk_platform::diagnostics::text(&format!("{:?}", options.names))
             );
-            return Err(CoreError::invalid_input("too many cleanup exclusion paths"));
         }
-        let mut roots = Vec::<PathBuf>::new();
-        let mut unavailable = 0;
-        for value in requested {
-            let path = PathBuf::from(value.trim());
-            if value.trim().is_empty() || !path.is_absolute() {
+        Ok(policy)
+    }
+
+    pub(super) fn names(&self) -> &mangodisk_platform::NameExclusions {
+        &self.names
+    }
+
+    pub(super) fn has_names(&self) -> bool {
+        !self.names.is_empty()
+    }
+
+    /// Atomic artifact deletion cannot preserve descendants. Reject an artifact containing an
+    /// excluded name, including unreadable trees whose safety cannot be established.
+    pub(super) fn protects_tree(&self, path: &Path, is_cancelled: &dyn Fn() -> bool) -> bool {
+        if self.intersects(path) {
+            return true;
+        }
+        self.names
+            .intersects_tree(path, is_cancelled)
+            .unwrap_or_else(|error| {
                 log::warn!(
-                    "cleanup_exclusion_rejected path={} reason=emptyOrNotAbsolute outcome=blocked",
-                    diagnostic_path(&path)
-                );
-                return Err(CoreError::invalid_input(
-                    "cleanup exclusion paths must be absolute directories",
-                ));
-            }
-            let exists = path.try_exists().map_err(|error| {
-                log::warn!(
-                    "cleanup_exclusion_rejected path={} reason=inspectFailed error={} outcome=blocked",
-                    diagnostic_path(&path),
+                    "cleanup_exclusion_inspection_failed path={} error={} outcome=retained",
+                    diagnostic_path(path),
                     mangodisk_platform::diagnostics::text(&error)
                 );
-                CoreError::operation_failed(format!(
-                    "failed to inspect cleanup exclusion {}: {error}",
-                    diagnostic_path(&path)
-                ))
-            })?;
-            let protected_root = if exists {
-                let canonical = current_platform()
-                    .canonicalize_no_links(&path)
-                    .map_err(|error| {
-                        log::warn!(
-                            "cleanup_exclusion_rejected path={} reason=canonicalizeFailed error={} outcome=blocked",
-                            diagnostic_path(&path),
-                            mangodisk_platform::diagnostics::text(&error)
-                        );
-                        CoreError::invalid_input(error.to_string())
-                    })?;
-                if !canonical.is_dir() {
-                    log::warn!(
-                        "cleanup_exclusion_rejected path={} reason=notDirectory outcome=blocked",
-                        diagnostic_path(&path)
-                    );
-                    return Err(CoreError::invalid_input(
-                        "cleanup exclusion paths must be directories",
-                    ));
-                }
-                canonical
-            } else {
-                unavailable += 1;
-                log::info!(
-                    "cleanup_exclusion_unavailable path={} outcome=retained_if_restored",
-                    diagnostic_path(&path)
-                );
-                // A missing folder can reappear during a long scan or cleanup.
-                // Retain its absolute path so the exclusion remains a safety boundary.
-                path
-            };
+                true
+            })
+    }
+
+    pub(super) fn resolve(requested: &[String]) -> CoreResult<Self> {
+        let resolved = resolve_exclusion_paths(requested)?;
+        let unavailable = resolved.iter().filter(|root| root.unavailable).count();
+        let mut roots = Vec::<PathBuf>::new();
+        for resolved_path in resolved {
+            let protected_root = resolved_path.path;
             if roots
                 .iter()
                 .any(|root| current_platform().path_is_same_or_child(&protected_root, root))
@@ -103,47 +85,33 @@ impl CleanupExclusions {
             roots.len(),
             unavailable
         );
-        let aliases = roots.iter().flat_map(|root| system_aliases(root)).collect();
-        Ok(Self { roots, aliases })
+        let aliases = roots
+            .iter()
+            .flat_map(|root| current_platform().system_path_aliases(root))
+            .collect();
+        Ok(Self {
+            roots,
+            aliases,
+            names: Default::default(),
+        })
     }
 
     pub(super) fn matches(&self, path: &Path) -> bool {
-        self.roots
-            .iter()
-            .chain(&self.aliases)
-            .any(|root| current_platform().path_is_same_or_child(path, root))
+        self.names.matches_path(path)
+            || self
+                .roots
+                .iter()
+                .chain(&self.aliases)
+                .any(|root| current_platform().path_is_same_or_child(path, root))
     }
 
     pub(super) fn intersects(&self, path: &Path) -> bool {
-        self.roots.iter().chain(&self.aliases).any(|root| {
-            current_platform().path_is_same_or_child(path, root)
-                || current_platform().path_is_same_or_child(root, path)
-        })
+        self.names.matches_path(path)
+            || self.roots.iter().chain(&self.aliases).any(|root| {
+                current_platform().path_is_same_or_child(path, root)
+                    || current_platform().path_is_same_or_child(root, path)
+            })
     }
-}
-
-#[cfg(target_os = "macos")]
-fn system_aliases(path: &Path) -> Vec<PathBuf> {
-    // macOS allows these fixed system symlinks in cleanup roots. Finder's
-    // folder picker resolves them to /private, while declarative rules can
-    // retain /var, /tmp, or /etc from environment and catalog templates.
-    [
-        ("/private/var", "/var"),
-        ("/private/tmp", "/tmp"),
-        ("/private/etc", "/etc"),
-    ]
-    .into_iter()
-    .filter_map(|(canonical, alias)| {
-        path.strip_prefix(canonical)
-            .ok()
-            .map(|suffix| PathBuf::from(alias).join(suffix))
-    })
-    .collect()
-}
-
-#[cfg(not(target_os = "macos"))]
-fn system_aliases(_: &Path) -> Vec<PathBuf> {
-    Vec::new()
 }
 
 #[cfg(test)]
@@ -162,6 +130,22 @@ mod tests {
 
         assert!(exclusions.matches(&alias.join("candidate.tmp")));
         assert!(exclusions.intersects(&alias));
+    }
+
+    #[cfg(target_os = "macos")]
+    #[test]
+    fn restored_missing_alias_exclusion_protects_canonical_artifact() {
+        let fixture = tempfile::tempdir().unwrap();
+        let root = current_platform()
+            .canonicalize_no_links(fixture.path())
+            .unwrap();
+        let protected = root.join("artifact/keep");
+        let alias = Path::new("/var").join(protected.strip_prefix("/private/var").unwrap());
+        let exclusions =
+            CleanupExclusions::resolve(&[alias.to_string_lossy().into_owned()]).unwrap();
+        fs::create_dir_all(&protected).unwrap();
+        assert!(exclusions.matches(&protected));
+        assert!(exclusions.protects_tree(&root.join("artifact"), &|| false));
     }
 
     #[test]

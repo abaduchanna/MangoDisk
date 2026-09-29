@@ -1,3 +1,4 @@
+use crate::filesystem::ScanExclusionOptions;
 use std::{
     fs,
     path::{Path, PathBuf},
@@ -10,7 +11,7 @@ use std::{
 
 use crate::filesystem::metadata::{
     diagnostic_path, finalize_metadata_fingerprint, is_link_like, metadata_fingerprint_entry,
-    modified_ms, now_ms,
+    modified_ms, native_path_string, now_ms,
 };
 use crate::shared::operation::{
     CoordinatedOperationKind, OperationGuard, OPERATION_CANCELLED_ERROR,
@@ -165,9 +166,16 @@ struct IndexPublicationOptions<'a> {
     expected_mutation_revision: u64,
     configuration_fingerprint: [u8; 32],
     excluded_roots: &'a [PathBuf],
+    excluded_names: &'a mangodisk_platform::NameExclusions,
 }
 
 pub(crate) struct StorageTraversal;
+
+pub(crate) struct AnalysisTraversalSnapshot {
+    pub(crate) result: AnalysisResult,
+    pub(crate) diagnostics: AnalysisScanDiagnostics,
+    pub(crate) exclusions: ScanExclusionOptions,
+}
 
 impl StorageTraversal {
     pub fn cancel_analysis() {
@@ -186,16 +194,6 @@ impl StorageTraversal {
         Self::analyze_path_with_diagnostics(path, refresh, callback).map(|(result, _)| result)
     }
 
-    pub fn analyze_path_with_exclusions_progress(
-        path: Option<String>,
-        refresh: bool,
-        excluded_paths: Vec<String>,
-        callback: impl Fn(TraversalProgress) + Send + Sync + 'static,
-    ) -> CoreResult<AnalysisResult> {
-        Self::analyze_path_with_exclusions_diagnostics(path, refresh, excluded_paths, callback)
-            .map(|(result, _)| result)
-    }
-
     pub(crate) fn analyze_path_with_diagnostics(
         path: Option<String>,
         refresh: bool,
@@ -207,9 +205,20 @@ impl StorageTraversal {
     pub(crate) fn analyze_path_with_exclusions_diagnostics(
         path: Option<String>,
         refresh: bool,
-        excluded_paths: Vec<String>,
+        excluded_paths: impl Into<ScanExclusionOptions>,
         callback: impl Fn(TraversalProgress) + Send + Sync + 'static,
     ) -> CoreResult<(AnalysisResult, AnalysisScanDiagnostics)> {
+        Self::analyze_path_with_exclusions_snapshot(path, refresh, excluded_paths, callback)
+            .map(|snapshot| (snapshot.result, snapshot.diagnostics))
+    }
+
+    pub(crate) fn analyze_path_with_exclusions_snapshot(
+        path: Option<String>,
+        refresh: bool,
+        excluded_paths: impl Into<ScanExclusionOptions>,
+        callback: impl Fn(TraversalProgress) + Send + Sync + 'static,
+    ) -> CoreResult<AnalysisTraversalSnapshot> {
+        let excluded_paths = excluded_paths.into();
         let operation = OperationGuard::start(CoordinatedOperationKind::Analysis)?;
         let started = Instant::now();
         let mut diagnostics = AnalysisScanDiagnostics::default();
@@ -222,7 +231,24 @@ impl StorageTraversal {
                 "the analysis root must be a directory",
             ));
         }
-        let exclusions = StorageScanExclusions::resolve(&root, &excluded_paths)?;
+        let exclusions = StorageScanExclusions::resolve_options(&root, &excluded_paths)?;
+        // Deletion must use the same resolved paths as traversal, including system aliases.
+        // Capture them now so later filesystem changes cannot rewrite the scan's safety policy.
+        let resolved_options = ScanExclusionOptions {
+            paths: exclusions
+                .roots()
+                .iter()
+                .map(|path| native_path_string(path))
+                .collect(),
+            names: excluded_paths.names,
+        };
+        if exclusions.names().matches_path(&root) {
+            log::info!("analysis_scan_root_excluded operation_id={} root={} reason=nameExclusion outcome=blocked", operation.id(), diagnostic_path(&root));
+            return Err(
+                CoreError::invalid_input("the analysis root is excluded by name")
+                    .with_reason(crate::CoreErrorReason::AnalysisRootExcluded),
+            );
+        }
         if let Some(excluded_root) = exclusions
             .roots()
             .iter()
@@ -240,7 +266,7 @@ impl StorageTraversal {
             .with_reason(crate::CoreErrorReason::AnalysisRootExcluded));
         }
         log::info!(
-            "analysis_scan_started operation_id={} platform={} root={} refresh={} requested_exclusions={} active_exclusions={} unavailable_exclusions={} out_of_scope_exclusions={}",
+            "analysis_scan_started operation_id={} platform={} root={} refresh={} requested_path_exclusions={} active_path_exclusions={} unavailable_exclusions={} out_of_scope_exclusions={}",
             operation.id(),
             current_platform().os_name(),
             diagnostic_path(&root),
@@ -266,7 +292,11 @@ impl StorageTraversal {
                 if let Some(result) = cache::analysis_result(&root)? {
                     diagnostics.fast_path = "cache";
                     operation.complete();
-                    return Ok((result, diagnostics));
+                    return Ok(AnalysisTraversalSnapshot {
+                        result,
+                        diagnostics,
+                        exclusions: resolved_options,
+                    });
                 }
             }
             CacheReuseDecision::Miss => {}
@@ -360,6 +390,7 @@ impl StorageTraversal {
             &completed_sink.directories,
             &completed_sink.files,
             exclusions.roots(),
+            exclusions.names(),
         )?;
         diagnostics.result_build_ms = result_build_started.elapsed().as_millis() as u64;
         let cache_write_started = Instant::now();
@@ -368,6 +399,7 @@ impl StorageTraversal {
             root_aggregate,
             completed_sink,
             IndexPublicationOptions {
+                excluded_names: exclusions.names(),
                 purpose: ScanPurpose::Analysis,
                 refresh,
                 generation: operation.id(),
@@ -378,7 +410,7 @@ impl StorageTraversal {
         )?;
         diagnostics.cache_write_ms = cache_write_started.elapsed().as_millis() as u64;
         log::info!(
-            "analysis_scan_finished operation_id={} root={} total_bytes={} entry_count={} skipped_count={} active_exclusions={} elapsed_ms={}",
+            "analysis_scan_finished operation_id={} root={} total_bytes={} entry_count={} skipped_count={} active_path_exclusions={} elapsed_ms={}",
             operation.id(),
             diagnostic_path(&root),
             result.total_bytes,
@@ -388,16 +420,21 @@ impl StorageTraversal {
             started.elapsed().as_millis()
         );
         operation.complete();
-        Ok((result, diagnostics))
+        Ok(AnalysisTraversalSnapshot {
+            result,
+            diagnostics,
+            exclusions: resolved_options,
+        })
     }
 
     pub fn find_large_files_with_progress(
         roots: Vec<String>,
         minimum_bytes: u64,
         scan_mode: LargeFileScanMode,
-        excluded_paths: Vec<String>,
+        excluded_paths: impl Into<ScanExclusionOptions>,
         callback: impl Fn(TraversalProgress) + Send + Sync + 'static,
     ) -> CoreResult<LargeFilesResult> {
+        let excluded_paths = excluded_paths.into();
         Self::find_large_files_with_diagnostics(
             roots,
             minimum_bytes,
@@ -412,9 +449,10 @@ impl StorageTraversal {
         roots: Vec<String>,
         minimum_bytes: u64,
         scan_mode: LargeFileScanMode,
-        excluded_paths: Vec<String>,
+        excluded_paths: impl Into<ScanExclusionOptions>,
         callback: impl Fn(TraversalProgress) + Send + Sync + 'static,
     ) -> CoreResult<(LargeFilesResult, LargeFileScanDiagnostics)> {
+        let excluded_paths = excluded_paths.into();
         let operation = OperationGuard::start(CoordinatedOperationKind::LargeFiles)?;
         let started = Instant::now();
         let roots = normalize_large_file_roots(roots)?;
@@ -456,12 +494,12 @@ impl StorageTraversal {
             ));
             let root_log = diagnostic_path(root);
             let mut diagnostics = LargeFileScanDiagnostics::default();
-            let mut exclusions = StorageScanExclusions::resolve(root, &excluded_paths)?;
+            let mut exclusions = StorageScanExclusions::resolve_options(root, &excluded_paths)?;
             let delegated_roots = exclusions.delegate_selected_descendants(root, &roots);
 
             let result_minimum_bytes = minimum_bytes.max(LARGE_FILE_CANDIDATE_FLOOR_BYTES);
             log::info!(
-                "large_file_scan_started delegated_roots={delegated_roots} root_index={root_index} root_count={root_count} operation_id={} platform={} root={} mode={} requested_minimum_bytes={} result_minimum_bytes={} candidate_floor_bytes={} requested_exclusions={} active_exclusions={} unavailable_exclusions={} out_of_scope_exclusions={}",
+                "large_file_scan_started delegated_roots={delegated_roots} root_index={root_index} root_count={root_count} operation_id={} platform={} root={} mode={} requested_minimum_bytes={} result_minimum_bytes={} candidate_floor_bytes={} requested_path_exclusions={} active_path_exclusions={} unavailable_exclusions={} out_of_scope_exclusions={}",
                 operation.id(),
                 current_platform().os_name(),
                 diagnostic_path(root),
@@ -1231,6 +1269,7 @@ fn stream_complete_large_files(
     )?;
     let summary = current_platform().fast_analysis_records(
         FastAnalysisQuery {
+            name_exclusions: exclusions.names(),
             excluded_roots: exclusions.roots(),
             root,
             purpose: ScanPurpose::LargeFiles,
@@ -1327,6 +1366,7 @@ fn stream_fast_analysis_once(
     let mut progress_validation = FastAnalysisProgressValidation::new(root, progress);
     let summary = current_platform().fast_analysis_records(
         FastAnalysisQuery {
+            name_exclusions: exclusions.names(),
             excluded_roots: exclusions.roots(),
             root,
             purpose: ScanPurpose::Analysis,
@@ -1491,7 +1531,8 @@ fn publish_completed_index(
             options.expected_mutation_revision,
         )
         .with_configuration_fingerprint(options.configuration_fingerprint)
-        .with_excluded_roots(options.excluded_roots),
+        .with_excluded_roots(options.excluded_roots)
+        .with_excluded_names(options.excluded_names),
     )?;
     Ok(())
 }

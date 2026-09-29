@@ -21,6 +21,8 @@ const errorMessage = computed(() => {
       return t('errorReasons.folderUnavailable.message');
     case 'analysisRootExcluded':
       return t('errorReasons.analysisRootExcluded.message');
+    case 'scanExclusionsChanged':
+      return t('errorReasons.scanExclusionsChanged.message');
     case 'folderSelectionLimitExceeded':
       return t('errorReasons.folderSelectionLimitExceeded.message');
     case 'scanResourcesReleasing':
@@ -44,6 +46,8 @@ const errorTitle = computed(() => {
       return t('errorReasons.folderUnavailable.title');
     case 'analysisRootExcluded':
       return t('errorReasons.analysisRootExcluded.title');
+    case 'scanExclusionsChanged':
+      return t('errorReasons.scanExclusionsChanged.title');
     case 'folderSelectionLimitExceeded':
       return t('errorReasons.folderSelectionLimitExceeded.title');
     case 'scanResourcesReleasing':

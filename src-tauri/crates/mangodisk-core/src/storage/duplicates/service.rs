@@ -1,3 +1,4 @@
+use crate::filesystem::ScanExclusionOptions;
 use std::{
     collections::{HashMap, HashSet},
     fs::{self, File},
@@ -504,6 +505,7 @@ impl NativeCandidateCollector<'_> {
         let mut pruned_roots = HashSet::<PathBuf>::new();
         let summary = current_platform().fast_analysis_records(
             FastAnalysisQuery {
+                name_exclusions: self.exclusions.names(),
                 excluded_roots: self.exclusions.roots(),
                 root,
                 purpose: ScanPurpose::DuplicateFiles,
@@ -618,11 +620,12 @@ impl DuplicateFileService {
 
     pub fn find_paged_with_locations_and_exclusions(
         locations: Vec<DuplicateScanLocation>,
-        excluded_paths: Vec<String>,
+        excluded_paths: impl Into<ScanExclusionOptions>,
         minimum_bytes: u64,
         progress_callback: impl ProgressSink,
         group_callback: impl Fn(DuplicateGroupBatch) + Send + Sync + 'static,
     ) -> CoreResult<DuplicateFilesResult> {
+        let excluded_paths = excluded_paths.into();
         let roots = locations
             .iter()
             .map(|location| location.path.clone())
@@ -645,11 +648,12 @@ impl DuplicateFileService {
     fn find_paged_with_protected_roots(
         roots: Vec<String>,
         protected_roots: Vec<String>,
-        excluded_paths: Vec<String>,
+        excluded_paths: impl Into<ScanExclusionOptions>,
         minimum_bytes: u64,
         progress_callback: impl ProgressSink,
         group_callback: impl Fn(DuplicateGroupBatch) + Send + Sync + 'static,
     ) -> CoreResult<DuplicateFilesResult> {
+        let excluded_paths = excluded_paths.into();
         clear_result_session()?;
         let (result, _) = Self::find_with_protection_stream_diagnostics(
             roots,
@@ -799,11 +803,12 @@ impl DuplicateFileService {
     fn find_with_protection_stream_diagnostics(
         roots: Vec<String>,
         protected_roots: Vec<String>,
-        excluded_paths: Vec<String>,
+        excluded_paths: impl Into<ScanExclusionOptions>,
         minimum_bytes: u64,
         progress_callback: impl Fn(TraversalProgress) + Send + Sync + 'static,
         group_callback: impl Fn(DuplicateGroupBatch) + Send + Sync + 'static,
     ) -> CoreResult<(DuplicateFilesResult, DuplicateScanDiagnostics)> {
+        let excluded_paths = excluded_paths.into();
         Self::find_with_sample_plan_stream_diagnostics(
             roots,
             protected_roots,
@@ -818,12 +823,13 @@ impl DuplicateFileService {
     fn find_with_sample_plan_stream_diagnostics(
         roots: Vec<String>,
         protected_roots: Vec<String>,
-        excluded_paths: Vec<String>,
+        excluded_paths: impl Into<ScanExclusionOptions>,
         minimum_bytes: u64,
         sample_plan: SamplePlan,
         progress_callback: impl Fn(TraversalProgress) + Send + Sync + 'static,
         group_callback: impl Fn(DuplicateGroupBatch) + Send + Sync + 'static,
     ) -> CoreResult<(DuplicateFilesResult, DuplicateScanDiagnostics)> {
+        let excluded_paths = excluded_paths.into();
         Self::find_with_options_stream_diagnostics(
             roots,
             protected_roots,
@@ -863,12 +869,13 @@ impl DuplicateFileService {
     fn find_with_options_stream_diagnostics(
         roots: Vec<String>,
         protected_roots: Vec<String>,
-        excluded_paths: Vec<String>,
+        excluded_paths: impl Into<ScanExclusionOptions>,
         minimum_bytes: u64,
         options: DuplicateExecutionOptions,
         progress_callback: impl Fn(TraversalProgress) + Send + Sync + 'static,
         group_callback: impl Fn(DuplicateGroupBatch) + Send + Sync + 'static,
     ) -> CoreResult<(DuplicateFilesResult, DuplicateScanDiagnostics)> {
+        let excluded_paths = excluded_paths.into();
         let DuplicateExecutionOptions {
             sample_plan,
             worker_override,
@@ -889,7 +896,7 @@ impl DuplicateFileService {
         let exclusions = roots
             .iter()
             .map(|root| {
-                let mut exclusions = StorageScanExclusions::resolve(root, &excluded_paths)?;
+                let mut exclusions = StorageScanExclusions::resolve_options(root, &excluded_paths)?;
                 exclusions.delegate_selected_descendants(root, &roots);
                 Ok(exclusions)
             })
@@ -970,7 +977,7 @@ impl DuplicateFileService {
         for (root_ordinal, root) in roots.iter().enumerate() {
             let exclusions = &exclusions[root_ordinal];
             log::info!(
-                "duplicate_scan_root_started operation_id={} platform={} root={} root_index={} root_count={} requested_exclusions={} active_exclusions={} unavailable_exclusions={} out_of_scope_exclusions={}",
+                "duplicate_scan_root_started operation_id={} platform={} root={} root_index={} root_count={} requested_path_exclusions={} active_path_exclusions={} unavailable_exclusions={} out_of_scope_exclusions={}",
                 operation.id(),
                 current_platform().os_name(),
                 diagnostic_path(root),

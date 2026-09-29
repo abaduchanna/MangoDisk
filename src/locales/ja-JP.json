@@ -1686,7 +1686,7 @@
     },
     "analysisRootExcluded": {
       "title": "選択した場所は除外されています",
-      "message": "設定の「除外フォルダ」で該当フォルダの「ディスク容量分析」をオフにしてから、もう一度お試しください"
+      "message": "「設定 > スキャン除外」で一致するパスまたは名前のルールを調整し、ディスク使用量分析の除外を解除して再試行してください"
     },
     "resourceBusy": {
       "title": "項目は使用中です",
@@ -1707,6 +1707,10 @@
     "quickScanUnavailable": {
       "title": "クイックスキャンを使用できません",
       "message": "この場所では Spotlight の準備ができていません。完全スキャンを使用してください"
+    },
+    "scanExclusionsChanged": {
+      "title": "スキャン除外が変更されました",
+      "message": "再スキャンして新しい除外設定を適用してからクリーンアップしてください"
     }
   },
   "folderPicker": {
@@ -1932,13 +1936,14 @@
     "exclusionHint": "ここでは分析対象の内容のみを集計します。除外設定によってディスクの実際の使用量は変わりません"
   },
   "storageScanExclusions": {
-    "title": "除外フォルダ",
+    "title": "スキャンの除外",
     "activeLabel": "除外設定あり",
-    "resultHint": "このスキャンには除外設定が適用されています。結果に除外フォルダ内の内容が含まれない場合があります",
-    "cleanupResultHint": "プロジェクトのビルド成果物のスキャンでは除外フォルダをスキップします。他のクリーンアップ項目には影響しません",
-    "description": "これらのフォルダを除外する機能を選択",
+    "resultHint": "除外ルールを適用したため、結果に含まれない項目があります",
+    "cleanupResultHint": "除外ルールを適用しました。パスの除外はプロジェクトのビルド生成物にのみ適用されます",
+    "description": "除外する対象と適用する機能を選択",
     "chooseFolders": "除外するフォルダを選択",
     "folderCount": "{count} 個のフォルダ",
+    "nameCount": "{count} 件の名前",
     "addFolder": "フォルダを追加",
     "addingFolder": "追加中…",
     "removeFolder": "このフォルダを削除",
@@ -1946,7 +1951,29 @@
     "cleanupScopeHint": "開発プロジェクトのビルド成果物を探す際は、このフォルダをスキップします。他のディープクリーン項目では、フォルダ内が削除される場合があります",
     "limitReached": "除外できるフォルダは最大 {count} 個です",
     "save": "保存",
-    "saving": "保存中…"
+    "saving": "保存中…",
+    "pathsTab": "パスで指定",
+    "namesTab": "名前で指定",
+    "addName": "名前を追加",
+    "objectType": "種類",
+    "folderKind": "フォルダー",
+    "fileKind": "ファイル",
+    "exactName": "完全な名前",
+    "namePlaceholder": "例：node_modules",
+    "add": "追加",
+    "quickFill": "簡単入力",
+    "invalidName": "パスやワイルドカードを含まない有効な名前を入力してください",
+    "duplicateName": "この名前のルールは既に存在します",
+    "removeName": "{name} を削除",
+    "emptyNames": "除外するファイル名またはフォルダー名を追加",
+    "nameMatchHint": "大文字・小文字を区別して完全な名前を入力してください。パスやワイルドカードは使えません",
+    "nameUsageHint": "スキャン範囲内のすべての階層でファイル名・フォルダー名を完全一致で照合します。大文字と小文字を区別します",
+    "nameCleanupScopeHint": "ディープクリーンでは一致するファイルやフォルダーを保持します。一致するフォルダー内の内容も保持します",
+    "nameExampleHint": "例：node_modules は各プロジェクトの同名フォルダーに一致します",
+    "nameLimitReached": "名前のルールは最大 {count} 件まで追加できます",
+    "skipped": "スキップ済み",
+    "unsupportedCleaner": "名前による除外を安全に適用できません",
+    "cleanupNamesResultHint": "名前による除外を適用しました。非対応のクリーンアップ項目とアプリの残存データはスキップしました"
   },
   "largeFiles": {
     "title": "大容量ファイル",
@@ -2357,9 +2384,9 @@
     "title": "設定",
     "generalSection": "一般",
     "scanAnalysisSection": "スキャンと分析",
-    "scanExclusionsTitle": "除外フォルダ",
-    "scanExclusionsDescription": "スキャンごとに除外するフォルダを設定",
-    "scanExclusionsCount": "{count} フォルダ",
+    "scanExclusionsTitle": "スキャンの除外",
+    "scanExclusionsDescription": "機能ごとに除外するパスや名前を設定",
+    "scanExclusionsCount": "{count} 件のルール",
     "supportSection": "サポート",
     "aboutSection": "概要",
     "languageTitle": "言語",
@@ -3821,7 +3848,8 @@
       "preflightFailed": "選択したファイルを安全に確認できませんでした。変更はありません",
       "executionFailed": "クリーンアップは完了しませんでした。他のファイルは削除されませんでした",
       "verificationFailed": "クリーンアップは完了しましたが、MangoDiskは結果を確認できませんでした。再度スキャンしてください",
-      "cleanerUnavailable": "このクリーンアップオプションは現在利用できません。何も変更されませんでした"
+      "cleanerUnavailable": "このクリーンアップオプションは現在利用できません。何も変更されませんでした",
+      "nameExclusionsUnsupported": "名前の除外を安全に適用できないため、この項目はスキップされました"
     }
   },
   "monitoring": {

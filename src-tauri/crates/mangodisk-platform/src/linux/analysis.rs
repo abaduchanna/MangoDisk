@@ -104,6 +104,7 @@ struct DirectoryReadResult {
 
 #[derive(Clone)]
 struct DirectoryReadPolicy {
+    name_exclusions: crate::NameExclusions,
     excluded_roots: Arc<[PathBuf]>,
     root_device: u64,
     purpose: ScanPurpose,
@@ -306,6 +307,7 @@ pub(super) fn analyze_records(
     let task_queue = Arc::new(DirectoryTaskQueue::default());
     let abort = Arc::new(AtomicBool::new(false));
     let policy = DirectoryReadPolicy {
+        name_exclusions: query.name_exclusions.clone(),
         excluded_roots: Arc::from(query.excluded_roots),
         root_device: root_metadata.dev(),
         purpose: query.purpose,
@@ -467,6 +469,12 @@ fn read_directory(
         };
         if metadata.file_type().is_symlink() || metadata.dev() != policy.root_device {
             totals.skip_entry()?;
+            continue;
+        }
+        if policy
+            .name_exclusions
+            .matches_entry(&path, metadata.is_dir())
+        {
             continue;
         }
         if metadata.is_dir() {
@@ -685,6 +693,7 @@ mod tests {
         let summary = analyze_records(
             &LinuxPlatform,
             FastAnalysisQuery {
+                name_exclusions: &crate::NameExclusions::default(),
                 excluded_roots: &[],
                 root: &root,
                 purpose: ScanPurpose::Analysis,
@@ -730,6 +739,7 @@ mod tests {
         let result = analyze_records(
             &LinuxPlatform,
             FastAnalysisQuery {
+                name_exclusions: &crate::NameExclusions::default(),
                 excluded_roots: &[],
                 root: &root,
                 purpose: ScanPurpose::Analysis,
@@ -758,6 +768,7 @@ mod tests {
             let result = analyze_records(
                 &LinuxPlatform,
                 FastAnalysisQuery {
+                    name_exclusions: &crate::NameExclusions::default(),
                     excluded_roots: &[],
                     root: &scan_root,
                     purpose: ScanPurpose::Analysis,

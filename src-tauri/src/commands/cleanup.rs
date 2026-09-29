@@ -2,6 +2,7 @@ use mangodisk_core::{
     ApplicationCloseBatchResult, CleanupApplicationCloseRequest, CleanupRequest, CleanupResult,
     CleanupScanResult, CleanupScanService, CleanupService, CustomCleanupRule, ScanRuleResult,
 };
+use mangodisk_core::{ScanExclusionOptions, ScanNameExclusion};
 use serde::Deserialize;
 
 use crate::events;
@@ -35,17 +36,21 @@ pub async fn scan_cleanup_candidates(
     app: tauri::AppHandle,
     scan_scope: Option<CleanupScanScope>,
     excluded_paths: Option<Vec<String>>,
+    excluded_names: Option<Vec<ScanNameExclusion>>,
 ) -> CommandResult<CleanupScanResult> {
     run_blocking("scan_cleanup_candidates", move || {
         let progress = move |value| events::emit(&app, events::CLEANUP_SCAN_PROGRESS, value);
-        let excluded_paths = excluded_paths.unwrap_or_default();
+        let excluded_paths = ScanExclusionOptions {
+            paths: excluded_paths.unwrap_or_default(),
+            names: excluded_names.unwrap_or_default(),
+        };
         match scan_scope.unwrap_or_default() {
             CleanupScanScope::Standard => {
-                CleanupScanService::scan_with_excluded_paths(excluded_paths, progress)
+                CleanupScanService::scan_with_exclusions(excluded_paths, progress)
             }
             CleanupScanScope::SelectedVolumes {
                 volume_mount_points,
-            } => CleanupScanService::scan_with_selected_volumes_and_excluded_paths(
+            } => CleanupScanService::scan_with_selected_volumes_and_exclusions(
                 volume_mount_points,
                 excluded_paths,
                 progress,
@@ -54,7 +59,7 @@ pub async fn scan_cleanup_candidates(
                 rules,
                 include_standard_rules,
                 ..
-            } => CleanupScanService::scan_with_custom_rules_and_excluded_paths(
+            } => CleanupScanService::scan_with_custom_rules_and_exclusions(
                 rules,
                 include_standard_rules,
                 excluded_paths,
@@ -101,6 +106,7 @@ pub async fn execute_cleanup(
     mut request: CleanupRequest,
     scan_scope: Option<CleanupScanScope>,
     excluded_paths: Option<Vec<String>>,
+    excluded_names: Option<Vec<ScanNameExclusion>>,
     deep_cleanup_operation_id: String,
 ) -> CommandResult<CleanupResult> {
     // Arbitrary WebView paths remain untrusted. Execution replaces them with
@@ -108,12 +114,12 @@ pub async fn execute_cleanup(
     // volume scope can be reproduced without widening it to arbitrary folders.
     request.project_roots.clear();
     run_blocking("execute_cleanup", move || {
-        let excluded_paths = excluded_paths.unwrap_or_default();
+        let excluded_paths = ScanExclusionOptions { paths: excluded_paths.unwrap_or_default(), names: excluded_names.unwrap_or_default() };
         let progress = move |value| {
             events::emit(&app, events::CLEANUP_EXECUTION_PROGRESS, value);
         };
         match scan_scope.unwrap_or_default() {
-            CleanupScanScope::Standard => CleanupService::execute_deep_cleanup_step_with_excluded_paths_and_progress(
+            CleanupScanScope::Standard => CleanupService::execute_deep_cleanup_step_with_exclusions_and_progress(
                 request,
                 deep_cleanup_operation_id,
                 excluded_paths,
@@ -123,7 +129,7 @@ pub async fn execute_cleanup(
                 volume_mount_points,
             } => {
                 request.project_roots = volume_mount_points;
-                CleanupService::execute_deep_cleanup_step_with_selected_volumes_and_excluded_paths_and_progress(
+                CleanupService::execute_deep_cleanup_step_with_selected_volumes_and_exclusions_and_progress(
                     request,
                     deep_cleanup_operation_id,
                     excluded_paths,
@@ -137,7 +143,7 @@ pub async fn execute_cleanup(
             } => {
                 let scan_id = scan_id
                     .ok_or_else(|| "the custom cleanup result expired; scan again".to_string())?;
-                CleanupService::execute_deep_cleanup_step_with_custom_rules_and_excluded_paths_and_progress(
+                CleanupService::execute_deep_cleanup_step_with_custom_rules_and_exclusions_and_progress(
                     request,
                     deep_cleanup_operation_id,
                     scan_id,

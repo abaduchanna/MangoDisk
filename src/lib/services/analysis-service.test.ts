@@ -19,6 +19,7 @@ describe('AnalysisService', () => {
     expect(invokeMock).toHaveBeenCalledWith('analyze_path', {
       path: '/fixture',
       refresh: false,
+      excludedNames: [],
       excludedPaths: ['/fixture/cache'],
     });
   });
@@ -29,6 +30,7 @@ describe('AnalysisService', () => {
     expect(invokeMock).toHaveBeenCalledWith('analyze_path', {
       path: null,
       refresh: true,
+      excludedNames: [],
       excludedPaths: [],
     });
   });

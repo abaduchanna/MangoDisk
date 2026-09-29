@@ -55,6 +55,12 @@ const COMMAND_DIAGNOSTIC_LIMIT_BYTES: usize = 64 * 1024;
 const SPOTLIGHT_STATUS_TIMEOUT: Duration = Duration::from_secs(3);
 const SPOTLIGHT_QUERY_TIMEOUT: Duration = Duration::from_secs(5);
 
+const SYSTEM_PATH_ALIASES: [(&str, &str); 3] = [
+    ("/private/var", "/var"),
+    ("/private/tmp", "/tmp"),
+    ("/private/etc", "/etc"),
+];
+
 pub struct MacOsPlatform;
 
 // macOS has no supported local AI model store yet; keep the default empty
@@ -297,7 +303,21 @@ impl Platform for MacOsPlatform {
         // link would break cleanup, duplicate scanning, and development scopes under /tmp.
         // Only the exact system aliases are accepted; descendants and user-created links cannot
         // use this exception to bypass scope validation.
-        matches!(path.to_str(), Some("/var" | "/tmp" | "/etc"))
+        SYSTEM_PATH_ALIASES
+            .iter()
+            .any(|(_, alias)| path == Path::new(alias))
+    }
+
+    fn system_path_aliases(&self, canonical: &Path) -> Vec<PathBuf> {
+        SYSTEM_PATH_ALIASES
+            .iter()
+            .filter_map(|(root, alias)| {
+                canonical
+                    .strip_prefix(root)
+                    .ok()
+                    .map(|suffix| PathBuf::from(alias).join(suffix))
+            })
+            .collect()
     }
 
     fn should_skip(
@@ -432,6 +452,7 @@ impl Platform for MacOsPlatform {
         analysis::analyze_records(
             self,
             analysis::AnalysisScanRequest {
+                name_exclusions: query.name_exclusions,
                 excluded_roots: query.excluded_roots,
                 root: query.root,
                 purpose: query.purpose,
@@ -1003,6 +1024,19 @@ mod tests {
             None,
             "large-file discovery must retain user application data"
         );
+    }
+
+    #[test]
+    fn system_path_aliases_preserve_component_boundaries() {
+        for (canonical, alias) in SYSTEM_PATH_ALIASES {
+            assert_eq!(
+                MacOsPlatform.system_path_aliases(&Path::new(canonical).join("fixture/keep")),
+                vec![Path::new(alias).join("fixture/keep")]
+            );
+            assert!(MacOsPlatform
+                .system_path_aliases(Path::new(&format!("{canonical}-other")))
+                .is_empty());
+        }
     }
 
     #[test]

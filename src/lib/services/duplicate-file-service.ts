@@ -1,3 +1,4 @@
+import type { ScanNameExclusion } from '@/lib/models/storage-scan';
 import { invoke } from '@tauri-apps/api/core';
 import { listen, type UnlistenFn } from '@tauri-apps/api/event';
 
@@ -15,12 +16,14 @@ export class DuplicateFileService {
   static find(
     locations: DuplicateScanLocation[],
     minimumBytes: number,
-    excludedFolders: string[]
+    excludedFolders: string[],
+    excludedNames: ScanNameExclusion[] = []
   ): Promise<DuplicateFilesResult> {
     return invoke<DuplicateFilesResult>('find_duplicate_files', {
       locations,
       minimumBytes,
       excludedPaths: excludedFolders,
+      excludedNames,
     });
   }
 

@@ -620,7 +620,11 @@ fn execute_rule_with_process_check(
             failed_item_count = failed_item_count.saturating_add(1);
             break;
         }
-        if exclusions.intersects(&candidate.path) {
+        if exclusions.protects_tree(&candidate.path, &|| {
+            operation
+                .cancelled()
+                .load(std::sync::atomic::Ordering::Relaxed)
+        }) {
             failed_item_count = failed_item_count.saturating_add(1);
             preflight_failed_count = preflight_failed_count.saturating_add(1);
             log::warn!(
@@ -724,7 +728,19 @@ fn execute_rule_with_process_check(
             );
             continue;
         }
-        match delete_path_permanently(prepared, live.measured.bytes, live.measured.file_count) {
+        let deletion = if exclusions.has_names() {
+            crate::filesystem::permanent_delete::delete_directory_tree_with_name_exclusions(
+                prepared,
+                live.measured.bytes,
+                live.measured.file_count,
+                exclusions.names(),
+                &|| operation.cancelled().load(Ordering::Relaxed),
+            )
+            .map(|_| ())
+        } else {
+            delete_path_permanently(prepared, live.measured.bytes, live.measured.file_count)
+        };
+        match deletion {
             Ok(()) => {
                 released_bytes = released_bytes.saturating_add(live.measured.bytes);
                 affected_item_count = affected_item_count.saturating_add(live.measured.file_count);
@@ -2240,7 +2256,7 @@ fn collect_artifact_drafts(
             match artifact {
                 ProjectArtifactSource::RelativeDirectory { path } => {
                     let candidate = join_rule_path(&project.project_root, path);
-                    if exclusions.intersects(&candidate) {
+                    if exclusions.protects_tree(&candidate, is_cancelled) {
                         log::debug!(
                             "project_artifact_candidate_skipped rule_id={} path={} reason=excludedFolderOverlap",
                             rules[project.rule_index].id,
@@ -2307,7 +2323,7 @@ fn discover_descendant_artifacts(
                 .map(|value| value.to_string_lossy())
                 .unwrap_or_default();
             if path_name_eq(&name, target_name) {
-                if exclusions.intersects(&child) {
+                if exclusions.protects_tree(&child, is_cancelled) {
                     log::debug!(
                         "project_artifact_candidate_skipped project_root={} path={} reason=excludedFolderOverlap",
                         diagnostic_path(&project.project_root),

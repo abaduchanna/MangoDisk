@@ -244,6 +244,7 @@ pub enum ProjectMarkerCandidateScanError {
 /// protection boundaries. Keeping the query typed prevents the analysis and duplicate adapters
 /// from silently drifting as native traversal evolves.
 pub struct FastAnalysisQuery<'a> {
+    pub name_exclusions: &'a super::NameExclusions,
     /// Canonical subtrees to skip before opening their directories.
     pub excluded_roots: &'a [PathBuf],
     pub root: &'a Path,

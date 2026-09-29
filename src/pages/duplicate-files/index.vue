@@ -156,14 +156,20 @@ const resultMatchesScope = computed(() =>
     StorageScanPreferenceUtils.sameExcludedFolders(
       storageScanPreferencesStore.pathsForScope('duplicateFiles'),
       duplicateFilesStore.resultExcludedFolders
+    ) &&
+    StorageScanPreferenceUtils.sameExcludedNames(
+      storageScanPreferencesStore.namesForScope('duplicateFiles'),
+      duplicateFilesStore.resultExcludedNames
     )
   )
 );
-const resultHasRelevantExclusions = computed(() =>
-  StorageScanPreferenceUtils.hasExcludedFolderInScanRoots(
-    props.result?.roots ?? [],
-    duplicateFilesStore.resultExcludedFolders
-  )
+const resultHasRelevantExclusions = computed(
+  () =>
+    duplicateFilesStore.resultExcludedNames.length > 0 ||
+    StorageScanPreferenceUtils.hasExcludedFolderInScanRoots(
+      props.result?.roots ?? [],
+      duplicateFilesStore.resultExcludedFolders
+    )
 );
 const progressTitle = computed(() => {
   if (props.cancelling) return t('loading.cancelling');

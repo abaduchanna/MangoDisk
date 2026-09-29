@@ -1,5 +1,8 @@
 import {
   MAX_SCAN_EXCLUDED_FOLDERS,
+  MAX_SCAN_EXCLUDED_NAMES,
+  type ScanExcludedName,
+  type ScanNameExclusion,
   SCAN_EXCLUSION_PREFERENCES_SCHEMA_VERSION,
   SCAN_EXCLUSION_SCOPES,
   type ScanExcludedFolder,
@@ -8,7 +11,7 @@ import {
 } from '@/lib/models/storage-scan';
 import * as PathUtils from '@/lib/utils/path';
 
-export type ScanExclusionPreferenceErrorCode = 'schemaVersionMismatch' | 'foldersInvalid';
+export type ScanExclusionPreferenceErrorCode = 'schemaVersionMismatch' | 'foldersInvalid' | 'namesInvalid';
 
 export class ScanExclusionPreferenceError extends Error {
   constructor(readonly code: ScanExclusionPreferenceErrorCode) {
@@ -20,11 +23,14 @@ export class ScanExclusionPreferenceError extends Error {
 const scopeOrder = Object.values(SCAN_EXCLUSION_SCOPES);
 
 export function empty(): ScanExclusionPreferences {
-  return { schemaVersion: SCAN_EXCLUSION_PREFERENCES_SCHEMA_VERSION, folders: [] };
+  return { schemaVersion: SCAN_EXCLUSION_PREFERENCES_SCHEMA_VERSION, folders: [], names: [] };
 }
 
 export function parse(value: unknown): ScanExclusionPreferences {
-  if (!isRecord(value) || value.schemaVersion !== SCAN_EXCLUSION_PREFERENCES_SCHEMA_VERSION) {
+  if (
+    !isRecord(value) ||
+    (value.schemaVersion !== 2 && value.schemaVersion !== SCAN_EXCLUSION_PREFERENCES_SCHEMA_VERSION)
+  ) {
     throw new ScanExclusionPreferenceError('schemaVersionMismatch');
   }
   if (!Array.isArray(value.folders) || value.folders.length > MAX_SCAN_EXCLUDED_FOLDERS) {
@@ -48,7 +54,31 @@ export function parse(value: unknown): ScanExclusionPreferences {
     return { path, scopes };
   });
 
-  return { schemaVersion: SCAN_EXCLUSION_PREFERENCES_SCHEMA_VERSION, folders };
+  // Version 2 contains paths only. Preserve their scopes without enabling new rules.
+  const rawNames = value.schemaVersion === 2 ? [] : value.names;
+  if (!Array.isArray(rawNames) || rawNames.length > MAX_SCAN_EXCLUDED_NAMES) {
+    throw new ScanExclusionPreferenceError('namesInvalid');
+  }
+  const seenNames = new Set<string>();
+  const names: ScanExcludedName[] = rawNames.map(item => {
+    if (
+      !isRecord(item) ||
+      typeof item.name !== 'string' ||
+      !validExcludedName(item.name) ||
+      (item.kind !== 'file' && item.kind !== 'folder') ||
+      !Array.isArray(item.scopes)
+    ) {
+      throw new ScanExclusionPreferenceError('namesInvalid');
+    }
+    const key = `${item.kind}:${item.name}`;
+    const scopes = scopeOrder.filter(scope => (item.scopes as unknown[]).includes(scope));
+    if (seenNames.has(key) || !scopes.length || scopes.length !== item.scopes.length) {
+      throw new ScanExclusionPreferenceError('namesInvalid');
+    }
+    seenNames.add(key);
+    return { name: item.name, kind: item.kind, scopes };
+  });
+  return { schemaVersion: SCAN_EXCLUSION_PREFERENCES_SCHEMA_VERSION, folders, names };
 }
 
 /** The first shared schema affected both file scans, not space analysis. */
@@ -68,6 +98,7 @@ function fromLegacyList(value: unknown, scopes: ScanExclusionScope[]): ScanExclu
   return parse({
     schemaVersion: SCAN_EXCLUSION_PREFERENCES_SCHEMA_VERSION,
     folders: value.excludedFolders.map(path => ({ path, scopes })),
+    names: [],
   });
 }
 
@@ -100,4 +131,27 @@ export function errorCode(error: unknown): ScanExclusionPreferenceErrorCode | 'u
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
+
+/** Exact, case-sensitive names have identical behavior on every supported platform. */
+export function validExcludedName(name: string): boolean {
+  return Boolean(
+    name &&
+    name === name.trim() &&
+    name !== '.' &&
+    name !== '..' &&
+    new TextEncoder().encode(name).length <= 255 &&
+    !/[\\/:*?"<>|\p{Cc}]/u.test(name)
+  );
+}
+
+export function namesForScope(names: readonly ScanExcludedName[], scope: ScanExclusionScope): ScanNameExclusion[] {
+  return names.filter(item => item.scopes.includes(scope)).map(({ name, kind }) => ({ name, kind }));
+}
+
+export function sameExcludedNames(left: readonly ScanNameExclusion[], right: readonly ScanNameExclusion[]): boolean {
+  const keys = (items: readonly ScanNameExclusion[]) => items.map(item => `${item.kind}:${item.name}`).sort();
+  const a = keys(left),
+    b = keys(right);
+  return a.length === b.length && a.every((key, index) => key === b[index]);
 }

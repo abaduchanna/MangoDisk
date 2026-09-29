@@ -227,9 +227,13 @@ function updateTheme(value: unknown) {
         :description="t('settings.scanExclusionsDescription')"
         @click="emit('openScanExclusions')"
       >
-        <template #icon><MdIcon :name="ICON_NAMES.folder" /></template>
+        <template #icon><MdIcon :name="ICON_NAMES.filterX" /></template>
         <span class="row-action">
-          {{ t('settings.scanExclusionsCount', { count: scanExclusionStore.folders.length }) }}
+          {{
+            t('settings.scanExclusionsCount', {
+              count: scanExclusionStore.folders.length + scanExclusionStore.names.length,
+            })
+          }}
           <MdIcon :name="ICON_NAMES.chevronRight" :size="16" />
         </span>
       </MdSettingsRow>

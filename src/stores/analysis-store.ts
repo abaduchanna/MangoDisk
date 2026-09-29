@@ -1,3 +1,4 @@
+import type { ScanNameExclusion } from '@/lib/models/storage-scan';
 import { defineStore } from 'pinia';
 
 import { ANALYSIS_RESULT_CACHE_LIMIT } from '@/lib/models/analysis';
@@ -18,6 +19,7 @@ interface AnalysisState {
   cache: Record<string, AnalysisResult>;
   cacheOrder: string[];
   scanExcludedFolders: string[];
+  scanExcludedNames: ScanNameExclusion[];
   homePath: string;
   progress: TraversalProgress | null;
   pending: boolean;
@@ -32,6 +34,7 @@ export const useAnalysisStore = defineStore('analysis', {
     cache: {},
     cacheOrder: [],
     scanExcludedFolders: [],
+    scanExcludedNames: [],
     homePath: '',
     progress: null,
     pending: false,
@@ -41,8 +44,13 @@ export const useAnalysisStore = defineStore('analysis', {
   }),
   actions: {
     invalidateResultForExclusionChange() {
+      const currentNames = useStorageScanPreferencesStore().namesForScope('analysis');
       const currentExclusions = useStorageScanPreferencesStore().pathsForScope('analysis');
-      if (StorageScanPreferenceUtils.sameExcludedFolders(this.scanExcludedFolders, currentExclusions)) return;
+      if (
+        StorageScanPreferenceUtils.sameExcludedFolders(this.scanExcludedFolders, currentExclusions) &&
+        StorageScanPreferenceUtils.sameExcludedNames(this.scanExcludedNames, currentNames)
+      )
+        return;
       const cachedResultCount = Object.keys(this.cache).length;
       if (this.result || cachedResultCount) {
         LoggerService.info(LOG_DOMAINS.analysis, LOG_EVENTS.analysisCacheConfigurationChanged, {
@@ -51,6 +59,8 @@ export const useAnalysisStore = defineStore('analysis', {
           cachedResultCount,
           previousExcludedFolderCount: this.scanExcludedFolders.length,
           currentExcludedFolderCount: currentExclusions.length,
+          previousExcludedNameCount: this.scanExcludedNames.length,
+          currentExcludedNameCount: currentNames.length,
         });
       }
       // Every cached folder result belongs to one exclusion configuration.
@@ -59,6 +69,7 @@ export const useAnalysisStore = defineStore('analysis', {
       this.cache = {};
       this.cacheOrder = [];
       this.scanExcludedFolders = currentExclusions;
+      this.scanExcludedNames = currentNames;
     },
     async analyze(path?: string, refresh = false, setHome = false) {
       if (this.pending || this.deleting) return;
@@ -73,6 +84,7 @@ export const useAnalysisStore = defineStore('analysis', {
       this.progress = null;
       let unlisten: (() => void) | undefined;
       let requestedExclusions: string[] = [];
+      let requestedNames: ScanNameExclusion[] = [];
       try {
         try {
           await preferences.initialize();
@@ -88,6 +100,7 @@ export const useAnalysisStore = defineStore('analysis', {
         if (this.cancelling) return;
         this.invalidateResultForExclusionChange();
         requestedExclusions = preferences.pathsForScope('analysis');
+        requestedNames = preferences.namesForScope('analysis');
         const targetKey = target ? AnalysisCacheUtils.key(target) : '';
         if (!refresh && targetKey && this.cache[targetKey]) {
           this.result = this.cache[targetKey];
@@ -110,11 +123,13 @@ export const useAnalysisStore = defineStore('analysis', {
           root: target,
           refresh,
           excludedFolderCount: requestedExclusions.length,
+          excludedNameCount: requestedNames.length,
         });
         this.scanStarted = true;
-        const result = await AnalysisService.analyze(target, refresh, requestedExclusions);
+        const result = await AnalysisService.analyze(target, refresh, requestedExclusions, requestedNames);
         if (
-          !StorageScanPreferenceUtils.sameExcludedFolders(requestedExclusions, preferences.pathsForScope('analysis'))
+          !StorageScanPreferenceUtils.sameExcludedFolders(requestedExclusions, preferences.pathsForScope('analysis')) ||
+          !StorageScanPreferenceUtils.sameExcludedNames(requestedNames, preferences.namesForScope('analysis'))
         ) {
           LoggerService.info(LOG_DOMAINS.analysis, LOG_EVENTS.staleScanResultIgnored, {
             operation: 'exclusion_preferences_changed',
@@ -138,6 +153,7 @@ export const useAnalysisStore = defineStore('analysis', {
             root: target,
             refresh,
             excludedFolderCount: requestedExclusions.length,
+            excludedNameCount: requestedNames.length,
             error,
           });
           appStore.reportError(error);

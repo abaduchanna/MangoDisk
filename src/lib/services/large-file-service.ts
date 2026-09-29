@@ -1,3 +1,4 @@
+import type { ScanNameExclusion } from '@/lib/models/storage-scan';
 import { invoke } from '@tauri-apps/api/core';
 import { listen, type UnlistenFn } from '@tauri-apps/api/event';
 
@@ -10,13 +11,15 @@ export class LargeFileService {
     roots: string[],
     minimumBytes: number,
     scanMode: LargeFileScanMode,
-    excludedFolders: string[]
+    excludedFolders: string[],
+    excludedNames: ScanNameExclusion[] = []
   ): Promise<LargeFilesResult> {
     return invoke<LargeFilesResult>('find_large_files', {
       roots,
       minimumBytes,
       scanMode,
       excludedPaths: excludedFolders,
+      excludedNames,
     });
   }
 

@@ -6,7 +6,7 @@ use super::*;
 pub(super) fn scan(
     roots: &[PathBuf],
     minimum_bytes: u64,
-    excluded_paths: &[String],
+    excluded_paths: &crate::filesystem::ScanExclusionOptions,
     operation: &OperationGuard,
     callback: impl Fn(TraversalProgress) + Send + Sync + 'static,
 ) -> CoreResult<(LargeFilesResult, LargeFileScanDiagnostics)> {
@@ -14,7 +14,7 @@ pub(super) fn scan(
     let scanned_at_ms = now_ms();
     let exclusions = roots
         .iter()
-        .map(|root| StorageScanExclusions::resolve(root, excluded_paths))
+        .map(|root| StorageScanExclusions::resolve_options(root, excluded_paths))
         .collect::<CoreResult<Vec<_>>>()?;
     // Total progress counts index queries, while the result retains all selected roots.
     let metadata = roots

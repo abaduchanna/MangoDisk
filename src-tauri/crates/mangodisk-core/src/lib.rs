@@ -54,7 +54,7 @@ pub use cleanup::{CleanupPlanService, CleanupScanService, CleanupService};
 pub use filesystem::{
     metadata::diagnostic_path, DirectorySelectionOutcome, DirectorySelectionService, DiskInfo,
     PermanentDeleteBatchResult, PermanentDeleteCandidate, PermanentDeleteFailure,
-    ResolvedDirectory,
+    ResolvedDirectory, ScanExclusionOptions,
 };
 pub use history::{
     ApplicationLeftoverOperationDetails, ApplicationUninstallOperationDetails,
@@ -66,6 +66,7 @@ pub use history::{
     SystemOptimizationHistoryItem, SystemOptimizationHistoryItemStatus,
     SystemOptimizationOperationDetails, OPERATION_RECORD_SCHEMA_VERSION,
 };
+pub use mangodisk_platform::{ExcludedNameKind, ScanNameExclusion};
 pub use privacy::{
     PrivacyBrowserCloseRequest, PrivacyBrowserCloseRequirement, PrivacyBrowserStatusRequest,
     PrivacyBrowserStatusResult, PrivacyBrowserStatusTarget, PrivacyCapabilityState,

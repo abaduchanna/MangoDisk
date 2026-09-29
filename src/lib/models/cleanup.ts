@@ -96,7 +96,7 @@ export type CleanupCategory =
   | 'container';
 export type CleanupResultGroup = (typeof CLEANUP_RESULT_GROUP_IDS)[keyof typeof CLEANUP_RESULT_GROUP_IDS];
 export type ScanItemStatus =
-  'found' | 'clean' | 'notApplicable' | 'requiresClose' | 'reviewOnly' | 'limited' | 'requiresElevation';
+  'found' | 'clean' | 'notApplicable' | 'requiresClose' | 'reviewOnly' | 'excluded' | 'limited' | 'requiresElevation';
 
 export interface CleanupSourceDetail {
   path: string;

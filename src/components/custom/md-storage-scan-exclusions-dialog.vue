@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import './scan-exclusions.css';
+
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue';
 import { useI18n } from 'vue-i18n';
 
@@ -7,6 +9,7 @@ import MdDialogFooter from '@/components/custom/md-dialog-footer.vue';
 import MdDialogHeader from '@/components/custom/md-dialog-header.vue';
 import MdIconAction from '@/components/custom/md-icon-action.vue';
 import MdIcon from '@/components/icons/md-icon.vue';
+import MdScanNameExclusionsEditor from '@/components/custom/md-scan-name-exclusions-editor.vue';
 import MdCheckbox from '@/components/custom/md-checkbox.vue';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogDescription, DialogTitle } from '@/components/ui/dialog';
@@ -15,6 +18,7 @@ import {
   MAX_SCAN_EXCLUDED_FOLDERS,
   SCAN_EXCLUSION_SCOPES,
   type ScanExcludedFolder,
+  type ScanExcludedName,
   type ScanExclusionScope,
 } from '@/lib/models/storage-scan';
 import { ICON_NAMES, TOOLTIP_OPEN_DELAY_MS } from '@/lib/models/ui';
@@ -26,17 +30,21 @@ import * as PathUtils from '@/lib/utils/path';
 const props = defineProps<{
   modelValue: boolean;
   folders: ScanExcludedFolder[];
+  names?: ScanExcludedName[];
   saving: boolean;
 }>();
 
 const emit = defineEmits<{
   'update:modelValue': [open: boolean];
-  save: [folders: ScanExcludedFolder[]];
+  save: [folders: ScanExcludedFolder[], names: ScanExcludedName[]];
   error: [error: unknown];
 }>();
 
 const { t } = useI18n({ useScope: 'global' });
 const draftFolders = ref<ScanExcludedFolder[]>([]);
+const draftNames = ref<ScanExcludedName[]>([]);
+const activeTab = ref('paths');
+const draftSession = ref(0);
 const scopes = Object.values(SCAN_EXCLUSION_SCOPES);
 // Space analysis starts as a complete view unless the user explicitly opts out of a folder.
 const defaultScopes = [
@@ -63,8 +71,11 @@ const addDisabled = computed(
 watch(
   () => props.modelValue,
   open => {
-    if (open) draftFolders.value = props.folders.map(folder => ({ path: folder.path, scopes: [...folder.scopes] }));
-    else {
+    if (open) {
+      draftSession.value += 1;
+      draftFolders.value = props.folders.map(folder => ({ path: folder.path, scopes: [...folder.scopes] }));
+      draftNames.value = (props.names ?? []).map(item => ({ ...item, scopes: [...item.scopes] }));
+    } else {
       nativeDropActive.value = false;
       openHelpPath.value = null;
     }
@@ -103,7 +114,7 @@ async function appendFolders(paths: string[]) {
 }
 
 function handleNativeDrop(event: NativeDragDropEvent) {
-  if (!props.modelValue || addDisabled.value) {
+  if (!props.modelValue || activeTab.value !== 'paths' || addDisabled.value) {
     nativeDropActive.value = false;
     return;
   }
@@ -161,6 +172,15 @@ async function openFolder(path: string) {
   }
 }
 
+function saveDraft() {
+  if (props.saving || selecting.value) return;
+  emit(
+    'save',
+    draftFolders.value.map(folder => ({ ...folder, scopes: [...folder.scopes] })),
+    draftNames.value.map(item => ({ ...item, scopes: [...item.scopes] }))
+  );
+}
+
 function preventOutsideDismiss(event: Event) {
   // An exclusion remains a draft until the explicit footer action saves it.
   // Preventing overlay dismissal avoids silently losing several folder choices.
@@ -186,104 +206,121 @@ onBeforeUnmount(() => {
 
 <template>
   <Dialog :open="modelValue" @update:open="emit('update:modelValue', $event)">
-    <MdDialogContent class="flex min-h-0 flex-col" size="large" @interact-outside="preventOutsideDismiss">
+    <MdDialogContent
+      class="scan-exclusions exclusion-dialog flex h-[540px] min-h-0 flex-col"
+      size="large"
+      @interact-outside="preventOutsideDismiss"
+    >
       <MdDialogHeader class="flex-none">
         <DialogTitle>{{ t('storageScanExclusions.title') }}</DialogTitle>
         <DialogDescription>{{ t('storageScanExclusions.description') }}</DialogDescription>
       </MdDialogHeader>
 
       <div class="exclusion-dialog-body">
-        <div class="exclusion-toolbar">
-          <p>
-            {{ t('storageScanExclusions.folderCount', { count: draftFolders.length }, draftFolders.length) }}
-          </p>
-          <Button
-            class="exclusion-add-button"
-            variant="ghost"
-            size="sm"
-            type="button"
-            :disabled="addDisabled"
-            @click="addFolders"
-          >
-            <MdIcon :name="ICON_NAMES.folderPlus" :size="15" />
-            {{ selecting ? t('storageScanExclusions.addingFolder') : t('storageScanExclusions.addFolder') }}
-          </Button>
+        <div class="exclusion-tabs" role="group" :aria-label="t('storageScanExclusions.title')">
+          <button type="button" :aria-pressed="activeTab === 'paths'" @click="activeTab = 'paths'">
+            {{ t('storageScanExclusions.pathsTab') }} · {{ draftFolders.length }}
+          </button>
+          <button type="button" :aria-pressed="activeTab === 'names'" @click="activeTab = 'names'">
+            {{ t('storageScanExclusions.namesTab') }} · {{ draftNames.length }}
+          </button>
         </div>
+        <MdScanNameExclusionsEditor
+          v-show="activeTab === 'names'"
+          :key="draftSession"
+          v-model:names="draftNames"
+          :disabled="saving"
+        />
+        <div v-if="activeTab === 'paths'" class="exclusion-path-panel">
+          <div class="exclusion-toolbar">
+            <p>
+              {{ t('storageScanExclusions.folderCount', { count: draftFolders.length }, draftFolders.length) }}
+            </p>
+            <Button
+              class="exclusion-add-button"
+              variant="ghost"
+              size="sm"
+              type="button"
+              :disabled="addDisabled"
+              @click="addFolders"
+            >
+              <MdIcon :name="ICON_NAMES.folderPlus" :size="15" />
+              {{ selecting ? t('storageScanExclusions.addingFolder') : t('storageScanExclusions.addFolder') }}
+            </Button>
+          </div>
 
-        <div
-          ref="dropZoneElement"
-          class="exclusion-drop-zone"
-          :class="{ empty: draftFolders.length === 0, active: nativeDropActive }"
-          @dragover.prevent
-          @dragenter.prevent
-        >
-          <div v-if="draftFolders.length" class="exclusion-list">
-            <div v-for="folder in draftFolders" :key="PathUtils.comparisonKey(folder.path)" class="exclusion-row">
-              <span class="exclusion-folder-mark" aria-hidden="true">
-                <MdIcon :name="ICON_NAMES.folder" :size="18" />
-              </span>
-              <span class="exclusion-path">{{ PathUtils.display(folder.path) }}</span>
-              <span class="exclusion-row-actions">
-                <MdIconAction
-                  appearance="unstyled"
-                  :disabled="saving"
-                  :label="t('common.showInFileManager')"
-                  @click="openFolder(folder.path)"
-                >
-                  <MdIcon :name="ICON_NAMES.folderOpen" :size="16" />
-                </MdIconAction>
-                <MdIconAction
-                  appearance="unstyled"
-                  destructive
-                  :disabled="saving"
-                  :label="t('storageScanExclusions.removeFolder')"
-                  @click="removeFolder(folder.path)"
-                >
-                  <MdIcon :name="ICON_NAMES.trash" :size="16" />
-                </MdIconAction>
-              </span>
-              <div class="exclusion-scopes">
-                <span v-for="scope in scopes" :key="scope" class="exclusion-scope-item">
-                  <label class="exclusion-scope">
-                    <MdCheckbox
-                      :model-value="folder.scopes.includes(scope)"
-                      :disabled="saving || (folder.scopes.length === 1 && folder.scopes.includes(scope))"
-                      @update:model-value="toggleScope(folder.path, scope, $event === true)"
-                    />
-                    {{ t(scopeLabels[scope]) }}
-                  </label>
-                  <TooltipProvider
-                    v-if="scope === SCAN_EXCLUSION_SCOPES.cleanup"
-                    :delay-duration="TOOLTIP_OPEN_DELAY_MS"
-                    :disable-hoverable-content="true"
-                    :ignore-non-keyboard-focus="true"
+          <div
+            ref="dropZoneElement"
+            class="exclusion-drop-zone"
+            :class="{ empty: draftFolders.length === 0, active: nativeDropActive }"
+            @dragover.prevent
+            @dragenter.prevent
+          >
+            <div v-if="draftFolders.length" class="exclusion-list">
+              <div v-for="folder in draftFolders" :key="PathUtils.comparisonKey(folder.path)" class="exclusion-row">
+                <span class="exclusion-path">{{ PathUtils.display(folder.path) }}</span>
+                <span class="exclusion-row-actions">
+                  <MdIconAction
+                    appearance="unstyled"
+                    :disabled="saving"
+                    :label="t('common.showInFileManager')"
+                    @click="openFolder(folder.path)"
                   >
-                    <Tooltip :open="openHelpPath === folder.path" @update:open="setHelpOpen(folder.path, $event)">
-                      <TooltipTrigger as-child>
-                        <button
-                          class="md-help-action"
-                          type="button"
-                          :aria-label="t('storageScanExclusions.cleanupScopeHint')"
-                          @click="setHelpOpen(folder.path, true)"
-                        >
-                          <MdIcon :name="ICON_NAMES.help" :size="13" aria-hidden="true" />
-                        </button>
-                      </TooltipTrigger>
-                      <TooltipContent
-                        class="max-w-[min(24rem,calc(100vw-24px))] text-left whitespace-normal text-wrap [overflow-wrap:anywhere]"
-                      >
-                        {{ t('storageScanExclusions.cleanupScopeHint') }}
-                      </TooltipContent>
-                    </Tooltip>
-                  </TooltipProvider>
+                    <MdIcon :name="ICON_NAMES.folderOpen" :size="16" />
+                  </MdIconAction>
+                  <MdIconAction
+                    appearance="unstyled"
+                    destructive
+                    :disabled="saving"
+                    :label="t('storageScanExclusions.removeFolder')"
+                    @click="removeFolder(folder.path)"
+                  >
+                    <MdIcon :name="ICON_NAMES.trash" :size="16" />
+                  </MdIconAction>
                 </span>
+                <div class="exclusion-scopes">
+                  <span v-for="scope in scopes" :key="scope" class="exclusion-scope-item">
+                    <label class="exclusion-scope">
+                      <MdCheckbox
+                        :model-value="folder.scopes.includes(scope)"
+                        :disabled="saving || (folder.scopes.length === 1 && folder.scopes.includes(scope))"
+                        @update:model-value="toggleScope(folder.path, scope, $event === true)"
+                      />
+                      {{ t(scopeLabels[scope]) }}
+                    </label>
+                    <TooltipProvider
+                      v-if="scope === SCAN_EXCLUSION_SCOPES.cleanup"
+                      :delay-duration="TOOLTIP_OPEN_DELAY_MS"
+                      :disable-hoverable-content="true"
+                      :ignore-non-keyboard-focus="true"
+                    >
+                      <Tooltip :open="openHelpPath === folder.path" @update:open="setHelpOpen(folder.path, $event)">
+                        <TooltipTrigger as-child>
+                          <button
+                            class="md-help-action"
+                            type="button"
+                            :aria-label="t('storageScanExclusions.cleanupScopeHint')"
+                            @click="setHelpOpen(folder.path, true)"
+                          >
+                            <MdIcon :name="ICON_NAMES.help" :size="13" aria-hidden="true" />
+                          </button>
+                        </TooltipTrigger>
+                        <TooltipContent
+                          class="max-w-[min(24rem,calc(100vw-24px))] text-left whitespace-normal text-wrap [overflow-wrap:anywhere]"
+                        >
+                          {{ t('storageScanExclusions.cleanupScopeHint') }}
+                        </TooltipContent>
+                      </Tooltip>
+                    </TooltipProvider>
+                  </span>
+                </div>
               </div>
             </div>
+            <button v-else class="exclusion-empty-action" type="button" :disabled="addDisabled" @click="addFolders">
+              <MdIcon :name="ICON_NAMES.folderPlus" :size="28" />
+              <strong>{{ t('storageScanExclusions.emptyTitle') }}</strong>
+            </button>
           </div>
-          <button v-else class="exclusion-empty-action" type="button" :disabled="addDisabled" @click="addFolders">
-            <MdIcon :name="ICON_NAMES.folderPlus" :size="28" />
-            <strong>{{ t('storageScanExclusions.emptyTitle') }}</strong>
-          </button>
         </div>
       </div>
 
@@ -292,16 +329,7 @@ onBeforeUnmount(() => {
           <Button variant="outline" type="button" :disabled="saving" @click="emit('update:modelValue', false)">
             {{ t('common.cancel') }}
           </Button>
-          <Button
-            type="button"
-            :disabled="saving || selecting"
-            @click="
-              emit(
-                'save',
-                draftFolders.map(folder => ({ path: folder.path, scopes: [...folder.scopes] }))
-              )
-            "
-          >
+          <Button type="button" :disabled="saving || selecting" @click="saveDraft">
             {{ saving ? t('storageScanExclusions.saving') : t('storageScanExclusions.save') }}
           </Button>
         </span>
@@ -313,69 +341,44 @@ onBeforeUnmount(() => {
 <style scoped>
 @reference "@assets/main.css";
 
+.exclusion-tabs {
+  flex: none;
+  display: flex;
+  gap: 4px;
+  padding: 3px;
+  border-radius: 6px;
+  background: var(--surface-muted-subtle);
+}
+.exclusion-tabs button {
+  flex: 1;
+  cursor: pointer;
+  padding: 6px 10px;
+  border-radius: 4px;
+  color: var(--muted-foreground);
+  font-size: var(--font-content-body);
+}
+.exclusion-tabs button[aria-pressed='true'] {
+  background: var(--background);
+  color: var(--foreground);
+  box-shadow: 0 1px 3px var(--border-subtle);
+}
 .exclusion-dialog-body {
   display: flex;
   min-height: 0;
-  flex: 0 1 auto;
+  flex: 1;
+  overflow: hidden;
   flex-direction: column;
   gap: 8px;
   padding: 10px 18px 12px;
   border-top: 1px solid var(--border-subtle);
 }
 
-.exclusion-toolbar {
+.exclusion-path-panel {
   display: flex;
-  min-height: 30px;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-}
-
-.exclusion-toolbar p {
-  margin: 0;
-  color: var(--muted-foreground);
-  font-size: var(--font-content-meta);
-}
-
-.exclusion-toolbar :deep(.exclusion-add-button) {
-  flex: none;
-  height: 30px;
-  gap: 6px;
-  padding: 0 9px;
-  border: 1px solid transparent;
-  border-radius: 6px;
-  box-shadow: none;
-  color: var(--muted-foreground);
-  font-size: 12px;
-  font-weight: 500;
-  transition:
-    color 150ms ease,
-    background-color 150ms ease,
-    border-color 150ms ease;
-}
-
-@media (hover: hover) {
-  .exclusion-toolbar :deep(.exclusion-add-button:hover) {
-    border-color: var(--border-subtle);
-    background: var(--surface-muted-subtle);
-    color: var(--foreground);
-  }
-}
-
-.exclusion-drop-zone {
-  height: 240px;
-  flex: none;
-  border: 1px solid var(--border-subtle);
-  border-radius: var(--radius-md);
-  overflow: hidden;
-  transition:
-    border-color 150ms ease,
-    background-color 150ms ease,
-    box-shadow 150ms ease;
-}
-
-.exclusion-drop-zone.empty {
-  border-style: dashed;
+  flex: 1;
+  min-height: 0;
+  flex-direction: column;
+  gap: 8px;
 }
 
 .exclusion-drop-zone.active {
@@ -386,144 +389,6 @@ onBeforeUnmount(() => {
 
 .exclusion-list {
   height: 100%;
-  overflow-y: auto;
-}
-
-.exclusion-row {
-  display: grid;
-  grid-template-columns: 28px minmax(0, 1fr) auto;
-  align-items: center;
-  column-gap: 10px;
-  row-gap: 6px;
-  padding: 10px 14px;
-  transition: background-color 150ms ease;
-}
-
-@media (hover: hover) {
-  .exclusion-row:hover {
-    background: var(--surface-muted-subtle);
-  }
-}
-
-.exclusion-row:focus-within {
-  background: var(--surface-muted-subtle);
-}
-
-.exclusion-folder-mark {
-  display: grid;
-  width: 28px;
-  height: 28px;
-  place-items: center;
-  border-radius: 8px;
-  background: var(--surface-primary-subtle);
-  color: var(--primary);
-}
-
-.exclusion-row-actions {
-  display: flex;
-  align-items: center;
-  gap: 2px;
-}
-
-.exclusion-row-actions :deep(.icon-action) {
-  display: grid;
-  width: 28px;
-  height: 28px;
-  place-items: center;
-  border-radius: 6px;
-  color: var(--muted-foreground);
-}
-
-.exclusion-row-actions :deep(.icon-action:not([aria-disabled='true']):hover) {
-  background: var(--muted);
-  color: var(--foreground);
-}
-
-.exclusion-row-actions :deep(.icon-action.destructive:not([aria-disabled='true']):hover) {
-  color: var(--destructive);
-}
-
-.exclusion-row + .exclusion-row {
-  border-top: 1px solid var(--border-subtle);
-}
-
-.exclusion-path {
-  display: block;
-  min-width: 0;
-  overflow: hidden;
-  color: var(--foreground);
-  font-size: var(--font-content-body);
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.exclusion-scopes {
-  grid-column: 2 / -1;
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px 10px;
-  min-width: 0;
-}
-
-.exclusion-scope-item {
-  display: inline-flex;
-  flex: none;
-  align-items: center;
-  gap: 2px;
-  white-space: nowrap;
-}
-
-.exclusion-scope {
-  display: inline-flex;
-  flex: none;
-  align-items: center;
-  gap: 5px;
-  color: var(--muted-foreground);
-  font-size: var(--font-content-meta);
-  cursor: pointer;
-  white-space: nowrap;
-}
-
-.exclusion-empty-action {
-  display: flex;
-  width: 100%;
-  height: 100%;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 6px;
-  cursor: pointer;
-  border-radius: inherit;
-  color: var(--muted-foreground);
-  text-align: center;
-  transition: background-color 150ms ease;
-}
-
-/*
- * Safari 15.6 cannot evaluate Tailwind's color-mix() opacity output. Using the
- * shared semantic surface prevents the whole empty action from becoming a
- * solid primary-color block while preserving the same hover affordance.
- */
-@media (hover: hover) {
-  .exclusion-empty-action:hover:not(:disabled) {
-    background: var(--surface-primary-subtle);
-  }
-}
-
-.exclusion-empty-action:focus-visible {
-  outline: 2px solid var(--ring);
-  outline-offset: -3px;
-}
-
-.exclusion-empty-action:disabled {
-  cursor: default;
-  opacity: 0.5;
-}
-
-.exclusion-empty-action strong {
-  color: var(--primary);
-  font-size: var(--font-content-body);
-  font-weight: 500;
 }
 
 .exclusion-footer-actions {

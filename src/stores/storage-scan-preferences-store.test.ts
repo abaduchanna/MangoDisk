@@ -14,7 +14,8 @@ describe('scan exclusion preferences store', () => {
 
   it('loads scoped preferences without consulting legacy keys', async () => {
     vi.spyOn(PreferenceStorageService, 'loadScanExclusionPreferences').mockResolvedValue({
-      schemaVersion: 2,
+      schemaVersion: 3,
+      names: [],
       folders: [{ path: '/fixture/cache', scopes: ['cleanup'] }],
     });
     const loadLegacy = vi.spyOn(PreferenceStorageService, 'loadLegacyStorageScanPreferences');
@@ -44,14 +45,15 @@ describe('scan exclusion preferences store', () => {
     expect(store.pathsForScope('duplicateFiles')).toEqual(['/fixture/cache']);
     expect(store.pathsForScope('analysis')).toEqual([]);
     expect(migrate).toHaveBeenCalledWith({
-      schemaVersion: 2,
+      schemaVersion: 3,
+      names: [],
       folders: [{ path: '/fixture/cache', scopes: ['largeFiles', 'duplicateFiles'] }],
     });
     expect(info).toHaveBeenCalledWith('storage-scan', 'preferences_migrated', {
       source: 'storageScanPreferences',
       excludedFolderCount: 1,
       fromSchemaVersion: 1,
-      toSchemaVersion: 2,
+      toSchemaVersion: 3,
     });
   });
 
@@ -91,7 +93,8 @@ describe('scan exclusion preferences store', () => {
     expect(store.pathsForScope('cleanup')).toEqual(['/fixture/cache']);
     expect(store.pathsForScope('largeFiles')).toEqual(['/fixture/cache']);
     expect(save).toHaveBeenCalledWith({
-      schemaVersion: 2,
+      schemaVersion: 3,
+      names: [],
       folders: [
         { path: '/fixture/cache/nested', scopes: ['cleanup'] },
         { path: '/fixture/cache', scopes: ['cleanup', 'largeFiles'] },

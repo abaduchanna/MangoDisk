@@ -2,7 +2,7 @@
 import { computed, ref } from 'vue';
 
 import MdStorageScanExclusionsDialog from '@/components/custom/md-storage-scan-exclusions-dialog.vue';
-import type { ScanExcludedFolder } from '@/lib/models/storage-scan';
+import type { ScanExcludedFolder, ScanExcludedName } from '@/lib/models/storage-scan';
 import { useAnalysisStore } from '@/stores/analysis-store';
 import { useCleanupStore } from '@/stores/cleanup-store';
 import { useDuplicateFilesStore } from '@/stores/duplicate-files-store';
@@ -44,11 +44,11 @@ async function open() {
   }
 }
 
-async function saveFolders(folders: ScanExcludedFolder[]) {
+async function saveFolders(folders: ScanExcludedFolder[], names: ScanExcludedName[]) {
   if (saving.value || busy.value) return;
   saving.value = true;
   try {
-    await preferencesStore.saveFolders(folders);
+    await preferencesStore.saveFolders(folders, names);
     // Published results describe the scan configuration that produced them. Keep them visible
     // until the user scans again; each store still rejects stale results before destructive work.
     dialogOpen.value = false;
@@ -67,6 +67,7 @@ defineExpose({ open });
     v-if="editorMounted"
     v-model="dialogOpen"
     :folders="preferencesStore.folders"
+    :names="preferencesStore.names"
     :saving="saving || busy"
     @error="emit('error', $event)"
     @save="saveFolders"

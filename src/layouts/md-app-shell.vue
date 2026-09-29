@@ -25,6 +25,8 @@ import { ResidentService } from '@/lib/services/resident-service';
 import { BackgroundUpdateService } from '@/lib/services/background-update-service';
 import { ApplicationMenuService } from '@/lib/services/application-menu-service';
 import { FileManagerService } from '@/lib/services/file-manager-service';
+import { LOG_DOMAINS, LOG_EVENTS } from '@/lib/models/telemetry';
+import { LoggerService } from '@/lib/services/logger-service';
 import { LinkService } from '@/lib/services/link-service';
 import { OperatingSystemService } from '@/lib/services/operating-system-service';
 import * as CleanupRuleTextUtils from '@/lib/utils/cleanup-rule-text';
@@ -525,10 +527,18 @@ async function scanCleanup(scanScope: CleanupScanScope) {
   try {
     const completed = await cleanupStore.scanCandidates(scanScope);
     if (!completed) return;
-    if (CleanupScanScopeUtils.includesStandardCleanup(scanScope)) {
+    if (CleanupScanScopeUtils.includesStandardCleanup(scanScope) && !cleanupStore.scanExcludedNames.length) {
       await applicationStore.scanLeftovers();
     } else {
       applicationStore.clearLeftoverResults();
+      if (cleanupStore.scanExcludedNames.length && CleanupScanScopeUtils.includesStandardCleanup(scanScope)) {
+        LoggerService.info(LOG_DOMAINS.cleanup, LOG_EVENTS.operationDeferred, {
+          operation: 'scan_application_leftovers',
+          reason: 'nameExclusionsUnsupported',
+          excludedNameCount: cleanupStore.scanExcludedNames.length,
+          outcome: 'skipped',
+        });
+      }
     }
   } finally {
     cleanupOrchestrating.value = false;
@@ -542,6 +552,7 @@ async function executeCleanup(leftovers: ApplicationLeftoverCandidate[]) {
   const deepCleanupOperationId = crypto.randomUUID();
   const executesCleanupRules = cleanupStore.selectedRuleIds.length > 0;
   try {
+    if (!(await cleanupStore.validateNameExclusionsForExecution(leftovers.length > 0))) return;
     if (executesCleanupRules) {
       const completed = await cleanupStore.execute(false, deepCleanupOperationId);
       // Do not clear the cleanup error by starting a second operation after a
@@ -550,6 +561,7 @@ async function executeCleanup(leftovers: ApplicationLeftoverCandidate[]) {
       if (!completed || deepCleanupCancelling.value) return;
     }
     if (leftovers.length && !deepCleanupCancelling.value) {
+      if (!(await cleanupStore.validateNameExclusionsForExecution(true))) return;
       await applicationStore.deleteLeftoversPermanently(leftovers, deepCleanupOperationId);
       if (!applicationStore.lastResult || deepCleanupCancelling.value) return;
     }
@@ -657,6 +669,7 @@ async function cancelDeepCleanup() {
           v-else-if="store.currentPage === PAGE_IDS.analysis"
           :result="analysisStore.result"
           :excluded-folders="analysisStore.scanExcludedFolders"
+          :excluded-names="analysisStore.scanExcludedNames"
           :home-path="analysisStore.homePath"
           :disk="store.disk"
           :disks="store.disks"

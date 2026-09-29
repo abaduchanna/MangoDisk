@@ -248,6 +248,7 @@ pub(super) fn execute_rule_with_exclusions(
         match validate_compiled_rule_root(rule, root) {
             Ok(canonical_root) => {
                 let handled = rule.deletes_whole_root()
+                    && !exclusions.has_names()
                     && !exclusions.intersects(root)
                     && try_delete_whole_root(
                         rule,
@@ -854,6 +855,7 @@ fn delete_entry(
     }
 
     let prepared = if traversal.bulk_complete_directories
+        && !traversal.exclusions.has_names()
         && !traversal.exclusions.intersects(path)
         && canonical_parent == traversal.canonical_root
         && (traversal.owns_path)(path, metadata)

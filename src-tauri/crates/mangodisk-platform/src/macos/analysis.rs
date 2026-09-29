@@ -131,6 +131,7 @@ struct DirectoryReadResult {
 }
 
 struct EntryPolicy<'a> {
+    name_exclusions: &'a crate::NameExclusions,
     excluded_roots: &'a [PathBuf],
     platform: &'a MacOsPlatform,
     root: &'a Path,
@@ -143,6 +144,7 @@ struct EntryPolicy<'a> {
 /// Groups one native analysis request so the platform boundary remains explicit as scan options
 /// evolve. The consumer stays separate because it owns the streamed result lifetime.
 pub(super) struct AnalysisScanRequest<'a> {
+    pub(super) name_exclusions: &'a crate::NameExclusions,
     pub(super) excluded_roots: &'a [PathBuf],
     pub(super) root: &'a Path,
     pub(super) purpose: ScanPurpose,
@@ -154,6 +156,7 @@ pub(super) struct AnalysisScanRequest<'a> {
 
 #[derive(Clone)]
 struct DirectoryReadPolicy {
+    name_exclusions: crate::NameExclusions,
     excluded_roots: Arc<[PathBuf]>,
     root: Arc<PathBuf>,
     root_device: u64,
@@ -348,6 +351,7 @@ pub(super) fn analyze_records(
 ) -> Result<FastAnalysisSummary, FastAnalysisScanError> {
     ensure_worker_pool_available(&ACTIVE_ANALYSIS_REAPERS)?;
     let AnalysisScanRequest {
+        name_exclusions,
         excluded_roots,
         root,
         purpose,
@@ -377,6 +381,7 @@ pub(super) fn analyze_records(
     let task_queue = Arc::new(DirectoryTaskQueue::default());
     let abort = Arc::new(AtomicBool::new(false));
     let read_policy = DirectoryReadPolicy {
+        name_exclusions: name_exclusions.clone(),
         excluded_roots: Arc::from(excluded_roots),
         root: Arc::new(root.to_path_buf()),
         root_device: root_metadata.dev(),
@@ -622,6 +627,7 @@ fn read_directory(
         Err(error) => return Err(platform_io_error("open_root_directory", &error)),
     };
     let policy = EntryPolicy {
+        name_exclusions: &policy.name_exclusions,
         excluded_roots: &policy.excluded_roots,
         platform,
         root: policy.root.as_path(),
@@ -693,6 +699,12 @@ fn process_entry(
         return accumulator.totals.skip_entry();
     }
 
+    if policy
+        .name_exclusions
+        .matches_entry(&path, entry.object_type == VNODE_TYPE_DIRECTORY)
+    {
+        return Ok(());
+    }
     match entry.object_type {
         VNODE_TYPE_DIRECTORY => {
             if is_dataless_flags(entry.flags) {
@@ -880,6 +892,7 @@ mod tests {
         let root = Path::new("/fixture");
         let excluded = [root.join("selected")];
         let policy = EntryPolicy {
+            name_exclusions: &crate::NameExclusions::default(),
             excluded_roots: &excluded,
             platform: &MacOsPlatform,
             root,
@@ -915,6 +928,7 @@ mod tests {
     fn dataless_directory_is_skipped_before_it_enters_the_worker_queue() {
         let root = Path::new("/fixture");
         let policy = EntryPolicy {
+            name_exclusions: &crate::NameExclusions::default(),
             excluded_roots: &[],
             platform: &MacOsPlatform,
             root,
@@ -981,6 +995,7 @@ mod tests {
         let summary = analyze_records(
             &MacOsPlatform,
             AnalysisScanRequest {
+                name_exclusions: &crate::NameExclusions::default(),
                 excluded_roots: &[],
                 root: &root,
                 purpose: ScanPurpose::Analysis,
@@ -1082,6 +1097,7 @@ mod tests {
         let summary = analyze_records(
             &MacOsPlatform,
             AnalysisScanRequest {
+                name_exclusions: &crate::NameExclusions::default(),
                 excluded_roots: &[],
                 root: &root,
                 purpose: ScanPurpose::Analysis,
@@ -1108,6 +1124,7 @@ mod tests {
         analyze_records(
             &MacOsPlatform,
             AnalysisScanRequest {
+                name_exclusions: &crate::NameExclusions::default(),
                 excluded_roots: &[],
                 root: &root,
                 purpose: ScanPurpose::DuplicateFiles,
@@ -1137,6 +1154,7 @@ mod tests {
         let result = analyze_records(
             &MacOsPlatform,
             AnalysisScanRequest {
+                name_exclusions: &crate::NameExclusions::default(),
                 excluded_roots: &[],
                 root: Path::new("/does-not-need-to-exist"),
                 purpose: ScanPurpose::Analysis,
@@ -1160,6 +1178,7 @@ mod tests {
         let result = analyze_records(
             &MacOsPlatform,
             AnalysisScanRequest {
+                name_exclusions: &crate::NameExclusions::default(),
                 excluded_roots: &[],
                 root: &root,
                 purpose: ScanPurpose::Analysis,

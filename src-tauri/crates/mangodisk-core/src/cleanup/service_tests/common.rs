@@ -6,6 +6,67 @@ mod cleanup_matcher_tests {
     use super::*;
 
     #[test]
+    fn name_exclusions_preserve_files_and_folders_during_custom_preview_and_execution() {
+        let _operation_lock = crate::shared::operation::test_operation_lock();
+        let fixture = tempfile::tempdir().unwrap();
+        let root = fixture.path();
+        fs::create_dir_all(root.join("node_modules/package")).unwrap();
+        fs::create_dir_all(root.join("nested")).unwrap();
+        fs::create_dir_all(root.join("keep.tmp")).unwrap();
+        fs::write(root.join("node_modules/package/dependency.tmp"), [1; 11]).unwrap();
+        fs::write(root.join("nested/keep.tmp"), [2; 13]).unwrap();
+        fs::write(root.join("remove.tmp"), [3; 7]).unwrap();
+        fs::write(root.join("keep.tmp/remove.tmp"), [4; 5]).unwrap();
+        let options = crate::ScanExclusionOptions {
+            paths: Vec::new(),
+            names: vec![
+                crate::ScanNameExclusion {
+                    name: "node_modules".into(),
+                    kind: crate::ExcludedNameKind::Folder,
+                },
+                crate::ScanNameExclusion {
+                    name: "keep.tmp".into(),
+                    kind: crate::ExcludedNameKind::File,
+                },
+            ],
+        };
+        let rule = service_custom_rule(root);
+        let scan = crate::CleanupScanService::scan_with_custom_rules_and_exclusions(
+            vec![rule.clone()],
+            false,
+            options.clone(),
+            |_| {},
+        )
+        .unwrap();
+        assert_eq!(scan.rules[0].bytes, 12);
+        assert_eq!(scan.rules[0].file_count, 2);
+        let scan_id = scan.custom_scan_id.unwrap();
+        let preview = CleanupService::execute_deep_cleanup_step_with_custom_rules_and_exclusions_and_progress(custom_cleanup_request(true), "name-exclusion-preview".into(), scan_id, vec![rule.clone()], false, options.clone(), |_| {}).unwrap();
+        assert_eq!(preview.released_bytes, 0);
+        assert!(root.join("remove.tmp").exists());
+        let changed =
+            CleanupService::execute_deep_cleanup_step_with_custom_rules_and_exclusions_and_progress(
+                custom_cleanup_request(false),
+                "name-exclusion-changed".into(),
+                scan_id,
+                vec![rule.clone()],
+                false,
+                Vec::new(),
+                |_| {},
+            );
+        assert!(
+            changed.is_err(),
+            "custom-only execution must reject a different name policy"
+        );
+        let result = CleanupService::execute_deep_cleanup_step_with_custom_rules_and_exclusions_and_progress(custom_cleanup_request(false), "name-exclusion-execute".into(), scan_id, vec![rule], false, options, |_| {}).unwrap();
+        assert_eq!(result.released_bytes, 12);
+        assert_eq!(fs::read(root.join("nested/keep.tmp")).unwrap(), [2; 13]);
+        assert!(root.join("node_modules/package/dependency.tmp").exists());
+        assert!(!root.join("remove.tmp").exists());
+        assert!(!root.join("keep.tmp/remove.tmp").exists());
+    }
+
+    #[test]
     fn preflight_measurement_is_limited_to_preview_and_source_scoped_requests() {
         assert!(!requires_preflight_measurement(false, false));
         assert!(requires_preflight_measurement(true, false));
@@ -100,13 +161,13 @@ mod cleanup_matcher_tests {
         let rule = service_custom_rule(&sandbox);
         let excluded_paths = vec![excluded.to_string_lossy().into_owned()];
 
-        let scan = crate::cleanup::CleanupScanService::scan_with_custom_rules_and_excluded_paths(
+        let scan = crate::cleanup::CleanupScanService::scan_with_custom_rules_and_exclusions(
             vec![rule.clone()], false, excluded_paths.clone(), |_| {}
         ).expect("scan with exclusions");
         assert_eq!(scan.rules[0].bytes, 18);
         assert_eq!(scan.rules[0].file_count, 2);
 
-        let result = CleanupService::execute_deep_cleanup_step_with_custom_rules_and_excluded_paths_and_progress(
+        let result = CleanupService::execute_deep_cleanup_step_with_custom_rules_and_exclusions_and_progress(
             custom_cleanup_request(false),
             format!("deep-cleanup-exclusion-{}", now_ms()),
             scan.custom_scan_id.expect("custom scan session"),

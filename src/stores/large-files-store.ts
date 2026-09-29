@@ -1,3 +1,4 @@
+import type { ScanNameExclusion } from '@/lib/models/storage-scan';
 import { defineStore } from 'pinia';
 
 import { LOG_DOMAINS, LOG_EVENTS } from '@/lib/models/telemetry';
@@ -21,6 +22,7 @@ interface LargeFilesState {
   cancelling: boolean;
   deleting: boolean;
   resultExcludedFolders: string[];
+  resultExcludedNames: ScanNameExclusion[];
 }
 
 export const useLargeFilesStore = defineStore('large-files', {
@@ -31,20 +33,29 @@ export const useLargeFilesStore = defineStore('large-files', {
     cancelling: false,
     deleting: false,
     resultExcludedFolders: [],
+    resultExcludedNames: [],
   }),
   actions: {
     invalidateResultForExclusionChange() {
       if (!this.result) return;
+      const currentNames = useStorageScanPreferencesStore().namesForScope('largeFiles');
       const currentExclusions = useStorageScanPreferencesStore().pathsForScope('largeFiles');
-      if (StorageScanPreferenceUtils.sameExcludedFolders(this.resultExcludedFolders, currentExclusions)) return;
+      if (
+        StorageScanPreferenceUtils.sameExcludedFolders(this.resultExcludedFolders, currentExclusions) &&
+        StorageScanPreferenceUtils.sameExcludedNames(this.resultExcludedNames, currentNames)
+      )
+        return;
       LoggerService.info(LOG_DOMAINS.largeFiles, LOG_EVENTS.staleScanResultIgnored, {
         operation: 'exclusion_preferences_changed',
         scanId: this.result.scanId,
         previousExcludedFolderCount: this.resultExcludedFolders.length,
         currentExcludedFolderCount: currentExclusions.length,
+        previousExcludedNameCount: this.resultExcludedNames.length,
+        currentExcludedNameCount: currentNames.length,
       });
       this.result = null;
       this.resultExcludedFolders = [];
+      this.resultExcludedNames = [];
     },
     async find(roots: string[], minimumBytes: number, scanMode: LargeFileScanMode) {
       if (this.loading || this.deleting || !roots.length) return;
@@ -57,6 +68,7 @@ export const useLargeFilesStore = defineStore('large-files', {
       appStore.clearError();
       let unlisten: (() => void) | undefined;
       let requestedExclusions: string[] = [];
+      let requestedNames: ScanNameExclusion[] = [];
       try {
         const preferencesStore = useStorageScanPreferencesStore();
         await preferencesStore.initialize();
@@ -64,16 +76,33 @@ export const useLargeFilesStore = defineStore('large-files', {
           this.progress = progress;
         });
         requestedExclusions = preferencesStore.pathsForScope('largeFiles');
+        requestedNames = preferencesStore.namesForScope('largeFiles');
         LoggerService.info(LOG_DOMAINS.largeFiles, LOG_EVENTS.scanRequested, {
           rootCount: roots.length,
           roots: roots.slice(0, 8),
           minimumBytes,
           scanMode,
           excludedFolderCount: requestedExclusions.length,
+          excludedNameCount: requestedNames.length,
         });
-        const result = await LargeFileService.find(roots, minimumBytes, scanMode, requestedExclusions);
+        const result = await LargeFileService.find(roots, minimumBytes, scanMode, requestedExclusions, requestedNames);
+        if (
+          !StorageScanPreferenceUtils.sameExcludedFolders(
+            requestedExclusions,
+            preferencesStore.pathsForScope('largeFiles')
+          ) ||
+          !StorageScanPreferenceUtils.sameExcludedNames(requestedNames, preferencesStore.namesForScope('largeFiles'))
+        ) {
+          LoggerService.info(LOG_DOMAINS.largeFiles, LOG_EVENTS.staleScanResultIgnored, {
+            operation: 'exclusion_preferences_changed',
+            scanId: result.scanId,
+          });
+          this.invalidateResultForExclusionChange();
+          return;
+        }
         this.result = result;
         this.resultExcludedFolders = requestedExclusions;
+        this.resultExcludedNames = requestedNames;
       } catch (error) {
         if (!this.cancelling) {
           LoggerService.warn(LOG_DOMAINS.largeFiles, LOG_EVENTS.operationFailed, {
@@ -83,6 +112,7 @@ export const useLargeFilesStore = defineStore('large-files', {
             minimumBytes,
             scanMode,
             excludedFolderCount: requestedExclusions.length,
+            excludedNameCount: requestedNames.length,
             error,
           });
           appStore.reportError(error);

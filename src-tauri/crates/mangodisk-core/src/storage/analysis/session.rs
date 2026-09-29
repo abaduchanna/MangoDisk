@@ -14,13 +14,18 @@ use super::{AnalysisEntryCandidate, AnalysisResult};
 const ANALYSIS_RESULT_SESSION_LIMIT: usize = 80;
 
 static NEXT_ANALYSIS_SCAN_ID: AtomicU64 = AtomicU64::new(1);
-static ANALYSIS_RESULT_SESSIONS: OnceLock<Mutex<VecDeque<AnalysisResult>>> = OnceLock::new();
+static ANALYSIS_RESULT_SESSIONS: OnceLock<Mutex<VecDeque<AnalysisSession>>> = OnceLock::new();
 
-fn sessions() -> &'static Mutex<VecDeque<AnalysisResult>> {
+struct AnalysisSession {
+    result: AnalysisResult,
+    exclusions: crate::filesystem::ScanExclusionOptions,
+}
+
+fn sessions() -> &'static Mutex<VecDeque<AnalysisSession>> {
     ANALYSIS_RESULT_SESSIONS.get_or_init(|| Mutex::new(VecDeque::new()))
 }
 
-fn lock_sessions() -> Result<MutexGuard<'static, VecDeque<AnalysisResult>>, String> {
+fn lock_sessions() -> Result<MutexGuard<'static, VecDeque<AnalysisSession>>, String> {
     sessions()
         .lock()
         .map_err(|_| "the disk-analysis result session is unavailable".to_string())
@@ -31,13 +36,23 @@ fn lock_sessions() -> Result<MutexGuard<'static, VecDeque<AnalysisResult>>, Stri
 /// The UI keeps a bounded navigation cache, so Core retains the same number of recent snapshots.
 /// A cached UI result therefore remains usable without trusting snapshots reconstructed by the
 /// WebView.
-pub(super) fn publish_result_session(mut result: AnalysisResult) -> Result<AnalysisResult, String> {
+pub(super) fn publish_result_session(result: AnalysisResult) -> Result<AnalysisResult, String> {
+    publish_result_with_exclusions(result, Default::default())
+}
+
+pub(super) fn publish_result_with_exclusions(
+    mut result: AnalysisResult,
+    exclusions: crate::filesystem::ScanExclusionOptions,
+) -> Result<AnalysisResult, String> {
     result.scan_id = NEXT_ANALYSIS_SCAN_ID.fetch_add(1, Ordering::Relaxed);
     let mut sessions = lock_sessions()?;
     sessions.retain(|session| {
-        !current_platform().paths_equal(Path::new(&session.root), Path::new(&result.root))
+        !current_platform().paths_equal(Path::new(&session.result.root), Path::new(&result.root))
     });
-    sessions.push_front(result.clone());
+    sessions.push_front(AnalysisSession {
+        result: result.clone(),
+        exclusions,
+    });
     sessions.truncate(ANALYSIS_RESULT_SESSION_LIMIT);
     Ok(result)
 }
@@ -50,15 +65,17 @@ pub(super) fn resolve_entry_candidate(
     let sessions = lock_sessions()?;
     let result = sessions
         .iter()
-        .find(|result| result.scan_id == scan_id)
+        .find(|result| result.result.scan_id == scan_id)
         .ok_or_else(|| "the disk-analysis result session expired; scan again".to_string())?;
     let entry = result
+        .result
         .entries
         .iter()
         .find(|entry| entry.path == selected_path)
         .ok_or_else(|| "the selected item is not part of the current disk analysis".to_string())?;
     Ok(AnalysisEntryCandidate {
-        root: result.root.clone(),
+        exclusions: result.exclusions.clone(),
+        root: result.result.root.clone(),
         path: entry.path.clone(),
         expected_logical_bytes: entry.logical_bytes,
         expected_allocated_bytes: entry.bytes,
@@ -79,10 +96,10 @@ pub(super) fn synchronize_removed_path(
     let mut sessions = lock_sessions()?;
     let source_index = sessions
         .iter()
-        .position(|result| result.scan_id == source_scan_id)
+        .position(|result| result.result.scan_id == source_scan_id)
         .ok_or_else(|| "the disk-analysis result session expired; scan again".to_string())?;
-    let source_root = sessions[source_index].root.clone();
-    let source = &mut sessions[source_index];
+    let source_root = sessions[source_index].result.root.clone();
+    let source = &mut sessions[source_index].result;
     let displayed_bytes = source
         .entries
         .iter()
@@ -96,7 +113,8 @@ pub(super) fn synchronize_removed_path(
 
     let invalidated = sessions
         .iter()
-        .filter(|result| {
+        .filter(|session| {
+            let result = &session.result;
             if result.scan_id == source_scan_id {
                 return false;
             }
@@ -105,9 +123,9 @@ pub(super) fn synchronize_removed_path(
                 || current_platform().path_is_same_or_child(removed_path, root)
                 || current_platform().paths_equal(Path::new(&result.root), Path::new(&source_root))
         })
-        .map(|result| result.scan_id)
+        .map(|session| session.result.scan_id)
         .collect::<HashSet<_>>();
-    sessions.retain(|result| !invalidated.contains(&result.scan_id));
+    sessions.retain(|session| !invalidated.contains(&session.result.scan_id));
     Ok(())
 }
 

@@ -1,3 +1,4 @@
+use crate::filesystem::ScanExclusionOptions;
 use std::{path::Path, time::Instant};
 
 use crate::{
@@ -29,9 +30,10 @@ impl LargeFileService {
         roots: Vec<String>,
         minimum_bytes: u64,
         scan_mode: LargeFileScanMode,
-        excluded_paths: Vec<String>,
+        excluded_paths: impl Into<ScanExclusionOptions>,
         callback: impl ProgressSink,
     ) -> CoreResult<LargeFilesResult> {
+        let excluded_paths = excluded_paths.into();
         let result = StorageTraversal::find_large_files_with_progress(
             roots,
             minimum_bytes,
@@ -63,9 +65,10 @@ impl LargeFileService {
         roots: Vec<String>,
         minimum_bytes: u64,
         scan_mode: LargeFileScanMode,
-        excluded_paths: Vec<String>,
+        excluded_paths: impl Into<ScanExclusionOptions>,
         callback: impl Fn(TraversalProgress) + Send + Sync + 'static,
     ) -> CoreResult<(LargeFilesResult, LargeFileScanDiagnostics)> {
+        let excluded_paths = excluded_paths.into();
         StorageTraversal::find_large_files_with_diagnostics(
             roots,
             minimum_bytes,
