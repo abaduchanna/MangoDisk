@@ -141,6 +141,7 @@ async fn evaluate_ai_corpus() {
         reasoning: ReasoningMode::Default,
         temperature: None,
         max_tokens: None,
+        custom_headers: Vec::new(),
     };
     config.validate().unwrap();
     // Serialize when a provider limits concurrent streams. This evaluation

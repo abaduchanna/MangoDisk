@@ -43,6 +43,7 @@ mod startup_helper {
         None
     }
 }
+pub mod system_identity;
 #[cfg(windows)]
 mod system_maintenance_helper;
 pub mod system_resources;

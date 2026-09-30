@@ -331,7 +331,7 @@ impl FeedbackSubmissionService {
             );
         }
 
-        let client = reqwest::Client::builder()
+        let client = mangodisk_core::http_client::builder()
             .connect_timeout(FEEDBACK_CONNECT_TIMEOUT)
             .timeout(FEEDBACK_REQUEST_TIMEOUT)
             .build()

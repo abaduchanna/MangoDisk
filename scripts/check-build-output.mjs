@@ -5,10 +5,9 @@ import { gzipSync } from 'node:zlib';
 const assetDirectory = fileURLToPath(new URL('../dist/assets/', import.meta.url));
 const expectedLocaleIds = new Set(['en-us', 'ja-jp', 'ko-kr', 'zh-cn', 'zh-tw']);
 const maximumApplicationChunkBytes = 300 * 1024;
-// Complete rule text adds little to the transferred locale chunks, but the
-// uncompressed Japanese chunk now exceeds the old 280 KiB ceiling. Keep a
-// tight raw-size cap and enforce the download cost with a gzip cap as well.
-const maximumLocaleChunkBytes = 300 * 1024;
+// Allow a small raw-size margin for localized AI configuration help while
+// retaining the 60 KiB gzip limit on transferred locale assets.
+const maximumLocaleChunkBytes = 301 * 1024;
 const maximumLocaleGzipBytes = 60 * 1024;
 
 function fail(message) {

@@ -3,6 +3,7 @@ mod applications;
 mod cleanup;
 mod filesystem;
 mod history;
+pub mod http_client;
 mod privacy;
 mod reporting;
 mod shared;

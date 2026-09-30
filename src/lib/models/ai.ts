@@ -7,6 +7,11 @@ import type { SystemMaintenanceItem } from './system-maintenance';
 export type AiReasoningMode = 'default' | 'disabled';
 export type AiServiceMode = 'free' | 'custom';
 
+export interface AiCustomHeader {
+  name: string;
+  value: string;
+}
+
 export interface AiPreferences {
   schemaVersion: 1;
   enabled: boolean;
@@ -97,12 +102,14 @@ export interface AiConfigurationUpdate {
   reasoning: AiReasoningMode;
   temperature?: number | null;
   maxTokens?: number | null;
+  customHeaders?: AiCustomHeader[] | null;
 }
 
 /** Secret-bearing data is scoped to the settings editor, never the AI store. */
 export interface AiConfiguration extends AiConfigurationUpdate {
   schemaVersion: 2;
   apiKey: string;
+  customHeaders: AiCustomHeader[];
 }
 
 /** One fresh editor read; this secret-bearing snapshot must not be cached. */

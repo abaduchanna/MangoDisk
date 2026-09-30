@@ -12,6 +12,18 @@ The Tauri crate only assembles the application, converts command arguments,
 and forwards progress events. It does not own platform policy or scanning
 behavior.
 
+## HTTP clients
+
+Application HTTP clients use `mangodisk_core::http_client::builder()` to send
+the shared `MangoDisk/<version> (<OS> <OS version>; <architecture>)` user agent.
+The application version comes from the workspace; basic system identity comes
+from Platform and is cached for the process lifetime. Missing OS versions use
+`unknown`; native version labels are bounded and made safe for HTTP comments.
+Callers configure their own timeouts, redirects, retries, and authentication.
+Third-party clients use `http_client::default_headers()`; the Tauri updater
+receives these headers at plugin registration for update checks and downloads.
+AI custom headers can override `User-Agent` for their own requests.
+
 ## Scan exclusions
 
 Adapters select per-module scopes and pass an immutable `ScanExclusionOptions`

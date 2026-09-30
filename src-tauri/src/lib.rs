@@ -171,7 +171,12 @@ pub fn run() {
         .plugin(tauri_plugin_os::init())
         .plugin(tauri_plugin_process::init())
         .plugin(tauri_plugin_store::Builder::default().build())
-        .plugin(tauri_plugin_updater::Builder::new().build())
+        .plugin(
+            tauri_plugin_updater::Builder::new()
+                // The plugin carries these headers into both checks and downloads.
+                .headers(mangodisk_core::http_client::default_headers())
+                .build(),
+        )
         .plugin(
             tauri_plugin_window_state::Builder::default()
                 // Visibility remains controlled by the native readiness handshake so

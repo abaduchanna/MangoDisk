@@ -35,7 +35,7 @@ onDeactivated(() => {
         v-if="open"
         class="max-w-[min(24rem,calc(100vw-24px))] text-left whitespace-normal text-wrap [overflow-wrap:anywhere]"
       >
-        {{ text }}
+        <slot name="content">{{ text }}</slot>
       </TooltipContent>
     </Tooltip>
   </TooltipProvider>

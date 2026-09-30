@@ -139,8 +139,34 @@ Configure a base URL ending at the API prefix (commonly `/v1`), a model, and a k
 Requests use `POST /chat/completions` with `stream: true`. Both HTTP and HTTPS
 are accepted; HTTP does not encrypt the API key or request. Local loopback services
 may omit a key. Redirects and automatic retries are disabled. The editor saves
-the visible configuration explicitly; the key-free update API cannot silently
-carry an old key to another destination.
+the visible custom configuration as a whole; editing the endpoint preserves the
+entered key and headers. Saving free mode retains the last persisted custom
+configuration and ignores unfinished custom drafts.
+
+All AI requests use the shared
+`MangoDisk/<version> (<OS> <OS version>; <architecture>)` user agent. Custom services
+can override it with a `User-Agent` header without affecting other requests.
+For the exact `https://opencode.ai/zen/go/v1` endpoint, custom requests include
+`x-opencode-session` with a fresh opaque UUID. Each
+connection test or explanation is currently a single-request conversation, so
+the session value is stable for that request and differs between requests. Other
+custom endpoints do not receive this provider-specific header automatically.
+The custom-service editor also accepts up to 8 additional request headers. They
+are stored with the API key in the secret-bearing configuration, excluded from
+public settings and logs, and sent only to the configured custom endpoint.
+Header names must be unique and valid HTTP tokens; values must be printable ASCII.
+Transport-owned fields (`Host`, `Content-Type`, `Content-Length`, `Transfer-Encoding`, `Connection`,
+`Upgrade`, `Proxy-Authorization`, and `X-Request-ID`) cannot be overridden.
+Other custom headers take precedence over built-in headers, including Bearer
+authorization and the OpenCode Go defaults. The `{{uuid}}` placeholder expands
+to a fresh random UUID for each request, and `{{timestamp}}` expands to the
+current Unix time in seconds. Each value is sampled once per request and reused
+across all headers, including repeated placeholders in a single value. Use
+`{{uuid}}` for providers requiring a dynamic affinity header. The editor displays header values directly and submits
+all custom fields together. Omitted key or header fields retain their stored
+values. Each header value is limited to 1,024 bytes after variable expansion;
+the configuration document allows 32 KiB to accommodate JSON escaping for all
+eight headers. Header and temperature guidance appears in hover tooltips.
 
 The supported stream contains `choices[0].delta.content`, a `stop` finish reason,
 and `[DONE]`. Truncated, oversized, empty, and unsuccessful responses are errors,

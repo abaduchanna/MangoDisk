@@ -16,7 +16,8 @@ mod stream;
 mod transport;
 
 pub use configuration::{
-    AiConfiguration, AiConfigurationUpdate, AiServiceMode, AiSettings, ReasoningMode,
+    AiConfiguration, AiConfigurationUpdate, AiCustomHeader, AiServiceMode, AiSettings,
+    ReasoningMode,
 };
 pub use context::{AiContext, AiPlatform, AiSubject};
 pub use discovery::{discover_local_models, InstalledLocalModel, LocalModelProvider};
