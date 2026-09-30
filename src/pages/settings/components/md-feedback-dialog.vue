@@ -383,14 +383,18 @@ onMounted(() => {
       class="feedback-dialog flex min-h-0 flex-col"
       height="auto"
       :show-close="!submitting && !addingAttachments"
-      size="wide"
+      :size="submittedId ? 'standard' : 'wide'"
       @interact-outside="preventOutsideDismiss"
     >
       <template v-if="submittedId">
+        <MdDialogHeader class="feedback-success-heading">
+          <DialogTitle>{{ t('settings.feedbackDialog.successTitle') }}</DialogTitle>
+        </MdDialogHeader>
         <div class="feedback-success">
           <span class="feedback-success-icon"><MdIcon :name="ICON_NAMES.check" :size="30" /></span>
-          <DialogTitle>{{ t('settings.feedbackDialog.successTitle') }}</DialogTitle>
-          <DialogDescription>{{ t('settings.feedbackDialog.successDescription') }}</DialogDescription>
+          <DialogDescription class="feedback-success-description">
+            {{ t('settings.feedbackDialog.successDescription') }}
+          </DialogDescription>
           <div class="feedback-reference">
             <span>{{ t('settings.feedbackDialog.referenceId', { id: submittedId }) }}</span>
             <MdIconAction
@@ -605,7 +609,8 @@ onMounted(() => {
   container-type: inline-size;
 }
 
-.feedback-header {
+.feedback-header,
+.feedback-success-heading {
   flex: none;
   border-bottom-width: 1px;
   @apply border-border/70;
@@ -953,11 +958,13 @@ onMounted(() => {
 
 .feedback-success {
   display: grid;
-  min-height: 300px;
+  flex: 1 1 auto;
+  min-height: 0;
   place-items: center;
   align-content: center;
-  gap: 10px;
-  padding: 36px 24px;
+  gap: 16px;
+  overflow-y: auto;
+  padding: 28px var(--layout-dialog-body-inline-padding);
   text-align: center;
 }
 
@@ -966,17 +973,19 @@ onMounted(() => {
   width: 64px;
   height: 64px;
   place-items: center;
-  margin-bottom: 4px;
   border-radius: 50%;
   background: var(--surface-success-subtle);
   @apply text-success-foreground;
+}
+
+.feedback-success-description {
+  line-height: 1.6;
 }
 
 .feedback-reference {
   display: inline-flex;
   align-items: center;
   gap: 3px;
-  margin: 5px 0 0;
   border-radius: 999px;
   padding: 4px 5px 4px 10px;
   font-family: ui-monospace, monospace;
