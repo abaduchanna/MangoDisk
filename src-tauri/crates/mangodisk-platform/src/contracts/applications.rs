@@ -77,7 +77,11 @@ pub struct InstalledApplication {
     /// Platform-derived estimate of removable application bytes.
     ///
     /// macOS uses Spotlight's indexed bundle size. Traditional Windows
-    /// applications use the uninstall registration's EstimatedSize value.
+    /// applications use the uninstall registration's EstimatedSize value. A custom
+    /// MSI alias with a corroborated byte/KB mismatch uses the matching product
+    /// registration's estimate from the same registry scope and view. Identical
+    /// alias records retain that correction when registry views are merged;
+    /// conflicting identities or product estimates retain the original maximum.
     /// Packaged Windows applications count package-local hard links once and
     /// exclude allocations that are still linked outside the package. A zero
     /// value means that the platform did not provide a trustworthy estimate;

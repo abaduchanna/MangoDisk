@@ -42,6 +42,8 @@ use crate::{
 
 use super::{native_uninstall, package_reconciliation, package_sources, path_identity};
 
+mod registry_size;
+
 const UNINSTALL_PATH: &str = r"SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall";
 const APPX_INVENTORY_SCRIPT: &str = r#"
 [Console]::OutputEncoding = [System.Text.UTF8Encoding]::new($false)
@@ -239,6 +241,7 @@ pub(super) fn system_inventory(
     }));
     let mut applications = HashMap::<String, InstalledApplication>::new();
     let mut conflicting_registrations = HashSet::<String>::new();
+    let mut size_estimates = HashMap::<String, registry_size::RegistrySizeEstimate>::new();
     let mut opened_views = 0_usize;
     let mut complete_views = 0_usize;
     let registry_started = Instant::now();
@@ -276,6 +279,7 @@ pub(super) fn system_inventory(
             scope,
             &mut applications,
             &mut conflicting_registrations,
+            &mut size_estimates,
         );
         opened_views += usize::from(opened);
         complete_views += usize::from(complete);
@@ -799,6 +803,7 @@ fn read_uninstall_view(
     scope: RegistryScope,
     applications: &mut HashMap<String, InstalledApplication>,
     conflicting_registrations: &mut HashSet<String>,
+    size_estimates: &mut HashMap<String, registry_size::RegistrySizeEstimate>,
 ) -> (bool, bool) {
     let uninstall = match root.open_subkey_with_flags(UNINSTALL_PATH, KEY_READ | view) {
         Ok(key) => key,
@@ -848,7 +853,15 @@ fn read_uninstall_view(
             continue;
         };
         let estimated_size_kib = entry.get_value::<u32, _>("EstimatedSize").ok();
-        let registry_estimated_bytes = estimated_bytes_from_kib(estimated_size_kib);
+        let size_estimate = registry_size::RegistrySizeEstimate::read(
+            &uninstall,
+            &entry,
+            &key_name,
+            estimated_size_kib,
+            scope,
+            view,
+        );
+        let registry_estimated_bytes = size_estimate.bytes();
         let registry_install_date =
             string_value(&entry, "InstallDate").and_then(|value| parse_install_date(&value));
         let mut uninstall_diagnostic = None;
@@ -1000,6 +1013,12 @@ fn read_uninstall_view(
                 .and_then(path_timestamp_millis)
         });
         let identity = format!("{identity_scope}:{}", key_name.to_ascii_lowercase());
+        let size_estimate = size_estimate.with_fallback(estimated_bytes);
+        let merged_estimated_bytes = size_estimates
+            .entry(identity.clone())
+            .and_modify(|existing| existing.merge(&size_estimate))
+            .or_insert(size_estimate)
+            .bytes();
         let mut source_identities = vec![ApplicationSourceIdentity {
             source: ApplicationInventorySource::WindowsRegistry,
             identifier: format!("{identity_scope}:{key_name}"),
@@ -1070,10 +1089,9 @@ fn read_uninstall_view(
                     }
                     _ => {}
                 }
-                // Size is presentation metadata rather than executable
-                // evidence, so it remains useful even when two registry views
-                // disagree about the native uninstall registration.
-                existing.estimated_bytes = existing.estimated_bytes.max(estimated_bytes);
+                // Preserve corroborated unit corrections only for matching aliases.
+                // Other records and conflicts retain the original maximum estimate.
+                existing.estimated_bytes = merged_estimated_bytes;
                 if existing.installed_at_ms.is_none() {
                     existing.installed_at_ms = installed_at_ms;
                 }
@@ -1094,7 +1112,7 @@ fn read_uninstall_view(
                 name,
                 version: string_value(&entry, "DisplayVersion"),
                 publisher: string_value(&entry, "Publisher"),
-                estimated_bytes,
+                estimated_bytes: merged_estimated_bytes,
                 last_used_at_ms: None,
                 installed_at_ms,
                 icon_path,
