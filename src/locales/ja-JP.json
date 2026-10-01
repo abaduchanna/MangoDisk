@@ -3926,7 +3926,21 @@
     "releaseButtonFailed": "再試行",
     "releaseButtonBusy": "処理中",
     "releaseButtonCancelled": "取消済み",
-    "releaseButtonUnsupported": "非対応"
+    "releaseButtonUnsupported": "非対応",
+    "locationDenied": "システムによりこのプロセスの場所へのアクセスが制限されています",
+    "processExited": "このプロセスは終了しました",
+    "topProcesses": "使用率の高いプロセス",
+    "processId": "プロセスID：{pid}",
+    "updatingApplications": "アプリを更新中…",
+    "previousSample": "前回の結果を表示しています",
+    "applicationName": "アプリ名",
+    "sortBy": "{column}で{direction}",
+    "sortAscending": "昇順",
+    "sortDescending": "降順",
+    "applicationUnavailable": "取得不可",
+    "partialData": "一部データ",
+    "partialMemory": "一部データ（{readable}/{total} プロセス）",
+    "memoryUnavailable": "読取不可"
   },
   "systemStatus": {
     "appearanceTitle": "表示スタイル",

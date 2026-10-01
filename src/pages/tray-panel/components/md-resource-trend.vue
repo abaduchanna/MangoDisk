@@ -68,11 +68,14 @@ const series = computed(() => {
   });
 });
 let frame = 0;
+let lastPaint = -Infinity;
+// A minute-wide trend moves fractions of a pixel per frame. Bound SVG updates
+// independently of the display's refresh rate without changing sample cadence.
+const FRAME_INTERVAL_MS = 1000 / 30;
 let mounted = false;
 let reducedMotion: MediaQueryList | null = null;
 
-function paint() {
-  const clock = performance.now();
+function paint(clock = performance.now()) {
   // Move vector geometry instead of translating a cached bitmap. Fractional CSS
   // layer offsets can blur thin strokes in WebView2 at Windows display scaling.
   offset.value = timeline.offset(clock);
@@ -83,7 +86,11 @@ function animate() {
     stop();
     return;
   }
-  paint();
+  const clock = performance.now();
+  if (clock - lastPaint >= FRAME_INTERVAL_MS) {
+    paint(clock);
+    lastPaint = clock;
+  }
   const last = points.value.at(-1);
   if (!last || timeline.position(last.sampledAtMs) + timeline.offset(performance.now()) < 0) {
     // A disconnected, fully empty viewport needs no continuous frame work.
@@ -95,6 +102,7 @@ function animate() {
 function stop() {
   cancelAnimationFrame(frame);
   frame = 0;
+  lastPaint = -Infinity;
 }
 function start() {
   if (

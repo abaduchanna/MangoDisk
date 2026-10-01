@@ -3,9 +3,11 @@ import type { ResourceReadings, MetricReading } from '@/lib/models/system-resour
 export function emptyReadings(): ResourceReadings {
   const empty = <T>(): MetricReading<T> => ({ status: 'loading', sampledAtMs: null, value: null });
   return {
-    schemaVersion: 3,
+    schemaVersion: 7,
     observedAtMs: 0,
     cpu: empty(),
+    cpuProcesses: empty(),
+    memoryProcesses: empty(),
     memory: empty(),
     network: empty(),
     disk: empty(),
@@ -17,4 +19,13 @@ export function emptyReadings(): ResourceReadings {
     memoryHistory: [],
     diskIoHistory: [],
   };
+}
+
+/** Preserve unchanged sample values across unrelated metric publications. */
+export function retainSampleValue<T>(previous: MetricReading<T>, incoming: MetricReading<T>): MetricReading<T> {
+  return incoming.sampledAtMs !== null &&
+    incoming.sampledAtMs === previous.sampledAtMs &&
+    (incoming.value === null) === (previous.value === null)
+    ? { ...incoming, value: previous.value }
+    : incoming;
 }

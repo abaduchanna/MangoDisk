@@ -35,7 +35,7 @@ returns that reserved slot directly, so centered buttons do not send the monitor
 to an unrelated outer gap. Unknown environments prefer right,
 and collision checks still apply. These defaults do not replace saved choices.
 
-Resident preferences use schema version 8; resource snapshots use version 3.
+Resident preferences use schema version 8; resource snapshots use version 7.
 Version 1 preferences retain background and memory-display choices. Version 2
 preferences retain all selections and default to the original Windows tray mode.
 Version 3 retains that mode and defaults the new position preference to right.
@@ -47,19 +47,18 @@ to 34/55 DIP (percentage/network), with abbreviated network units
 (B/K/M/G/T) and unchanged numeric precision. Taskbar labels and values use 13 DIP Segoe UI. The shared size converts to physical pixels with nearest-pixel
 rounding at the monitor DPI; paint and hit testing share those bounds.
 Unknown persisted
-versions are rejected for writes. Memory snapshots and release results retain
-their separate version 1 contract.
+versions are rejected for writes. Memory snapshots use version 3; release results retain their separate version 1 contract.
 
-CPU samples every second on Windows and every 2 seconds on macOS; memory
-samples every 3 seconds, network every 1 and disk every 30.
+CPU samples every 2 seconds on both platforms, whether visible or hidden. Memory samples every
+3 seconds, network every 1 and disk every 30.
 Their freshness limits are respectively 5, 10, 5 and 90 seconds. All base metrics
 remain active while resident display is enabled, regardless of the selected native
 entries or panel visibility. Disabling resident mode stops periodic collection;
 explicit device-catalogue requests may still read network and disk metadata.
-The panel has an overview of all four base readings and a separate memory page.
-Process details are requested only by the memory page or startup icon warming;
-opening the overview does not enumerate processes. Reopening preserves the last
-selected tab within the application session; a new process defaults to overview.
+The panel has an overview of all four base readings and separate CPU and memory pages.
+Memory process details are requested only by its selected page or startup icon
+warming. CPU application counters stay warm while resident mode is enabled, using the platform cadence described below. Reopening preserves the last
+selected tab within the application session; a new process defaults to CPU.
 A different metric entry can navigate an already open panel.
 CPU and network require two valid observations; unavailable values remain `—`.
 Windows keeps one PDH query on its CPU worker and uses language-neutral
@@ -86,10 +85,13 @@ axis even when the latest valid sample is older than the current snapshot.
 
 A slow native query stays in flight until it returns. Changing demand invalidates
 its generation without spawning replacement threads. Native panel focus explicitly stops chart animation even when WebView2 leaves
-`document.hidden` false. Hidden WebViews receive no periodic reading events and reload the native cache when opened. Native display
-updates from one completion burst are coalesced over 50 ms and periodic native
-refreshes are limited to once per second. A separate presentation worker uses one
-bounded wake slot and reads the latest cached snapshot; a slow native UI operation
+`document.hidden` false. Hidden WebViews receive no periodic reading events and reload the published cache when opened.
+A prewarmed panel receives one initial CPU-history seed; hidden rows do not request icons.
+Publications from one completion burst are coalesced over 50 ms and limited to once
+per second. A separate presentation worker uses one bounded wake slot and reads
+one immutable snapshot for both native display and visible-window events. It stores
+that same revision for IPC reads, preventing reopening from getting ahead of the
+native display. Preference and explicit open/refresh requests may publish immediately; a slow native UI operation
 cannot block sampling or accumulate old snapshots. Preference changes and periodic
 native refreshes share a separate transaction gate; sampling only briefly reads
 the committed settings snapshot. Native application, persistence and rollback do
@@ -346,7 +348,7 @@ shared tray text and tooltips keep their existing precision.
 
 ### Overview history and disk activity
 
-Resource readings use schema version 3; frontend adapters reject mismatched versions. Memory history records occupancy from the existing three-second sampler. CPU and memory use a fixed 0–100% scale. Network and disk activity share a symmetric scale: upload/write above zero, download/read below it. Gaps remain blank. The frontend buffers one sampling interval plus 250 ms before revealing each completed segment from the right; numeric readings remain live. Core retains up to 80 seconds / 96 samples so a reopened chart can reconstruct the buffered minute and offscreen endpoints. The frontend retains two additional intervals at the left edge. During a brief delivery delay, the playhead waits for completed data and catches up at no more than 1.1× speed; genuinely expired data still scrolls out. Pausing demand preserves existing readings and history with their original timestamps, while source changes clear the corresponding history. Rate scales hold their range for 30 seconds before a substantial reduction, and range changes ease over 600 ms using a shared SVG group. Horizontal scrolling uses that group’s native transform instead of a composited CSS bitmap, preserving vector strokes at fractional positions. Reduced-motion mode applies scale changes immediately and disables continuous scrolling; hidden or fully expired charts stop their frame loop.
+Resource readings use schema version 5; frontend adapters reject mismatched versions. Memory history records occupancy from the existing three-second sampler. CPU and memory use a fixed 0–100% scale. Network and disk activity share a symmetric scale: upload/write above zero, download/read below it. Gaps remain blank. The frontend buffers one sampling interval plus 250 ms before revealing each completed segment from the right; numeric readings remain live. Core retains up to 80 seconds / 96 samples so a reopened chart can reconstruct the buffered minute and offscreen endpoints. The frontend retains two additional intervals at the left edge. During a brief delivery delay, the playhead waits for completed data and catches up at no more than 1.1× speed; genuinely expired data still scrolls out. Pausing demand preserves existing readings and history with their original timestamps, while source changes clear the corresponding history. Rate scales hold their range for 30 seconds before a substantial reduction, and range changes ease over 600 ms using a shared SVG group. Continuous SVG updates are capped at 30 frames per second regardless of display refresh rate, without changing sample cadence or live numeric updates. Horizontal scrolling uses that group’s native transform instead of a composited CSS bitmap, preserving vector strokes at fractional positions. Reduced-motion mode applies scale changes immediately and disables continuous scrolling; hidden or fully expired charts stop their frame loop.
 
 Disk capacity belongs to the selected volume. Disk activity is explicitly system-wide block-device I/O, sampled independently every two seconds while resident mode is enabled. macOS reads IOKit block-storage driver counters once per driver; Windows reads localized-independent PDH PhysicalDisk counters once per instance, excluding `_Total`. These counters describe block storage, not per-volume or application file traffic. Missing counters show unavailable rather than zero. Device-set changes, counter rollback, and sleep invalidate the monotonic rate baseline.
 
@@ -433,3 +435,87 @@ changes, elapsed time, retry delay, and retained-result state. Resource acquisit
 is distinct from network discovery. Polls and unchanged notice reads do not log.
 State remains process-local and is rediscovered after restart, without a new
 persisted settings schema or forced WebView creation.
+
+### Process CPU ranking
+
+Resident monitoring continuously samples cumulative process CPU time every two seconds on both platforms. Reopening the CPU tab reads the cached ranking without resetting
+its baseline. Baseline-only samples and transient failures retain the last successful
+rows and their original timestamp. Expired/failed rows remain visible with a history
+notice; only a new valid sample refreshes their timestamp. Disabling monitoring
+explicitly clears both sampled and published caches, discards in-flight generations,
+and drops process maps. Hidden panels receive only the initial history seed and do not request icons.
+
+`platform::system_resources::process_cpu` reads native counters with minimal query
+access. On macOS, a bounded, isolated `/bin/ps` query supplements processes owned by
+other users, including WindowServer and virtual machines. Only unreadable PIDs
+are queried; readable processes retain the cheaper native path. It reads cumulative CPU
+**time**, never the lifetime-average `%cpu`, environment, or command-line arguments.
+The command has a 500 ms deadline and 1 MiB output limit. Its creation identity has
+one-second resolution and counters have 10 ms resolution; the native path retains
+subsecond identity and counters. The kernel task remains explicitly unavailable,
+as it cannot be read through this path. Unreadable counters are omitted, never idle.
+Registered macOS applications supply their display names, including individual VM names.
+
+Windows reads cumulative CPU times in one `NtQuerySystemInformation` process snapshot,
+so system/service counters do not require opening each process handle or elevation.
+PID 0 is idle capacity and is excluded from the work ranking. Image paths remain
+optional: limited-access image queries validate the exact creation identity on the
+same handle, then cache both success and denial until that identity exits. Reused
+PIDs receive new queries. Warm CPU samples do not repeat full process enumeration
+or path queries.
+The native entry point is resolved dynamically. The Windows 10/11 CPU prefix layout
+is checked against this process's public `GetProcessTimes` before/after counters on
+every sample. Entry offsets, UTF-16 pointers and lengths are checked within the
+returned buffer; retries are capped at four and retained buffer storage at 16 MiB.
+An unavailable or incompatible native snapshot logs a bounded fallback transition
+and uses limited-access `GetProcessTimes`; that fallback can omit system processes,
+which remain available in diagnostic coverage counts rather than a permanent user-facing count. No new privileges or helper are needed.
+
+Core computes monotonic deltas keyed by PID and creation identity. macOS CPU rows remain individual processes. Windows CPU rows and memory rows use the same application identity and aggregation function: known executable paths group together, unknown paths remain separate. CPU groups sum all valid members before ranking, retain up to 50 member PID/start-time/usage details, and never expose an app-wide quit action. macOS process percentages
+use 100% per logical core and can exceed 100%; Windows uses 100% across all logical
+cores, matching each platform's customary system-tool scale. The CPU overview and
+trend still use the whole-machine 0–100% scale. Typed `usageScale` communicates the
+list's units. Relative row bars compare with the largest row, not the overview.
+New processes, counter rollback, scale/topology changes, and intervals outside
+200–5000 ms require a new baseline. Maps are replaced every sample and rankings
+publish the 50 highest-usage applications after aggregation. The delta baseline still retains every readable process so a newly busy process can enter the ranking immediately. CPU retains coverage counts for diagnostics; only actionable refresh failures appear in the panel. Process IDs are shown in details.
+Compare the same PID in Task Manager's Details view: its Processes view groups
+application instances, and independently sampled windows need not show identical
+instantaneous values.
+
+CPU and memory share icon identity, disclosure, and file-manager navigation. CPU is
+view-only: normal app-wide quit and memory exclusions remain in the memory list.
+Version 7 replaces the ephemeral IPC protocol; readers reject other versions and
+no persisted preferences are migrated.
+
+For repeatable sensor-cost measurements, build `resource_sampling_probe` in
+`mangodisk-platform` with `--release`, then run `overview`, `memory`, `cpu`, or `cpu-background` with
+a duration in seconds (60 by default). Each run warms up for five seconds and emits
+aggregate single-core CPU percentage, helper CPU time, RSS bounds, and sample latency
+percentiles. macOS measurements include the system-tool fallback separately and in
+the combined CPU total; helper RSS is transient and excluded from probe RSS bounds.
+Use the same build, workload, and duration for comparisons; the probe includes its
+own observation overhead and excludes UI, icon I/O, and application aggregation.
+Keep raw machine output in the ignored `.local/` directory. Measure the packaged
+application separately with its windows hidden and each detail panel open.
+
+Memory process rankings have a separate `memoryProcesses` reading and timestamp in resource protocol version 7. Overview-only samples preserve these rows without extending their freshness. Real empty detail samples clear the list; failed/stale detail results retain previous rows with a notice. The source memory snapshot is version 3; resident publication moves its optional detail payload into the dedicated cache to avoid duplicate IPC data. Frontends reject earlier resource versions.
+
+Windows image lookups retain typed available/denied/exited/unavailable outcomes. Only transient unavailable results retry, at 30-second intervals and at most three total attempts per PID/creation identity. Successful paths and denials do not poll again; exited identities are evicted. Path failures never remove readable CPU counters. The UI explains access restrictions without requesting elevation.
+
+CPU and memory panels share persisted name/usage sorting (frontend settings key
+`resourceSortPreferences`, schema 1, invalid/unknown versions reset to defaults).
+Both rankings publish at most 50 highest-usage entries and use virtual rendering; name sorting reorders this bounded set. The sortable column labels occupy one header row. Row keys remain stable across value-only updates to avoid invalidating virtual measurements; startup icon warming stays capped at
+30 entries. Expanding details freezes the displayed identities and member order
+while measurements continue. Missing samples display unavailable values and disable
+actions rather than claiming the process exited. New identities wait until the
+list unlocks. Explicit column sorting applies immediately; closing the panel clears
+the interaction lock and resets the scroll position. Native focus disables virtual
+observers while hidden; reopening rebuilds the visible range from offset zero even
+when the WebView suppresses hidden scroll events. CPU and memory retain separate sorting preferences.
+
+Visible main-window publications omit process rankings, which are consumed only by
+the detail panel. The panel retains value identity for matching sample timestamps
+so network-only ticks do not rebuild the CPU or memory lists; status changes and
+explicit clears still apply. Native entries and overview values share the same
+published revision as before.

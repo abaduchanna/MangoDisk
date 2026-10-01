@@ -9,7 +9,21 @@ pub struct ProcessMemory {
     pub pid: u32,
     pub name: String,
     pub executable: Option<PathBuf>,
-    pub resident_bytes: u64,
+    pub used_bytes: Option<u64>,
+    pub is_application: bool,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+pub enum ProcessMemoryKind {
+    PhysicalFootprint,
+    PrivateWorkingSet,
+    ResidentSet,
+}
+impl ProcessMemoryKind {
+    pub fn native() -> Self {
+        Self::ResidentSet
+    }
 }
 
 #[derive(Debug, Clone)]
@@ -18,6 +32,7 @@ pub struct NativeMemorySnapshot {
     pub used_bytes: u64,
     pub free_bytes: u64,
     pub swap_used_bytes: u64,
+    pub process_memory_kind: ProcessMemoryKind,
     /// None means no process enumeration was requested, not an empty process list.
     pub processes: Option<Vec<ProcessMemory>>,
 }
@@ -67,7 +82,8 @@ impl MemorySource for MemorySampler {
                     pid: pid.as_u32(),
                     name: process.name().to_string_lossy().into_owned(),
                     executable: process.exe().map(PathBuf::from),
-                    resident_bytes: process.memory(),
+                    used_bytes: Some(process.memory()),
+                    is_application: false,
                 })
                 .collect()
         });
@@ -79,6 +95,7 @@ impl MemorySource for MemorySampler {
             // free memory is intentionally not presented as memory pressure.
             free_bytes: self.system.free_memory(),
             swap_used_bytes: self.system.used_swap(),
+            process_memory_kind: ProcessMemoryKind::native(),
             processes,
         })
     }
@@ -103,6 +120,6 @@ mod tests {
             .processes
             .unwrap()
             .iter()
-            .any(|process| { process.pid == std::process::id() && process.resident_bytes > 0 }));
+            .any(|process| { process.pid == std::process::id() && process.used_bytes.is_some_and(|bytes| bytes > 0) }));
     }
 }

@@ -27,22 +27,38 @@ export interface MemoryOverview {
   swapUsedBytes: number;
   usedPercent: number;
 }
-export interface ApplicationMemory {
+export interface ApplicationIdentity {
   id: string;
   name: string;
-  residentBytes: number;
   processCount: number;
   iconPath: string | null;
   isBundle: boolean;
   canQuit: boolean;
 }
+export interface ApplicationMemory extends ApplicationIdentity {
+  usedBytes: number | null;
+  readableProcessCount: number;
+}
+export interface ApplicationCpu extends ApplicationIdentity {
+  processes?: { pid: number; startedAt: number; usedPercent: number }[];
+  locationStatus?: 'available' | 'denied' | 'exited' | 'unavailable';
+  pid: number;
+  usedPercent: number;
+}
+export interface ProcessCpuSummary {
+  usageScale: 'singleCore' | 'totalCapacity';
+  applications: ApplicationCpu[];
+  readableProcessCount: number;
+  omittedProcessCount: number;
+}
 export interface ProcessMemorySummary {
+  usageKind: 'physicalFootprint' | 'privateWorkingSet' | 'residentSet';
   applications: ApplicationMemory[];
   readableProcessCount: number;
   omittedProcessCount: number;
 }
 export interface SystemResourceSnapshot {
-  schemaVersion: 1;
+  schemaVersion: 3;
   sampledAtMs: number;
   memory: MemoryOverview;
   processes: ProcessMemorySummary | null;
@@ -86,9 +102,11 @@ export interface DiskIoRate {
   writtenBytesPerSecond: number;
 }
 export interface ResourceReadings {
-  schemaVersion: 3;
+  schemaVersion: 7;
   observedAtMs: number;
   cpu: MetricReading<CpuUsage>;
+  cpuProcesses: MetricReading<ProcessCpuSummary>;
+  memoryProcesses: MetricReading<ProcessMemorySummary>;
   memory: MetricReading<SystemResourceSnapshot>;
   network: MetricReading<NetworkRate>;
   disk: MetricReading<DiskUsage>;

@@ -3926,7 +3926,21 @@
     "releaseButtonFailed": "重試",
     "releaseButtonBusy": "進行中",
     "releaseButtonCancelled": "已取消",
-    "releaseButtonUnsupported": "不支援"
+    "releaseButtonUnsupported": "不支援",
+    "locationDenied": "系統限制存取此程序的位置",
+    "processExited": "此程序已結束",
+    "topProcesses": "用量最高的程序",
+    "processId": "程序 ID：{pid}",
+    "updatingApplications": "正在更新應用程式…",
+    "previousSample": "顯示上次結果",
+    "applicationName": "應用程式名稱",
+    "sortBy": "依{column}{direction}",
+    "sortAscending": "遞增排序",
+    "sortDescending": "遞減排序",
+    "applicationUnavailable": "本次未讀取到該應用程式，暫時無法使用",
+    "partialData": "部分資料",
+    "partialMemory": "部分資料（{readable}/{total} 個程序）",
+    "memoryUnavailable": "暫時無法讀取完整記憶體資料"
   },
   "systemStatus": {
     "appearanceTitle": "顯示樣式",

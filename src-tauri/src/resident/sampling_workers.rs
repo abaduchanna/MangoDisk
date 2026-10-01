@@ -1,7 +1,10 @@
 //! Bounded native workers: a slow disk cannot delay CPU, network, or window callbacks.
 use mangodisk_core::{
     system_resources::{
-        metrics::MetricId, models::SystemResourceSnapshot, service::SystemResourceService,
+        metrics::MetricId,
+        models::{ProcessCpuSummary, SystemResourceSnapshot},
+        process_cpu::ProcessCpuService,
+        service::SystemResourceService,
     },
     CoreResult,
 };
@@ -19,7 +22,10 @@ use super::sampling_schedule::Demand;
 
 pub enum Observation {
     Unsupported,
-    Cpu(CpuSample),
+    Cpu {
+        counters: CpuSample,
+        processes: Option<CoreResult<Option<ProcessCpuSummary>>>,
+    },
     Memory(SystemResourceSnapshot),
     Network(Vec<InterfaceSample>),
     Disk {
@@ -28,9 +34,9 @@ pub enum Observation {
     },
 }
 
-pub struct Request {
-    pub generation: u64,
-    pub demand: Demand,
+pub enum Request {
+    Sample { generation: u64, demand: Demand },
+    ReleaseCpu,
 }
 pub struct Completion {
     pub metric: MetricId,
@@ -60,12 +66,23 @@ pub fn start(
 ) -> SyncSender<Request> {
     let (sender, requests) = mpsc::sync_channel::<Request>(1);
     std::thread::spawn(move || {
-        let mut cpu = (metric == MetricId::Cpu).then(CpuReader::default);
+        let mut cpu = (metric == MetricId::Cpu).then(|| CpuWorker::new(origin));
         let mut generation = None;
         let mut memory = (metric == MetricId::Memory).then(SystemResourceService::default);
         let mut network = (metric == MetricId::Network).then(NetworkReader::default);
         while let Ok(request) = requests.recv() {
-            if generation.replace(request.generation) != Some(request.generation) {
+            let Request::Sample {
+                generation: requested_generation,
+                demand,
+            } = request
+            else {
+                if let Some(reader) = cpu.as_mut() {
+                    reader.reset();
+                }
+                generation = None;
+                continue;
+            };
+            if generation.replace(requested_generation) != Some(requested_generation) {
                 if let Some(reader) = cpu.as_mut() {
                     // Re-enabling monitoring must prime a fresh interval even
                     // when the pause was shorter than the normal expiry limit.
@@ -76,7 +93,7 @@ pub fn start(
             let timestamp_ms = timestamp_ms();
             let result = sample(
                 metric,
-                &request.demand,
+                &demand,
                 cpu.as_mut(),
                 memory.as_mut(),
                 network.as_mut(),
@@ -84,7 +101,7 @@ pub fn start(
             );
             let completion = Completion {
                 metric,
-                generation: request.generation,
+                generation: requested_generation,
                 monotonic_ms: origin.elapsed().as_millis() as u64,
                 timestamp_ms,
                 duration_ms: started.elapsed().as_millis() as u64,
@@ -104,20 +121,16 @@ pub fn start(
 fn sample(
     metric: MetricId,
     demand: &Demand,
-    cpu: Option<&mut CpuReader>,
+    cpu: Option<&mut CpuWorker>,
     memory: Option<&mut SystemResourceService>,
     network: Option<&mut NetworkReader>,
     timestamp_ms: u64,
 ) -> CoreResult<Observation> {
     use mangodisk_platform::system_resources::disk;
     Ok(match metric {
-        MetricId::Cpu => match cpu.expect("CPU worker owns its sampler").read() {
-            Ok(counters) => Observation::Cpu(counters),
-            Err(error) if error.code() == mangodisk_platform::PlatformErrorCode::Unsupported => {
-                Observation::Unsupported
-            }
-            Err(error) => return Err(error.into()),
-        },
+        MetricId::Cpu => cpu
+            .expect("CPU worker owns its sampler")
+            .sample(demand.detailed)?,
         MetricId::Memory => Observation::Memory(
             memory
                 .expect("memory worker owns its sampler")
@@ -137,4 +150,47 @@ fn sample(
             Observation::Disk { volumes, selected }
         }
     })
+}
+
+struct CpuWorker {
+    overview: CpuReader,
+    processes: Option<ProcessCpuService>,
+    origin: Instant,
+}
+impl CpuWorker {
+    fn new(origin: Instant) -> Self {
+        Self {
+            overview: Default::default(),
+            processes: None,
+            origin,
+        }
+    }
+    fn reset(&mut self) {
+        self.overview.reset();
+        // Drop native maps and handles, when resident monitoring is disabled.
+        self.processes = None;
+    }
+    fn sample(&mut self, detailed: bool) -> CoreResult<Observation> {
+        let counters = match self.overview.read() {
+            Ok(counters) => counters,
+            Err(error) if error.code() == mangodisk_platform::PlatformErrorCode::Unsupported => {
+                return Ok(Observation::Unsupported)
+            }
+            Err(error) => return Err(error.into()),
+        };
+        let processes = if detailed {
+            Some(
+                self.processes
+                    .get_or_insert_with(ProcessCpuService::default)
+                    .sample(self.origin.elapsed().as_millis() as u64),
+            )
+        } else {
+            self.processes = None;
+            None
+        };
+        Ok(Observation::Cpu {
+            counters,
+            processes,
+        })
+    }
 }

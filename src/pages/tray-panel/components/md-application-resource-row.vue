@@ -6,15 +6,57 @@ import { OperatingSystemService } from '@/lib/services/operating-system-service'
 import { useI18n } from 'vue-i18n';
 import MdNativeFileIcon from '@/components/custom/md-native-file-icon.vue';
 import MdIcon from '@/components/icons/md-icon.vue';
+import type { ResourceListRow } from '@/lib/models/application-resource-list';
 import type { ApplicationQuitStatus } from '@/lib/models/resident';
-import type { ApplicationMemory } from '@/lib/models/system-resources';
+import type { ApplicationMemory, ApplicationCpu } from '@/lib/models/system-resources';
 import { ICON_NAMES } from '@/lib/models/ui';
 import { ByteSizeService } from '@/lib/services/byte-size-service';
 import { ResidentService } from '@/lib/services/resident-service';
 import { FileManagerService } from '@/lib/services/file-manager-service';
 import { LoggerService } from '@/lib/services/logger-service';
 
-const props = defineProps<{ application: ApplicationMemory; share: number; expanded: boolean }>();
+const props = withDefaults(
+  defineProps<{
+    application: ApplicationMemory | ApplicationCpu;
+    metric?: 'cpu' | 'memory';
+    active?: boolean;
+    share: number;
+    expanded: boolean;
+    available?: boolean;
+    members?: ResourceListRow['members'];
+  }>(),
+  { metric: 'memory', active: true, available: true, members: undefined }
+);
+const valueText = computed(() =>
+  !props.available || ('usedBytes' in props.application && props.application.usedBytes === null)
+    ? '—'
+    : 'usedPercent' in props.application
+      ? `${props.application.usedPercent.toFixed(1)}%`
+      : ByteSizeService.memory(props.application.usedBytes ?? 0)
+);
+const partialMemory = computed(
+  () =>
+    props.metric === 'memory' &&
+    props.available &&
+    'readableProcessCount' in props.application &&
+    props.application.readableProcessCount > 0 &&
+    props.application.readableProcessCount < props.application.processCount
+);
+const cpuMembers = computed(
+  () => props.members ?? ('processes' in props.application ? (props.application.processes ?? []) : [])
+);
+const grouped = computed(() =>
+  props.metric === 'memory' ? props.application.processCount > 1 : cpuMembers.value.length > 1
+);
+const locationMessage = computed(() => {
+  const status = 'locationStatus' in props.application ? props.application.locationStatus : undefined;
+  return status === 'denied'
+    ? 'monitoring.locationDenied'
+    : status === 'exited'
+      ? 'monitoring.processExited'
+      : 'monitoring.locationUnavailable';
+});
+const memoryActions = computed(() => props.metric === 'memory' && windows);
 const emit = defineEmits<{ toggle: [] }>();
 const { t } = useI18n({ useScope: 'global' });
 const memorySettings = useMemoryReleaseStore();
@@ -52,7 +94,7 @@ watch(
 );
 
 async function quit() {
-  if (!props.application.canQuit || quitting.value) return;
+  if (!props.available || !props.application.canQuit || quitting.value) return;
   quitting.value = true;
   quitStatus.value = null;
   try {
@@ -68,7 +110,7 @@ async function quit() {
 
 async function reveal() {
   const path = props.application.iconPath;
-  if (!path || revealing.value) return;
+  if (!props.available || !path || revealing.value) return;
   revealing.value = true;
   failed.value = false;
   try {
@@ -92,40 +134,60 @@ async function reveal() {
       :aria-controls="expanded ? `application-details-${application.id}` : undefined"
       @click="emit('toggle')"
     >
-      <span class="memory-share" aria-hidden="true" :style="{ width: `${share}%` }" />
+      <span class="resource-share" aria-hidden="true" :style="{ width: `${share}%` }" />
       <MdNativeFileIcon
-        v-if="application.iconPath"
+        v-if="active && application.iconPath"
         :path="application.iconPath"
         :name="application.name"
         :directory="application.isBundle"
         directory-mode="path"
         compact
       />
-      <span v-else class="fallback-icon"><MdIcon :name="ICON_NAMES.application" :size="20" /></span>
-      <span class="application-name">{{ application.name }}</span>
-      <MdTooltip v-if="windows && excluded" :text="t('memoryRelease.exclusionsHint')"
+      <span v-else class="application-placeholder"><MdIcon :name="ICON_NAMES.file" :size="24" /></span>
+      <span class="application-name"
+        >{{ application.name }}<span v-if="grouped" class="process-count"> ({{ application.processCount }})</span></span
+      >
+      <MdTooltip v-if="memoryActions && excluded" :text="t('memoryRelease.exclusionsHint')"
         ><span class="excluded-badge">{{ t('memoryRelease.excluded') }}</span></MdTooltip
       >
-      <strong>{{ ByteSizeService.memory(application.residentBytes) }}</strong>
+      <span v-if="partialMemory" class="excluded-badge">{{ t('monitoring.partialData') }}</span>
+      <strong>{{ valueText }}</strong>
       <MdIcon class="disclosure" :name="expanded ? ICON_NAMES.chevronUp : ICON_NAMES.chevronDown" :size="12" />
     </button>
     <div v-if="expanded" :id="`application-details-${application.id}`" class="application-details">
-      <span>{{ t('monitoring.processCount', { count: application.processCount }) }}</span>
+      <span v-if="!available" role="status">{{
+        t(
+          'usedBytes' in application && application.usedBytes === null
+            ? 'monitoring.memoryUnavailable'
+            : 'monitoring.applicationUnavailable'
+        )
+      }}</span>
+      <span v-if="partialMemory && 'readableProcessCount' in application" role="status">{{
+        t('monitoring.partialMemory', { readable: application.readableProcessCount, total: application.processCount })
+      }}</span>
+      <span v-if="'pid' in application && !grouped">{{ t('monitoring.processId', { pid: application.pid }) }}</span>
+      <span v-else>{{ t('monitoring.processCount', { count: application.processCount }) }}</span>
       <template v-if="application.iconPath">
         <span class="application-path">{{ application.iconPath }}</span>
       </template>
-      <span v-else>{{ t('monitoring.locationUnavailable') }}</span>
+      <span v-else>{{ t(locationMessage) }}</span>
+      <ol v-if="cpuMembers.length > 1" class="cpu-members" :aria-label="t('monitoring.topProcesses')">
+        <li v-for="process in cpuMembers" :key="`${process.pid}:${process.startedAt}`">
+          <span>{{ t('monitoring.processId', { pid: process.pid }) }}</span>
+          <strong>{{ process.usedPercent === null ? '—' : `${process.usedPercent.toFixed(1)}%` }}</strong>
+        </li>
+      </ol>
       <div class="application-actions">
         <MdTooltip v-if="application.iconPath" :text="t('common.showInFileManager')"
-          ><button class="reveal-button" :disabled="revealing" @click="reveal">
+          ><button class="reveal-button" :disabled="!available || revealing" @click="reveal">
             <MdIcon :name="ICON_NAMES.folderOpen" :size="13" />
             {{ t('memoryRelease.revealAction') }}
           </button></MdTooltip
         >
-        <MdTooltip v-if="windows && application.iconPath" :text="t('memoryRelease.exclusionsHint')"
+        <MdTooltip v-if="memoryActions && application.iconPath" :text="t('memoryRelease.exclusionsHint')"
           ><button
             class="reveal-button"
-            :disabled="!memorySettings.preferences || memorySettings.saving"
+            :disabled="!available || !memorySettings.preferences || memorySettings.saving"
             :aria-pressed="excluded"
             @click="memorySettings.toggle({ name: application.name, path: application.iconPath })"
           >
@@ -144,7 +206,7 @@ async function reveal() {
           :text="quitStatus ? t(quitMessages[quitStatus]) : t('monitoring.quitApplication')"
           ><button
             class="quit-application-button"
-            :disabled="quitting"
+            :disabled="!available || quitting"
             :aria-busy="quitting"
             :aria-label="t('monitoring.quitNamedApplication', { name: application.name })"
             @click="quit"
@@ -168,7 +230,8 @@ async function reveal() {
 <style scoped>
 @reference "@assets/main.css";
 li {
-  margin: 2px 0;
+  margin: 0;
+  padding: 2px 0;
 }
 .application-row {
   display: flex;
@@ -192,7 +255,7 @@ button:focus-visible {
   outline: 2px solid var(--ring);
   outline-offset: -2px;
 }
-.memory-share {
+.resource-share {
   position: absolute;
   z-index: -1;
   inset: 0 auto 0 0;
@@ -219,14 +282,6 @@ strong {
   font-size: 12px;
   font-weight: 550;
   font-variant-numeric: tabular-nums;
-}
-.fallback-icon {
-  @apply text-muted-foreground;
-  width: 30px;
-  height: 30px;
-  display: grid;
-  place-items: center;
-  flex: none;
 }
 .disclosure {
   @apply text-muted-foreground;
@@ -309,5 +364,25 @@ strong {
 }
 [role='alert'] {
   @apply text-destructive;
+}
+</style>
+
+<style scoped>
+.cpu-members {
+  width: 100%;
+  max-height: 180px;
+  overflow: auto;
+  padding: 0;
+  margin: 0;
+  list-style: none;
+}
+.cpu-members li {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 3px 0;
+}
+.process-count {
+  opacity: 0.7;
 }
 </style>

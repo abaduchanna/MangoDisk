@@ -11,6 +11,39 @@ afterEach(() => {
 });
 
 describe('resource trend rendering', () => {
+  it('bounds SVG paints on high-refresh displays without stopping live scrolling', async () => {
+    let clock = 0;
+    let animate: FrameRequestCallback = () => {};
+    vi.spyOn(performance, 'now').mockImplementation(() => clock);
+    vi.stubGlobal('requestAnimationFrame', (callback: FrameRequestCallback) => {
+      animate = callback;
+      return 1;
+    });
+    vi.stubGlobal('cancelAnimationFrame', vi.fn());
+    const wrapper = mount(Trend, {
+      props: {
+        metric: 'cpu',
+        label: 'CPU',
+        observedAtMs: 60000,
+        history: [point(0), point(60000)],
+      },
+    });
+    await nextTick();
+    clock = 100;
+    animate(clock);
+    await nextTick();
+    const first = wrapper.get('svg > g').attributes('transform');
+    clock = 116;
+    animate(clock);
+    await nextTick();
+    expect(wrapper.get('svg > g').attributes('transform')).toBe(first);
+    clock = 134;
+    animate(clock);
+    await nextTick();
+    expect(wrapper.get('svg > g').attributes('transform')).not.toBe(first);
+    wrapper.unmount();
+  });
+
   it('cancels native-hidden animation and resumes from updated history', async () => {
     const request = vi.fn(() => 1);
     const cancel = vi.fn();

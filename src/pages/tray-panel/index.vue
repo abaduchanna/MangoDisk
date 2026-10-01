@@ -12,17 +12,17 @@ import { OperatingSystemService } from '@/lib/services/operating-system-service'
 import { type MetricId } from '@/lib/models/system-resources';
 import MdResourceOverview from './components/md-resource-overview.vue';
 import MdMemoryOverview from './components/md-memory-overview.vue';
-import MdApplicationMemoryList from './components/md-application-memory-list.vue';
+import MdApplicationResourceList from './components/md-application-resource-list.vue';
 import { ICON_NAMES } from '@/lib/models/ui';
 import type { ResidentDestination } from '@/lib/models/resident';
 import { ResidentService } from '@/lib/services/resident-service';
 import { useTrayPanelStore } from '@/stores/tray-panel-store';
 import { useAppStore } from '@/stores/app-store';
-
 const { t } = useI18n({ useScope: 'global' });
 const store = useTrayPanelStore();
 const appStore = useAppStore();
 const memorySettings = useMemoryReleaseStore();
+
 const memoryReleaseSupported = !OperatingSystemService.isLinux();
 const automaticReleaseRule = computed(() => {
   if (!memoryReleaseSupported) return '';
@@ -46,9 +46,11 @@ const panel = ref<HTMLElement | null>(null);
 // Native popup hiding does not consistently update document.hidden in WebView2.
 // A prewarmed, unfocused panel must not start chart animation loops.
 const panelFocused = ref(false);
-// The native metric remains the entry context; only memory opens a dedicated page.
-const selectedTab = computed(() => (store.selectedMetric === 'memory' ? 'memory' : 'overview'));
-const tabs = ['overview', 'memory'] as const;
+// Native CPU/memory entries open their detail lists; other metrics share the overview.
+const selectedTab = computed(() =>
+  store.selectedMetric === 'memory' ? 'memory' : store.selectedMetric === 'cpu' ? 'cpu' : 'overview'
+);
+const tabs = ['overview', 'cpu', 'memory'] as const;
 // Group activity trends before capacity readings without changing native display order.
 const overviewMetrics = ['cpu', 'memory', 'disk', 'network'] as const;
 // Feedback belongs to this panel's presentation lifecycle. Start its timeout only
@@ -84,11 +86,11 @@ function selectMetric(metric: MetricId) {
   store.selectedMetric = metric;
   void act(() => ResidentService.selectMetric(metric));
 }
-function selectTab(tab: 'overview' | 'memory') {
-  selectMetric(tab === 'memory' ? 'memory' : 'cpu');
+function selectTab(tab: (typeof tabs)[number]) {
+  selectMetric(tab === 'overview' ? 'network' : tab);
 }
-function moveTab() {
-  const next = selectedTab.value === 'memory' ? 'overview' : 'memory';
+function moveTab(direction: number) {
+  const next = tabs[(tabs.indexOf(selectedTab.value) + direction + tabs.length) % tabs.length]!;
   selectTab(next);
   void nextTick(() => document.getElementById(`metric-tab-${next}`)?.focus());
 }
@@ -96,7 +98,9 @@ function navigate(destination: ResidentDestination) {
   void act(() => ResidentService.openMain(destination));
 }
 function onKey(event: KeyboardEvent) {
-  if (event.key === 'Escape') {
+  if (event.key === 'Escape' && !event.defaultPrevented) {
+    if (event.target instanceof Element && event.target.closest('[role="dialog"], [role="menu"], [role="listbox"]'))
+      return;
     event.preventDefault();
     void act(() => ResidentService.hidePanel());
   }
@@ -212,10 +216,18 @@ onBeforeUnmount(() => {
             aria-controls="metric-details"
             :tabindex="selectedTab === tab ? 0 : -1"
             @click="selectTab(tab)"
-            @keydown.right.prevent="moveTab()"
-            @keydown.left.prevent="moveTab()"
+            @keydown.right.prevent="moveTab(1)"
+            @keydown.left.prevent="moveTab(-1)"
           >
-            {{ t(tab === 'overview' ? 'systemStatus.overview' : 'systemStatus.memoryManagement') }}
+            {{
+              t(
+                tab === 'overview'
+                  ? 'systemStatus.overview'
+                  : tab === 'cpu'
+                    ? 'systemStatus.cpu'
+                    : 'systemStatus.memoryManagement'
+              )
+            }}
           </button>
         </div>
         <MdUpdateNotice />
@@ -230,6 +242,7 @@ onBeforeUnmount(() => {
         <MdResourceOverview
           v-for="metric in overviewMetrics"
           :key="metric"
+          class="detail-summary"
           :active="panelFocused"
           :metric="metric"
           :reading="store.reading"
@@ -241,9 +254,25 @@ onBeforeUnmount(() => {
         {{ t('monitoring.unavailable') }} <button @click="refresh()">{{ t('monitoring.refresh') }}</button>
       </div>
       <section
+        v-if="selectedTab === 'cpu'"
+        id="metric-details"
+        class="resource-details"
+        role="tabpanel"
+        aria-labelledby="metric-tab-cpu"
+      >
+        <MdResourceOverview class="detail-summary" metric="cpu" :reading="store.reading" :active="panelFocused" />
+        <MdApplicationResourceList
+          class="monitor-processes"
+          metric="cpu"
+          :active="panelFocused"
+          :summary="store.reading.cpuProcesses.value"
+          :status="store.reading.cpuProcesses.status"
+        />
+      </section>
+      <section
         v-if="store.selectedMetric === 'memory'"
         id="metric-details"
-        class="memory-details"
+        class="resource-details"
         role="tabpanel"
         aria-labelledby="metric-tab-memory"
       >
@@ -252,6 +281,7 @@ onBeforeUnmount(() => {
             t(METRIC_STATUS_KEYS[store.reading.memory.status])
           }}</span>
           <MdMemoryOverview
+            class="detail-summary"
             :memory="store.reading.memory.value.memory"
             :releasing="store.releasing"
             :release-result="store.releaseResult"
@@ -277,7 +307,12 @@ onBeforeUnmount(() => {
               </div>
             </template>
           </MdMemoryOverview>
-          <MdApplicationMemoryList class="monitor-processes" :summary="store.reading.memory.value.processes" />
+          <MdApplicationResourceList
+            class="monitor-processes"
+            :active="panelFocused"
+            :summary="store.reading.memoryProcesses.value"
+            :status="store.reading.memoryProcesses.status"
+          />
         </template>
         <div v-else class="monitor-loading" role="status">
           {{ t(METRIC_STATUS_KEYS[store.reading.memory.status]) }}
@@ -411,7 +446,7 @@ button:disabled {
   /* Extend the scroll viewport through the body's right inset to the window edge. */
   margin-right: -12px;
 }
-.memory-details {
+.resource-details {
   display: flex;
   flex-direction: column;
   gap: 14px;

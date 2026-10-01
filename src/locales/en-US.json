@@ -3926,7 +3926,21 @@
     "releaseButtonFailed": "Retry",
     "releaseButtonBusy": "In progress",
     "releaseButtonCancelled": "Cancelled",
-    "releaseButtonUnsupported": "Unavailable"
+    "releaseButtonUnsupported": "Unavailable",
+    "locationDenied": "Windows restricts access to this process location",
+    "processExited": "This process has exited",
+    "topProcesses": "Top processes",
+    "processId": "Process ID: {pid}",
+    "updatingApplications": "Updating applications…",
+    "previousSample": "Showing previous results",
+    "applicationName": "Name",
+    "sortBy": "Sort {column}: {direction}",
+    "sortAscending": "ascending",
+    "sortDescending": "descending",
+    "applicationUnavailable": "This application was not read in the latest sample and is temporarily unavailable",
+    "partialData": "Partial data",
+    "partialMemory": "Partial data ({readable}/{total} processes)",
+    "memoryUnavailable": "Complete process memory is temporarily unavailable"
   },
   "systemStatus": {
     "appearanceTitle": "Appearance",

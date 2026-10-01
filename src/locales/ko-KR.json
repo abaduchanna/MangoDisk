@@ -3926,7 +3926,21 @@
     "releaseButtonFailed": "재시도",
     "releaseButtonBusy": "진행 중",
     "releaseButtonCancelled": "취소됨",
-    "releaseButtonUnsupported": "지원 안 됨"
+    "releaseButtonUnsupported": "지원 안 됨",
+    "locationDenied": "시스템에서 이 프로세스 위치에 대한 접근을 제한합니다",
+    "processExited": "이 프로세스가 종료되었습니다",
+    "topProcesses": "사용량이 높은 프로세스",
+    "processId": "프로세스 ID: {pid}",
+    "updatingApplications": "앱 업데이트 중…",
+    "previousSample": "이전 결과 표시 중",
+    "applicationName": "앱 이름",
+    "sortBy": "{column} {direction} 정렬",
+    "sortAscending": "오름차순",
+    "sortDescending": "내림차순",
+    "applicationUnavailable": "이번 샘플에서 앱을 읽지 못해 일시적으로 사용할 수 없습니다",
+    "partialData": "일부 데이터",
+    "partialMemory": "일부 데이터 ({readable}/{total}개 프로세스)",
+    "memoryUnavailable": "전체 메모리 데이터를 읽을 수 없습니다"
   },
   "systemStatus": {
     "appearanceTitle": "표시 스타일",

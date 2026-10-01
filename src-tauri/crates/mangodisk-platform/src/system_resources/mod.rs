@@ -5,4 +5,12 @@ pub mod disk;
 pub mod disk_io;
 pub mod memory;
 pub mod network;
+pub mod process_cpu;
+#[cfg(target_os = "macos")]
+mod process_cpu_macos;
+#[cfg(windows)]
+mod process_snapshot_windows;
 pub mod release;
+
+#[cfg(windows)]
+mod process_image_windows;

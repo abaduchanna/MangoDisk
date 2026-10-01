@@ -1,3 +1,4 @@
+import type { ResourceSortPreferences } from '@/lib/models/application-resource-list';
 import { load, type Store } from '@tauri-apps/plugin-store';
 
 import type { AppSettings } from '@/lib/models/settings';
@@ -8,6 +9,7 @@ import type { ScanExclusionPreferences } from '@/lib/models/storage-scan';
 const SETTINGS_FILE_NAME = 'settings.json';
 const SETTINGS_KEYS = {
   settings: 'settings',
+  resourceSortPreferences: 'resourceSortPreferences',
   storageScopePreferences: 'storageScopePreferences',
   customCleanupPreferences: 'customCleanupPreferences',
   scanExclusionPreferences: 'scanExclusionPreferences',
@@ -27,6 +29,14 @@ type SettingsKey = (typeof SETTINGS_KEYS)[keyof typeof SETTINGS_KEYS];
 export class PreferenceStorageService {
   private static storePromise: Promise<Store> | null = null;
   private static mutationQueue: Promise<void> = Promise.resolve();
+
+  static loadResourceSort(): Promise<unknown | null> {
+    return this.read(SETTINGS_KEYS.resourceSortPreferences);
+  }
+
+  static saveResourceSort(value: ResourceSortPreferences): Promise<void> {
+    return this.write(SETTINGS_KEYS.resourceSortPreferences, value);
+  }
 
   static loadSettings(): Promise<unknown | null> {
     return this.read(SETTINGS_KEYS.settings);

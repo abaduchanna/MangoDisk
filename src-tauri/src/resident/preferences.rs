@@ -95,7 +95,7 @@ pub fn apply(
         .map_err(|error| Failure::record("preferences_foreground", &error))?;
     }
     let reading = state
-        .reading
+        .published_reading
         .lock()
         .map_err(|_| Failure::state("preferences_reading"))?
         .clone();
@@ -131,6 +131,10 @@ pub fn apply(
                 .unwrap_or_else(|error| error.into_inner());
             reading.revision += 1;
             reading.resources = Default::default();
+            *state
+                .published_reading
+                .lock()
+                .unwrap_or_else(|error| error.into_inner()) = reading.clone();
         }
     }
     if preferences.enabled {

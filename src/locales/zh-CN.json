@@ -3926,7 +3926,21 @@
     "releaseButtonFailed": "重试",
     "releaseButtonBusy": "进行中",
     "releaseButtonCancelled": "已取消",
-    "releaseButtonUnsupported": "不支持"
+    "releaseButtonUnsupported": "不支持",
+    "locationDenied": "系统限制访问此进程的位置",
+    "processExited": "此进程已退出",
+    "topProcesses": "占用最高的进程",
+    "processId": "进程 ID：{pid}",
+    "updatingApplications": "正在更新应用…",
+    "previousSample": "显示上次结果",
+    "applicationName": "应用名称",
+    "sortBy": "按{column}{direction}",
+    "sortAscending": "升序",
+    "sortDescending": "降序",
+    "applicationUnavailable": "本次未读取到该应用，暂不可用",
+    "partialData": "部分数据",
+    "partialMemory": "部分数据（{readable}/{total} 个进程）",
+    "memoryUnavailable": "暂时无法读取完整内存数据"
   },
   "systemStatus": {
     "appearanceTitle": "显示样式",
