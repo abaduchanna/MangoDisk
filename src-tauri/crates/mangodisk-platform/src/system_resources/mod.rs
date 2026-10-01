@@ -4,6 +4,8 @@ pub mod cpu;
 pub mod disk;
 pub mod disk_io;
 pub mod memory;
+#[cfg(target_os = "macos")]
+mod memory_macos;
 pub mod network;
 pub mod process_cpu;
 #[cfg(target_os = "macos")]

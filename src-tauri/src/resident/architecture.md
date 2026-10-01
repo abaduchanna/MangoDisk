@@ -519,3 +519,37 @@ the detail panel. The panel retains value identity for matching sample timestamp
 so network-only ticks do not rebuild the CPU or memory lists; status changes and
 explicit clears still apply. Native entries and overview values share the same
 published revision as before.
+
+## Memory measurement semantics
+
+Memory rankings publish `usageKind` and nullable `usedBytes`, rather than calling every
+platform metric resident memory. macOS uses the process footprint ledger (including
+compressed attribution); Windows uses private working set, excluding shared pages and
+commit. Linux retains RSS. Groups reuse the CPU identity fold and sum all readable
+members before ranking and publish `readableProcessCount` with each application. A
+partially readable group shows its measured sum with a partial-data badge and readable/total
+coverage in expanded details; a completely unreadable group remains unknown. Shared macOS
+WebKit XPC images retain separate PID identities and OS display names, because their
+processes can belong to unrelated host applications. Windows
+still groups by executable path, so runtime hosts may group differently from Task
+Manager. Use matching PID sets for numerical comparisons; group totals do not sum to
+system used memory.
+
+macOS overview subtracts native free and file-backed page counts from installed RAM,
+including inactive anonymous pages and the physical compressor. The free-page field
+excludes speculative pages and is not a pressure classification. Windows overview
+retains physical total minus native available memory. No process totals are used to
+construct either system overview.
+
+Unreadable GUI applications remain visible without a numeric rank, even when they
+would otherwise be lost behind 50 known rows. Their values show a dash and their
+expanded detail explains the permission limitation. Other unknown processes occupy
+remaining slots. Native failures never fall back to RSS or zero under a footprint or
+private-working-set label. macOS system/root processes can remain unreadable at normal
+privilege: Activity Monitor has system access which this app does not request. High-cost
+`top`/memory-map traversal and privilege elevation are not part of periodic monitoring.
+
+Source snapshot schema 3 and resident schema 7 replace the former resident-byte field;
+frontends reject earlier envelopes. `application_memory_probe` captures native PID
+measurements and grouped Core publication from the same sample for reproducible
+system-tool comparisons without collecting command lines or environments.
