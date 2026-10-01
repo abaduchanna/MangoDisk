@@ -527,14 +527,16 @@ describe('monitoring panel interactions', () => {
     await flushPromises();
     expect(wrapper.text()).toContain('Browser');
     const row = wrapper.get('.application-row').element;
-    expect(wrapper.find('.directory-fallback').exists()).toBe(true);
-    expect(wrapper.get('.directory-fallback md-icon-stub').attributes('name')).toBe(ICON_NAMES.linuxFolder);
+    expect(wrapper.find('.md-application-icon').exists()).toBe(true);
+    expect(wrapper.get('.md-application-icon .fallback-icon md-icon-stub').attributes('name')).toBe(
+      ICON_NAMES.application
+    );
     expect(wrapper.find('.native-file-icon img').exists()).toBe(false);
     finish('data:image/png;base64,icon');
     await flushPromises();
     expect(wrapper.get('.application-row').element).toBe(row);
     expect(wrapper.get('.native-file-icon img').attributes('src')).toBe('data:image/png;base64,icon');
-    expect(wrapper.find('.directory-fallback').exists()).toBe(false);
+    expect(wrapper.find('.md-application-icon').exists()).toBe(false);
     expect(ResidentService.panelReady).toHaveBeenCalledOnce();
   });
 

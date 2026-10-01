@@ -59,10 +59,12 @@ watch(
   <span v-if="dataUrl" class="native-file-icon" :class="{ compact }" aria-hidden="true">
     <img :src="dataUrl" alt="" draggable="false" />
   </span>
-  <span v-else-if="directory" class="directory-fallback" :class="{ compact }" aria-hidden="true">
-    <MdIcon :name="ICON_NAMES.linuxFolder" :size="compact ? 23 : 27" />
-  </span>
-  <MdFileTypeIcon v-else :name="name" :compact="compact" />
+  <slot v-else name="fallback">
+    <span v-if="directory" class="directory-fallback" :class="{ compact }" aria-hidden="true">
+      <MdIcon :name="ICON_NAMES.linuxFolder" :size="compact ? 23 : 27" />
+    </span>
+    <MdFileTypeIcon v-else :name="name" :compact="compact" />
+  </slot>
 </template>
 
 <style scoped>

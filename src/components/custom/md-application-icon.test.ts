@@ -5,7 +5,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const fallback = vi.hoisted(() => ({ peek: vi.fn(), resolve: vi.fn() }));
 vi.mock('@/lib/services/application-icon-service', () => ({
-  ApplicationIconService: { peekMacOsFallback: fallback.peek, resolveMacOsFallback: fallback.resolve },
+  ApplicationIconService: { peekFallback: fallback.peek, resolveFallback: fallback.resolve },
 }));
 vi.mock('@/lib/services/operating-system-service', () => ({
   OperatingSystemService: { isWindows: () => false },
@@ -65,12 +65,35 @@ describe('MdApplicationIcon', () => {
     expect(wrapper.emitted('error')).toBeUndefined();
   });
 
-  it('keeps the Windows fallback without requesting a macOS icon', async () => {
+  it('uses the native Windows fallback when the original image fails', async () => {
     const wrapper = mount(MdApplicationIcon, { props: { platform: 'windowsRegistry', src: 'broken.ico' } });
     await wrapper.get('img').trigger('error');
     await flushPromises();
-    expect(wrapper.find('svg').exists()).toBe(true);
+    expect(wrapper.get('img').attributes('src')).toBe('data:image/png;base64,native');
+    expect(wrapper.find('svg').exists()).toBe(false);
     expect(wrapper.classes()).not.toContain('macos-icon');
-    expect(fallback.resolve).not.toHaveBeenCalled();
+    expect(fallback.resolve).toHaveBeenCalledExactlyOnceWith('windowsRegistry');
+  });
+
+  it('paints a cached Windows fallback immediately and ignores unrelated updates', async () => {
+    fallback.peek.mockReturnValue('data:image/png;base64,cached-windows');
+    const wrapper = mount(MdApplicationIcon, { props: { platform: 'windowsRegistry', size: 30 } });
+    expect(wrapper.get('img').attributes('src')).toBe('data:image/png;base64,cached-windows');
+    await wrapper.setProps({ size: 32 });
+    expect(fallback.resolve).toHaveBeenCalledTimes(1);
+  });
+
+  it('discards a pending fallback when the platform changes', async () => {
+    let resolve!: (value: string) => void;
+    fallback.resolve.mockImplementation((platform: string) =>
+      platform === 'macosBundle'
+        ? new Promise<string>(done => (resolve = done))
+        : Promise.resolve('data:image/png;base64,windows')
+    );
+    const wrapper = mount(MdApplicationIcon, { props: { platform: 'macosBundle' } });
+    await wrapper.setProps({ platform: 'windowsRegistry' });
+    resolve('data:image/png;base64,late-mac');
+    await flushPromises();
+    expect(wrapper.get('img').attributes('src')).toBe('data:image/png;base64,windows');
   });
 });

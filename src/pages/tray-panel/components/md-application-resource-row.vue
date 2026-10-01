@@ -5,6 +5,7 @@ import { useMemoryReleaseStore } from '@/stores/memory-release-store';
 import { OperatingSystemService } from '@/lib/services/operating-system-service';
 import { useI18n } from 'vue-i18n';
 import MdNativeFileIcon from '@/components/custom/md-native-file-icon.vue';
+import MdApplicationIcon from '@/components/custom/md-application-icon.vue';
 import MdIcon from '@/components/icons/md-icon.vue';
 import type { ResourceListRow } from '@/lib/models/application-resource-list';
 import type { ApplicationQuitStatus } from '@/lib/models/resident';
@@ -142,8 +143,12 @@ async function reveal() {
         :directory="application.isBundle"
         directory-mode="path"
         compact
-      />
-      <span v-else class="application-placeholder"><MdIcon :name="ICON_NAMES.file" :size="24" /></span>
+      >
+        <template #fallback>
+          <MdApplicationIcon :size="30" :artwork-size="30" />
+        </template>
+      </MdNativeFileIcon>
+      <MdApplicationIcon v-else :size="30" :artwork-size="30" />
       <span class="application-name"
         >{{ application.name }}<span v-if="grouped" class="process-count"> ({{ application.processCount }})</span></span
       >
