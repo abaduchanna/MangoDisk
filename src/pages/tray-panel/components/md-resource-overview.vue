@@ -1,5 +1,7 @@
 <script setup lang="ts">
 import MdTooltip from '@/components/custom/md-tooltip.vue';
+import MdIcon from '@/components/icons/md-icon.vue';
+import { ICON_NAMES } from '@/lib/models/ui';
 import { computed } from 'vue';
 import MdResourceTrend from './md-resource-trend.vue';
 import { useI18n } from 'vue-i18n';
@@ -11,10 +13,14 @@ import {
 } from '@/lib/models/system-resources';
 import { ByteSizeService } from '@/lib/services/byte-size-service';
 
-const props = withDefaults(defineProps<{ metric: MetricId; reading: ResourceReadings; active?: boolean }>(), {
-  active: true,
-});
-defineEmits<{ cleanup: []; memory: [] }>();
+const props = withDefaults(
+  defineProps<{ metric: MetricId; reading: ResourceReadings; active?: boolean; interactive?: boolean }>(),
+  {
+    active: true,
+    interactive: false,
+  }
+);
+defineEmits<{ cleanup: []; memory: []; cpu: [] }>();
 const { t } = useI18n({ useScope: 'global' });
 const current = computed(() => props.reading[props.metric]);
 const ready = computed(() => current.value.status === 'ready' && current.value.value !== null);
@@ -35,27 +41,7 @@ const percentage = computed(() => {
 const activityReady = computed(() =>
   props.metric === 'disk' ? props.reading.diskIo.status === 'ready' && props.reading.diskIo.value !== null : ready.value
 );
-const history = computed(
-  () =>
-    ({
-      cpu: props.reading.cpuHistory,
-      memory: props.reading.memoryHistory,
-      disk: props.reading.diskIoHistory,
-      network: props.reading.networkHistory,
-    })[props.metric]
-);
-const peak = computed(() => {
-  const samples = history.value.filter(
-    point =>
-      point.sampledAtMs <= props.reading.observedAtMs &&
-      props.reading.observedAtMs - point.sampledAtMs <= 60000 &&
-      Number.isFinite(point.primary)
-  );
-  if (!samples.length || !ready.value) return '—';
-  return props.metric === 'cpu'
-    ? `${Math.max(...samples.map(point => point.primary)).toFixed(0)}%`
-    : `${ByteSizeService.bytes(Math.max(...samples.map(point => Math.max(point.primary, point.secondary ?? 0))))}/s`;
-});
+const history = computed(() => (props.metric === 'cpu' ? props.reading.cpuHistory : props.reading.networkHistory));
 const source = computed(() =>
   props.metric === 'network'
     ? props.reading.network.value?.interface.name
@@ -96,8 +82,19 @@ const rates = computed(() =>
 
 <template>
   <section class="resource-overview" :data-metric="metric" :aria-label="t(METRIC_LABEL_KEYS[metric])">
+    <button
+      v-if="interactive && (metric === 'cpu' || metric === 'memory')"
+      type="button"
+      class="card-navigation"
+      :aria-label="t(metric === 'cpu' ? 'systemStatus.cpu' : 'systemStatus.memoryDetails')"
+      @click="metric === 'cpu' ? $emit('cpu') : $emit('memory')"
+    />
     <header>
-      <span class="resource-label">{{ t(METRIC_LABEL_KEYS[metric]) }}</span>
+      <span class="resource-label">
+        {{ t(METRIC_LABEL_KEYS[metric]) }}
+        <MdIcon v-if="interactive" :name="ICON_NAMES.chevronRight" :size="12" aria-hidden="true" />
+        <span v-if="metric === 'disk'" class="resource-source">{{ source }}</span>
+      </span>
       <div v-if="metric === 'network'" class="network-values">
         <span
           v-for="rate in rates"
@@ -110,13 +107,13 @@ const rates = computed(() =>
           ><small>{{ rate.unit }}</small>
         </span>
       </div>
-      <strong v-else class="resource-value"
-        >{{ percentage === null ? '—' : percentage.toFixed(0) }}<small v-if="percentage !== null">%</small></strong
-      >
+      <strong v-else class="resource-value">
+        {{ percentage === null ? '—' : percentage.toFixed(0) }}<small v-if="percentage !== null">%</small>
+      </strong>
     </header>
 
     <div
-      v-if="metric === 'disk'"
+      v-if="metric === 'disk' || metric === 'memory'"
       class="capacity-track"
       :role="ready ? 'meter' : undefined"
       :aria-label="t(METRIC_LABEL_KEYS[metric])"
@@ -126,17 +123,47 @@ const rates = computed(() =>
     >
       <i v-if="percentage !== null" :style="{ width: `${Math.max(0, Math.min(100, percentage))}%` }" />
     </div>
-    <div v-if="metric === 'disk'" class="resource-meta">
-      <span v-if="ready && reading.disk.value"
-        >{{ t('systemStatus.available') }} {{ ByteSizeService.bytes(reading.disk.value.availableBytes) }} /
-        {{ ByteSizeService.bytes(reading.disk.value.totalBytes) }}</span
-      >
-      <span v-else role="status">{{ t(METRIC_STATUS_KEYS[current.status]) }}</span>
-      <button class="cleanup-link" @click="$emit('cleanup')">
-        {{ t('navigation.cleanup') }} <span aria-hidden="true">›</span>
-      </button>
+    <MdResourceTrend
+      v-else
+      :key="metric === 'network' ? reading.network.value?.interface.id : metric"
+      :metric="metric"
+      :active="active"
+      :history="history"
+      :observed-at-ms="reading.observedAtMs"
+      :label="t('systemStatus.lastMinute')"
+    />
+
+    <div class="resource-meta">
+      <template v-if="metric === 'cpu'">
+        <span v-if="!ready" role="status">{{ t(METRIC_STATUS_KEYS[current.status]) }}</span>
+        <span v-else>{{ t('systemStatus.lastMinute') }}</span>
+      </template>
+      <template v-else-if="metric === 'memory'">
+        <span v-if="ready && memory">
+          {{ ByteSizeService.memory(memory.usedBytes) }} / {{ ByteSizeService.memory(memory.totalBytes) }}
+        </span>
+        <span v-else role="status">{{ t(METRIC_STATUS_KEYS[current.status]) }}</span>
+      </template>
+      <template v-else-if="metric === 'disk'">
+        <span v-if="ready && reading.disk.value">
+          {{ t('systemStatus.available') }} {{ ByteSizeService.bytes(reading.disk.value.availableBytes) }} /
+          {{ ByteSizeService.bytes(reading.disk.value.totalBytes) }}
+        </span>
+        <span v-else role="status">{{ t(METRIC_STATUS_KEYS[current.status]) }}</span>
+        <button type="button" class="cleanup-link" @click="$emit('cleanup')">
+          {{ t('navigation.cleanup') }} <span aria-hidden="true">›</span>
+        </button>
+      </template>
+      <template v-else>
+        <MdTooltip :text="t('systemStatus.networkScope')">
+          <span class="resource-source">{{ source || t('systemStatus.automatic') }}</span>
+        </MdTooltip>
+        <span v-if="!ready" role="status">{{ t(METRIC_STATUS_KEYS[current.status]) }}</span>
+        <span v-else>{{ t('systemStatus.lastMinute') }}</span>
+      </template>
     </div>
     <div v-if="metric === 'disk'" class="disk-activity">
+      <span class="disk-scope">{{ t('systemStatus.allDisks') }}</span>
       <span v-for="rate in rates" :key="rate.direction" class="disk-rate">
         <span :class="rate.direction">{{
           t(rate.direction === 'upload' ? 'systemStatus.write' : 'systemStatus.read')
@@ -144,52 +171,11 @@ const rates = computed(() =>
         <strong>{{ rate.value }}</strong
         ><small>{{ rate.unit }}</small>
       </span>
+      <span v-if="!activityReady" class="sr-only" role="status">{{
+        t(METRIC_STATUS_KEYS[reading.diskIo.status])
+      }}</span>
     </div>
-    <MdResourceTrend
-      :key="metric === 'network' ? reading.network.value?.interface.id : metric"
-      :metric="metric"
-      :active="active"
-      :history="history"
-      :observed-at-ms="reading.observedAtMs"
-      :label="t(metric === 'disk' ? 'systemStatus.diskActivityHistory' : 'systemStatus.lastMinute')"
-    />
-    <div class="resource-meta">
-      <template v-if="metric === 'cpu'">
-        <span v-if="!ready" role="status">{{ t(METRIC_STATUS_KEYS[current.status]) }}</span>
-        <span v-else>{{ t('systemStatus.idle') }} {{ (100 - (percentage ?? 0)).toFixed(0) }}%</span>
-        <span>{{ t('systemStatus.minutePeak') }} {{ peak }}</span>
-      </template>
-      <template v-else-if="metric === 'memory'">
-        <span v-if="ready && memory"
-          >{{ ByteSizeService.memory(memory.usedBytes) }} / {{ ByteSizeService.memory(memory.totalBytes) }}</span
-        >
-        <span v-else role="status">{{ t(METRIC_STATUS_KEYS[current.status]) }}</span>
-        <button class="memory-link" @click="$emit('memory')">
-          {{ t('systemStatus.memoryDetails') }} <span aria-hidden="true">›</span>
-        </button>
-      </template>
-      <template v-else>
-        <MdTooltip :text="source"
-          ><span class="resource-source">{{
-            source || t(metric === 'disk' ? 'systemStatus.volume' : 'systemStatus.automatic')
-          }}</span></MdTooltip
-        >
-        <MdTooltip v-if="metric === 'disk'" :text="t('systemStatus.diskActivityHistory')"
-          ><span
-            >{{ t('systemStatus.allDisks') }} ·
-            {{ activityReady ? t('systemStatus.lastMinute') : t(METRIC_STATUS_KEYS[reading.diskIo.status]) }}</span
-          ></MdTooltip
-        >
-        <span v-else-if="!ready" role="status">{{ t(METRIC_STATUS_KEYS[current.status]) }}</span>
-        <MdTooltip v-else :text="t('systemStatus.networkScope')"
-          ><span>{{ t('systemStatus.minutePeak') }} {{ peak }}</span></MdTooltip
-        >
-      </template>
-    </div>
-    <div v-if="metric === 'memory'" class="resource-meta secondary-metrics">
-      <span>{{ t('monitoring.free') }} {{ ready && memory ? ByteSizeService.memory(memory.freeBytes) : '—' }}</span>
-      <span>{{ t('monitoring.swap') }} {{ ready && memory ? ByteSizeService.memory(memory.swapUsedBytes) : '—' }}</span>
-    </div>
+    <slot name="details" />
   </section>
 </template>
 
@@ -197,7 +183,8 @@ const rates = computed(() =>
 @reference "@assets/main.css";
 .resource-overview {
   @apply rounded-xl border border-border bg-card;
-  padding: 6px 12px;
+  position: relative;
+  padding: 10px 12px;
   min-width: 0;
   flex: none;
 }
@@ -213,8 +200,12 @@ header {
   min-height: 30px;
 }
 .resource-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  min-width: 0;
   font-size: 12px;
-  flex: none;
+  flex: 1;
 }
 .resource-value {
   font-size: 24px;
@@ -265,12 +256,12 @@ small {
   outline-offset: 2px;
 }
 .network-values {
-  display: grid;
-  gap: 2px;
+  display: flex;
+  gap: 10px;
 }
 .network-rate {
   display: grid;
-  grid-template-columns: 12px 6ch 4.5ch;
+  grid-template-columns: 10px auto auto;
   align-items: baseline;
   column-gap: 4px;
   font-size: 14px;
@@ -292,23 +283,25 @@ small {
 .download {
   color: var(--status-download);
 }
-.secondary-metrics {
-  margin-top: 0;
-  min-height: 16px;
-}
 .disk-activity {
   display: flex;
-  gap: 12px;
+  align-items: center;
+  gap: 8px;
   justify-content: space-between;
   margin-top: 4px;
 }
 .disk-rate {
   display: grid;
-  grid-template-columns: auto 5.5ch 4.5ch;
+  grid-template-columns: auto auto auto;
   gap: 3px;
   align-items: baseline;
   font-size: 11px;
   font-variant-numeric: tabular-nums;
+}
+.disk-scope {
+  @apply text-muted-foreground;
+  font-size: 10px;
+  flex: none;
 }
 .disk-rate strong {
   text-align: right;
@@ -328,5 +321,20 @@ small {
   opacity: 0.55;
   height: 100%;
   display: block;
+}
+.card-navigation {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  border-radius: inherit;
+  background: transparent;
+  cursor: pointer;
+}
+.resource-overview:has(.card-navigation:hover) {
+  @apply bg-accent/40;
+}
+.card-navigation:focus-visible {
+  outline: 2px solid var(--ring);
+  outline-offset: -2px;
 }
 </style>

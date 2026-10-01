@@ -23,10 +23,25 @@ import type { MetricId, NetworkInterface, ResourceVolume } from '@/lib/models/sy
 import type { ResidentPreferences, ResidentReading } from '@/lib/models/resident';
 import { ResidentService } from '@/lib/services/resident-service';
 import { useResidentSettingsStore } from '@/stores/resident-settings-store';
+import { LoggerService } from '@/lib/services/logger-service';
 
 const props = withDefaults(defineProps<{ isMacOs: boolean; isLinux?: boolean }>(), { isLinux: false });
 const { t } = useI18n({ useScope: 'global' });
 const settings = useResidentSettingsStore();
+const panelOpening = ref(false);
+const panelError = ref(false);
+async function openPanel() {
+  panelOpening.value = true;
+  panelError.value = false;
+  try {
+    await ResidentService.openPanel();
+  } catch {
+    panelError.value = true;
+    LoggerService.warn('monitoring', 'resident_panel_open_failed');
+  } finally {
+    panelOpening.value = false;
+  }
+}
 const interfaces = ref<NetworkInterface[]>([]);
 const volumes = ref<ResourceVolume[]>([]);
 const catalogueError = ref(false);
@@ -342,6 +357,16 @@ onBeforeUnmount(() => {
       <template #icon><MdIcon :name="isMacOs ? ICON_NAMES.menuBar : ICON_NAMES.taskbar" /></template>
       <Button
         v-if="displayEnabled"
+        id="resident-open-panel"
+        variant="ghost"
+        size="sm"
+        class="text-muted-foreground"
+        :disabled="settings.loading || settings.saving || panelOpening"
+        @click="openPanel"
+        >{{ t('systemStatus.details') }}</Button
+      >
+      <Button
+        v-if="displayEnabled"
         id="resident-configure"
         variant="ghost"
         size="sm"
@@ -368,6 +393,9 @@ onBeforeUnmount(() => {
     <p v-if="settings.error && !settingsOpen" class="settings-feedback display-feedback" role="status">
       {{ t('systemStatus.saveFailed') }}
       <button @click="settings.load()">{{ t('monitoring.refresh') }}</button>
+    </p>
+    <p v-if="panelError" class="settings-feedback display-feedback" role="alert">
+      {{ t('monitoring.unavailable') }}
     </p>
     <Dialog :open="settingsOpen && displayEnabled" @update:open="settingsOpen = $event">
       <MdDialogContent

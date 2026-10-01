@@ -22,6 +22,7 @@ vi.mock('@/lib/services/resident-service', () => ({
     releaseMemory: vi.fn(),
     quit: vi.fn(),
     openMain: vi.fn(),
+    openPanel: vi.fn(),
   },
 }));
 vi.mock('@/lib/services/logger-service', () => ({ LoggerService: { warn: vi.fn() } }));
@@ -67,6 +68,20 @@ describe('status display interactions', () => {
   afterEach(() => {
     wrappers.splice(0).forEach(wrapper => wrapper.unmount());
     vi.useRealTimers();
+  });
+  it('opens the native resource panel without changing resident preferences', async () => {
+    const wrapper = mount(Settings, { props: { isMacOs: true }, global: global() });
+    wrappers.push(wrapper);
+    await flushPromises();
+    await wrapper.get('#resident-open-panel').trigger('click');
+    await flushPromises();
+    expect(ResidentService.openPanel).toHaveBeenCalledOnce();
+    expect(ResidentService.savePreferences).not.toHaveBeenCalled();
+    vi.mocked(ResidentService.openPanel).mockRejectedValueOnce(new Error('native panel unavailable'));
+    await wrapper.get('#resident-open-panel').trigger('click');
+    await flushPromises();
+    expect(wrapper.find('[role="alert"]').text()).toBe('monitoring.unavailable');
+    expect(wrapper.get('#resident-open-panel').attributes('disabled')).toBeUndefined();
   });
 
   it('saves macOS density and usage thresholds without changing metric choices', async () => {

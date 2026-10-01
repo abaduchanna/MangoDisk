@@ -6,7 +6,7 @@ import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n';
 
 import MdIcon from '@/components/icons/md-icon.vue';
-import MdUpdateNotice from './components/md-update-notice.vue';
+import MdMainShortcut from './components/md-main-shortcut.vue';
 import { OperatingSystemService } from '@/lib/services/operating-system-service';
 import { type MetricId } from '@/lib/models/system-resources';
 import MdResourceOverview from './components/md-resource-overview.vue';
@@ -235,7 +235,6 @@ onBeforeUnmount(() => {
             }}
           </button>
         </div>
-        <MdUpdateNotice />
       </div>
       <section
         v-if="selectedTab === 'overview'"
@@ -250,9 +249,11 @@ onBeforeUnmount(() => {
           class="detail-summary"
           :active="panelFocused"
           :metric="metric"
+          :interactive="metric === 'cpu' || metric === 'memory'"
           :reading="store.reading"
           @cleanup="navigate('cleanup')"
           @memory="selectTab('memory')"
+          @cpu="selectTab('cpu')"
         />
       </section>
       <div v-if="store.error" class="monitor-notice" role="alert">
@@ -345,9 +346,7 @@ onBeforeUnmount(() => {
       <button class="panel-icon-button" :aria-label="t('monitoring.settings')" @click="navigate('settings')">
         <MdIcon :name="ICON_NAMES.settings" :size="16" />
       </button>
-      <button class="open-main-shortcut" @click="navigate('main')">
-        {{ t('monitoring.openMain') }}
-      </button>
+      <MdMainShortcut @error="store.fail('monitoring_action_failed')" />
       <button class="quit-shortcut" @click="act(() => ResidentService.quit())">
         {{ t('monitoring.quit') }}
       </button>
@@ -360,8 +359,9 @@ onBeforeUnmount(() => {
 .resource-cards {
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 8px;
   min-height: 0;
+  flex: 1;
   overflow-y: auto;
 }
 .resource-header {
@@ -374,7 +374,7 @@ onBeforeUnmount(() => {
 .resource-tabs {
   display: flex;
   justify-content: flex-start;
-  gap: 24px;
+  gap: 20px;
   flex: none;
   height: 28px;
 }
@@ -451,19 +451,6 @@ button:disabled {
   flex: 1;
   padding: 12px 12px 14px;
 }
-.release-settings-entry {
-  @apply text-muted-foreground;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 8px;
-  font-size: 11px;
-}
-.release-settings-entry button {
-  @apply text-primary rounded;
-  padding: 4px;
-  flex: none;
-}
 .monitor-processes {
   /* Extend the scroll viewport through the body's right inset to the window edge. */
   margin-right: -12px;
@@ -474,6 +461,24 @@ button:disabled {
   gap: 14px;
   min-height: 0;
   flex: 1;
+}
+.monitor-panel .detail-summary {
+  /* Share the first card's geometry across overview, CPU, and memory tabs. */
+  height: 104px;
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  padding: 10px 12px;
+}
+.resource-cards > .detail-summary:is([data-metric='disk'], [data-metric='network']) {
+  /* Keep CPU and memory aligned with their detail cards; split the remaining space equally. */
+  height: auto;
+  min-height: 104px;
+  flex: 1;
+}
+.detail-summary :deep(.resource-trend) {
+  height: 28px;
 }
 .monitor-loading {
   @apply text-muted-foreground;
@@ -504,7 +509,6 @@ footer {
 .quit-shortcut {
   justify-self: end;
 }
-.open-main-shortcut,
 .quit-shortcut {
   /* Equal side columns keep the main action centered in every locale. */
   justify-content: center;

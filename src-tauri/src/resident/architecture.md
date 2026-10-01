@@ -444,6 +444,7 @@ rows and their original timestamp. Expired/failed rows remain visible with a his
 notice; only a new valid sample refreshes their timestamp. Disabling monitoring
 explicitly clears both sampled and published caches, discards in-flight generations,
 and drops process maps. Hidden panels receive only the initial history seed and do not request icons.
+CPU and memory detail cards share fixed summary geometry.
 
 `platform::system_resources::process_cpu` reads native counters with minimal query
 access. On macOS, a bounded, isolated `/bin/ps` query supplements processes owned by

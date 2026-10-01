@@ -14,6 +14,19 @@ vi.mock('@/lib/services/byte-size-service', () => ({
 }));
 
 describe('resource details', () => {
+  it.each(['cpu', 'memory'] as const)('opens %s details from the whole card only when interactive', async metric => {
+    const wrapper = mount(Overview, {
+      props: { metric, reading: emptyReadings(), interactive: true },
+      global: { plugins: [createI18n({ legacy: false, locale: 'en', messages: { en } })] },
+    });
+    await wrapper.get('.card-navigation').trigger('click');
+    expect(wrapper.emitted(metric)).toHaveLength(1);
+    expect(wrapper.emitted(metric === 'cpu' ? 'memory' : 'cpu')).toBeUndefined();
+    await wrapper.setProps({ interactive: false });
+    expect(wrapper.find('.card-navigation').exists()).toBe(false);
+    wrapper.unmount();
+  });
+
   it('leaves the disconnected interval blank instead of moving old samples to now', () => {
     const reading = emptyReadings();
     reading.observedAtMs = 90000;
