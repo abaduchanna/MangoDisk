@@ -78,6 +78,7 @@ import {
   Wallpaper,
   Wrench,
   X,
+  Zap,
 } from '@lucide/vue';
 import {
   IconApps,
@@ -444,6 +445,7 @@ const iconMap: Record<IconName, IconDefinition> = {
   mail: lucide(Mail),
   scan: lucide(ScanSearch),
   startup: lucide(Power),
+  zap: lucide(Zap),
   trash: lucide(Trash2),
   video: lucide(Video),
   wallpaper: lucide(Wallpaper),

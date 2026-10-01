@@ -7,7 +7,6 @@ import { useI18n } from 'vue-i18n';
 
 import MdIcon from '@/components/icons/md-icon.vue';
 import MdUpdateNotice from './components/md-update-notice.vue';
-import MdTooltip from '@/components/custom/md-tooltip.vue';
 import { OperatingSystemService } from '@/lib/services/operating-system-service';
 import { type MetricId } from '@/lib/models/system-resources';
 import MdResourceOverview from './components/md-resource-overview.vue';
@@ -18,11 +17,17 @@ import type { ResidentDestination } from '@/lib/models/resident';
 import { ResidentService } from '@/lib/services/resident-service';
 import { useTrayPanelStore } from '@/stores/tray-panel-store';
 import { useAppStore } from '@/stores/app-store';
+import { Dialog } from '@/components/ui/dialog';
+import MdDialogContent from '@/components/custom/md-dialog-content.vue';
+import MdMemoryReleaseSettings from '@/components/memory-release/md-memory-release-settings.vue';
 const { t } = useI18n({ useScope: 'global' });
 const store = useTrayPanelStore();
 const appStore = useAppStore();
 const memorySettings = useMemoryReleaseStore();
-
+const settingsOpen = ref(false);
+function setSettingsOpen(open: boolean) {
+  if (!memorySettings.saving) settingsOpen.value = open;
+}
 const memoryReleaseSupported = !OperatingSystemService.isLinux();
 const automaticReleaseRule = computed(() => {
   if (!memoryReleaseSupported) return '';
@@ -98,7 +103,7 @@ function navigate(destination: ResidentDestination) {
   void act(() => ResidentService.openMain(destination));
 }
 function onKey(event: KeyboardEvent) {
-  if (event.key === 'Escape' && !event.defaultPrevented) {
+  if (event.key === 'Escape' && !event.defaultPrevented && !settingsOpen.value) {
     if (event.target instanceof Element && event.target.closest('[role="dialog"], [role="menu"], [role="listbox"]'))
       return;
     event.preventDefault();
@@ -286,27 +291,14 @@ onBeforeUnmount(() => {
             :releasing="store.releasing"
             :release-result="store.releaseResult"
             :release-available="memoryReleaseSupported"
+            :active="panelFocused"
+            :automatic-release="memorySettings.preferences?.automatic ?? null"
+            :release-settings-failed="memorySettings.failed"
+            :automatic-release-rule="automaticReleaseRule"
             @release="store.releaseMemory()"
-          >
-            <template v-if="memoryReleaseSupported" #settings>
-              <div class="release-settings-entry">
-                <span v-if="memorySettings.failed" role="alert"
-                  >{{ t('memoryRelease.failed') }}
-                  <button @click="memorySettings.load()">{{ t('memoryRelease.reload') }}</button></span
-                >
-                <MdTooltip v-else :text="automaticReleaseRule">
-                  <span
-                    :tabindex="automaticReleaseRule ? 0 : undefined"
-                    :class="{ 'cursor-help': automaticReleaseRule }"
-                    >{{
-                      t(memorySettings.preferences?.automatic ? 'memoryRelease.autoOn' : 'memoryRelease.autoOff')
-                    }}</span
-                  >
-                </MdTooltip>
-                <button @click="act(() => MemoryReleaseService.openSettings())">{{ t('memoryRelease.entry') }}</button>
-              </div>
-            </template>
-          </MdMemoryOverview>
+            @settings="settingsOpen = true"
+            @reload-settings="memorySettings.load()"
+          />
           <MdApplicationResourceList
             class="monitor-processes"
             :active="panelFocused"
@@ -319,6 +311,36 @@ onBeforeUnmount(() => {
         </div>
       </section>
     </div>
+    <Dialog :open="settingsOpen" @update:open="setSettingsOpen">
+      <MdDialogContent
+        v-if="settingsOpen"
+        size="compact"
+        :show-close="!memorySettings.saving"
+        :aria-describedby="undefined"
+        @escape-key-down="
+          event => {
+            if (memorySettings.saving) event.preventDefault();
+          }
+        "
+        @pointer-down-outside="event => event.preventDefault()"
+        @close-auto-focus="
+          event => {
+            event.preventDefault();
+            panel?.focus({ preventScroll: true });
+          }
+        "
+      >
+        <MdMemoryReleaseSettings
+          dialog
+          :preferences="memorySettings.preferences"
+          :saving="memorySettings.saving"
+          :failed="memorySettings.failed"
+          :reload-preferences="memorySettings.load"
+          :save-preferences="memorySettings.save"
+          @close="setSettingsOpen(false)"
+        />
+      </MdDialogContent>
+    </Dialog>
     <footer>
       <button class="panel-icon-button" :aria-label="t('monitoring.settings')" @click="navigate('settings')">
         <MdIcon :name="ICON_NAMES.settings" :size="16" />

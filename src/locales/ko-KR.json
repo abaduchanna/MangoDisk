@@ -3940,7 +3940,9 @@
     "applicationUnavailable": "이번 샘플에서 앱을 읽지 못해 일시적으로 사용할 수 없습니다",
     "partialData": "일부 데이터",
     "partialMemory": "일부 데이터 ({readable}/{total}개 프로세스)",
-    "memoryUnavailable": "전체 메모리 데이터를 읽을 수 없습니다"
+    "memoryUnavailable": "전체 메모리 데이터를 읽을 수 없습니다",
+    "usedCapacity": "사용 중 {used} / {total}",
+    "memoryOptions": "메모리 상세 및 해제 설정"
   },
   "systemStatus": {
     "appearanceTitle": "표시 스타일",
@@ -4042,9 +4044,8 @@
     "excluded": "제외됨",
     "back": "뒤로",
     "addSelected": "선택 추가 ({count})",
-    "saveHint": "저장 후 적용됩니다",
     "cancel": "취소",
-    "save": "설정 저장",
+    "save": "저장",
     "saving": "저장 중…",
     "failed": "작업에 실패했습니다. 다시 시도하세요",
     "conflict": "다른 창에서 설정이 변경되었습니다. 새로고침하세요",

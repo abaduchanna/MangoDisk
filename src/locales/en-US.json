@@ -3940,7 +3940,9 @@
     "applicationUnavailable": "This application was not read in the latest sample and is temporarily unavailable",
     "partialData": "Partial data",
     "partialMemory": "Partial data ({readable}/{total} processes)",
-    "memoryUnavailable": "Complete process memory is temporarily unavailable"
+    "memoryUnavailable": "Complete process memory is temporarily unavailable",
+    "usedCapacity": "{used} used / {total}",
+    "memoryOptions": "Memory details and release settings"
   },
   "systemStatus": {
     "appearanceTitle": "Appearance",
@@ -4042,9 +4044,8 @@
     "excluded": "Excluded",
     "back": "Back",
     "addSelected": "Add selected ({count})",
-    "saveHint": "Changes apply after saving",
     "cancel": "Cancel",
-    "save": "Save settings",
+    "save": "Save",
     "saving": "Saving…",
     "failed": "Unable to complete the action. Please retry",
     "conflict": "Settings changed in another window. Please reload",
@@ -4052,8 +4053,8 @@
     "excludeAction": "Exclude",
     "includeAction": "Include",
     "entry": "Release settings",
-    "autoOn": "Auto release: on",
-    "autoOff": "Auto release: off",
+    "autoOn": "Auto release: ON",
+    "autoOff": "Auto release: OFF",
     "autoRuleThreshold": "Check every {minutes} minutes; release when memory usage reaches {percent}%",
     "autoRuleAny": "Release every {minutes} minutes, regardless of memory usage",
     "autoRuleExclusions": "Excluded apps: {count}",

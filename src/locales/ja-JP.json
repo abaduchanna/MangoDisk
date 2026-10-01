@@ -3940,7 +3940,9 @@
     "applicationUnavailable": "取得不可",
     "partialData": "一部データ",
     "partialMemory": "一部データ（{readable}/{total} プロセス）",
-    "memoryUnavailable": "読取不可"
+    "memoryUnavailable": "読取不可",
+    "usedCapacity": "使用中 {used} / {total}",
+    "memoryOptions": "メモリ詳細と解放設定"
   },
   "systemStatus": {
     "appearanceTitle": "表示スタイル",
@@ -4042,9 +4044,8 @@
     "excluded": "除外済み",
     "back": "戻る",
     "addSelected": "選択を追加（{count}）",
-    "saveHint": "保存後に適用",
     "cancel": "キャンセル",
-    "save": "設定を保存",
+    "save": "保存",
     "saving": "保存中…",
     "failed": "操作に失敗しました。再試行してください",
     "conflict": "別のウィンドウで設定が更新されました。再読み込みしてください",

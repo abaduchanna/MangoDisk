@@ -3940,7 +3940,9 @@
     "applicationUnavailable": "本次未读取到该应用，暂不可用",
     "partialData": "部分数据",
     "partialMemory": "部分数据（{readable}/{total} 个进程）",
-    "memoryUnavailable": "暂时无法读取完整内存数据"
+    "memoryUnavailable": "暂时无法读取完整内存数据",
+    "usedCapacity": "已用 {used} / {total}",
+    "memoryOptions": "内存详情与释放设置"
   },
   "systemStatus": {
     "appearanceTitle": "显示样式",
@@ -4042,9 +4044,8 @@
     "excluded": "已排除",
     "back": "返回",
     "addSelected": "添加所选（{count}）",
-    "saveHint": "保存后生效",
     "cancel": "取消",
-    "save": "保存设置",
+    "save": "保存",
     "saving": "正在保存…",
     "failed": "操作失败，请重试",
     "conflict": "设置已在其他窗口更新，请重新加载",

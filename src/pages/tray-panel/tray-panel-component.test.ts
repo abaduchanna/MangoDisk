@@ -604,11 +604,16 @@ describe('monitoring panel interactions', () => {
 });
 
 describe('memory presentation', () => {
-  it('exposes an accessible usage meter and distinct available and swap values', () => {
+  it('keeps details behind the memory options menu with an accessible usage meter', async () => {
     const { wrapper } = render(MemoryOverview, { memory });
-    expect(wrapper.text()).toContain('60 B');
-    expect(wrapper.text()).toContain('2 B');
+    expect(wrapper.text()).not.toContain('60 B');
+    expect(wrapper.text()).not.toContain('2 B');
     expect(wrapper.get('[role="progressbar"]').attributes('aria-valuemax')).toBe('100');
+    await wrapper.get('.release-menu-button').trigger('click', { button: 0, ctrlKey: false });
+    await flushPromises();
+    const details = document.querySelector('.md-memory-options-details');
+    expect(details?.textContent).toContain('60 B');
+    expect(details?.textContent).toContain('2 B');
   });
 
   it('renders more than eight rows with proportional backgrounds and handles zero readings', async () => {

@@ -3940,7 +3940,9 @@
     "applicationUnavailable": "本次未讀取到該應用程式，暫時無法使用",
     "partialData": "部分資料",
     "partialMemory": "部分資料（{readable}/{total} 個程序）",
-    "memoryUnavailable": "暫時無法讀取完整記憶體資料"
+    "memoryUnavailable": "暫時無法讀取完整記憶體資料",
+    "usedCapacity": "已用 {used} / {total}",
+    "memoryOptions": "記憶體詳情與釋放設定"
   },
   "systemStatus": {
     "appearanceTitle": "顯示樣式",
@@ -4042,9 +4044,8 @@
     "excluded": "已排除",
     "back": "返回",
     "addSelected": "新增所選（{count}）",
-    "saveHint": "儲存後生效",
     "cancel": "取消",
-    "save": "儲存設定",
+    "save": "儲存",
     "saving": "正在儲存…",
     "failed": "操作失敗，請重試",
     "conflict": "設定已在其他視窗更新，請重新載入",

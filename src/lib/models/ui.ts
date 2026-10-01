@@ -213,6 +213,7 @@ export const ICON_NAMES = {
   wallpaper: 'wallpaper',
   scan: 'scan',
   startup: 'startup',
+  zap: 'zap',
   trash: 'trash',
   arrowUpDown: 'arrowUpDown',
   arrowUp: 'arrowUp',
