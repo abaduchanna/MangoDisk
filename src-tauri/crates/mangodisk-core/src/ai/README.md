@@ -247,6 +247,10 @@ describe the operation's consequences, then give a choice with a reason. Transla
 into ordinary language rather than exposing flags or rule IDs. Cleanup advice weighs known space
 benefit against reuse cost; file size never establishes that data or software is unused.
 A provider can still violate instructions; inspect actual answers, not just successful streams.
+Application uninstall explanations introduce the product and describe hypothetical app/data loss.
+They omit default/current selection and pending operation status; applicable prerequisites stay in
+the impact bullet. Unavailable capabilities and orphaned records still lead with their limitation.
+Unresolved product names must not become speculative descriptions of their function.
 Language, style, operational boundaries and domain facts are separate prompt sections.
 Unexpected code blocks and tables remain locally scrollable. Copy
 preserves the answer's Markdown source; mouse selection copies visible text.

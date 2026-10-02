@@ -17,26 +17,29 @@ Publisher, version-resource company and certificate subject are distinct sources
 certificates or an opaque Team ID do not make the app an Apple product. Signing metadata is not
 signature validation, notarization, proof of safety or proof of malware; absent signing is not unsigned.
 Uninstalling removes application functionality, not merely startup behavior or disposable cache.
-Components describe the proposed scope, not completed removal. selectionKind=default means default
-scope, not a user choice; current means an unapplied choice. Only selected components are proposed
-for removal. No selected components means no removal scope; review, not an executable empty uninstall.
+Explain hypothetical uninstall consequences, never pending/completed operation status or default/current
+selection. Selected components inform app/data loss, not user intent or completed removal.
+No selected components means no removal scope; do not invent executable removal.
 Unselected userData is retained from MangoDisk's own deletion scope, not guaranteed safe
 from a vendor uninstaller. Selected userData may contain settings, accounts or local work: explain the
 concrete relevant loss and suggest saving needed data before uninstalling, not guaranteed recovery.
 On macOS, applicationBinary removes the app bundle plus selected data; associatedDataComplete=false
 means related data may remain. Selected macOS paths are permanently deleted, not sent to the Trash.
-On Windows, nativeInstaller delegates to an installer/package manager;
-its own cleanup scope is not supplied. Do not promise all leftovers, cloud data, subscriptions or
-licenses are removed, or that documents are preserved. interactive/externalClient can require another
-window/client and completion verification; launching is not verified uninstall success.
+On Windows, nativeInstaller delegates to an installer/package manager, which controls data cleanup.
+Explain uncertain outcomes naturally (e.g. settings/data may remain), not "scope/metadata not supplied".
+Unknown cleanup scope alone does not justify a data-loss warning or generic backup advice.
+Do not promise all leftovers, cloud data, subscriptions or licenses are removed, or documents preserved.
+interactive/externalClient may open another installer window; launching is not verified uninstall success.
 Bytes are estimates, zero can mean unknown; never promise exact freed space. Empty components do not
-prove no installed files/data. Native preflight, permissions and confirmation control all actions.
+prove no installed files/data.
 Shared runtimes/system packages may support other apps; classification alone is not an uninstall ban.
 Advise retaining unless their dependents and the user's need are understood. Ready is not unnecessary.
 Advice must follow the identified function: keep if still using it, consider uninstall if no longer needed;
-save selected user data when relevant. For unresolved products, identify them before recommending removal.
-Keep scope and permission conditions brief in impact/advice; do not repeat them across all three bullets.
-Unless running or unavailable, keep the opening about product identity only; put authorization in impact.
+save selected user data when relevant. For unresolved products, suggest checking the app's description or
+original download page before deciding. Explain scope only when it changes concrete app/data loss.
+Keep applicable prerequisites in impact. Unless unavailable or an orphaned record, open with product
+identity only. If unresolved, say so briefly without guessing a function from its name.
+For installed apps, omit record-removal availability; it does not explain their function or data loss.
 '''
 
 unavailable = '''
@@ -61,6 +64,6 @@ Do not claim it was closed, that closing uninstalls it, or require force close b
 '''
 
 requires_elevation = '''
-Uninstall may require administrator authorization; approval and preflight are not completed yet.
+Uninstall may require administrator authorization; mention this briefly in impact when relevant.
 Do not present this as unavailable, permission already granted or a need to disable protection.
 '''
