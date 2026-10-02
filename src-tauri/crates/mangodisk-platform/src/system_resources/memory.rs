@@ -1,7 +1,7 @@
 use std::path::PathBuf;
 
 use sysinfo::{MemoryRefreshKind, System};
-#[cfg(not(windows))]
+#[cfg(not(any(windows, target_os = "macos")))]
 use sysinfo::{ProcessRefreshKind, ProcessesToUpdate, UpdateKind};
 
 use crate::{PlatformError, PlatformErrorCode, PlatformResult};
@@ -52,6 +52,8 @@ pub trait MemorySource: Send {
 
 pub struct MemorySampler {
     system: System,
+    #[cfg(target_os = "macos")]
+    processes: super::process_snapshot_macos::ProcessSnapshotReader,
     #[cfg(windows)]
     processes: super::process_snapshot_windows::ProcessSnapshotReader,
 }
@@ -62,6 +64,8 @@ impl Default for MemorySampler {
         Self {
             system: System::new(),
             #[cfg(windows)]
+            processes: Default::default(),
+            #[cfg(target_os = "macos")]
             processes: Default::default(),
         }
     }
@@ -97,13 +101,25 @@ impl MemorySource for MemorySampler {
                     is_application: false,
                 })
                 .collect();
-            #[cfg(not(windows))]
+            #[cfg(target_os = "macos")]
+            let processes = self
+                .processes
+                .read()?
+                .into_iter()
+                .map(|row| ProcessMemory {
+                    pid: row.counter.pid,
+                    name: row.counter.name,
+                    executable: row.counter.executable,
+                    used_bytes: row.footprint,
+                    is_application: false,
+                })
+                .collect::<Vec<_>>();
+            #[cfg(not(any(windows, target_os = "macos")))]
             let processes = {
-                // Refresh only identity and the counters needed on this platform. Native macOS
-                // footprint fills memory separately; RSS platforms need just one process pass.
-                let refresh = ProcessRefreshKind::nothing().with_exe(UpdateKind::OnlyIfNotSet);
-                #[cfg(not(target_os = "macos"))]
-                let refresh = refresh.with_memory();
+                // RSS platforms need one process pass for identity and resident memory.
+                let refresh = ProcessRefreshKind::nothing()
+                    .with_exe(UpdateKind::OnlyIfNotSet)
+                    .with_memory();
                 self.system
                     .refresh_processes_specifics(ProcessesToUpdate::All, true, refresh);
                 self.system
@@ -113,11 +129,7 @@ impl MemorySource for MemorySampler {
                         pid: pid.as_u32(),
                         name: process.name().to_string_lossy().into_owned(),
                         executable: process.exe().map(PathBuf::from),
-                        used_bytes: if cfg!(target_os = "macos") {
-                            None
-                        } else {
-                            Some(process.memory())
-                        },
+                        used_bytes: Some(process.memory()),
                         is_application: false,
                     })
                     .collect::<Vec<_>>()
@@ -125,7 +137,7 @@ impl MemorySource for MemorySampler {
             #[cfg(target_os = "macos")]
             let processes = {
                 let mut rows = processes;
-                super::memory_macos::fill(&mut rows);
+                super::memory_macos::fill_application_metadata(&mut rows);
                 rows
             };
             Some(processes)

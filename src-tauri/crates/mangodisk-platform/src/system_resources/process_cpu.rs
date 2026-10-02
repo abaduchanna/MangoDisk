@@ -1,9 +1,9 @@
 //! Minimal cumulative process counters; cadence and application grouping belong to callers.
 use crate::{PlatformError, PlatformErrorCode, PlatformResult};
 use std::path::PathBuf;
-use sysinfo::{
-    CpuRefreshKind, ProcessRefreshKind, ProcessesToUpdate, RefreshKind, System, UpdateKind,
-};
+use sysinfo::{CpuRefreshKind, RefreshKind, System};
+#[cfg(not(target_os = "macos"))]
+use sysinfo::{ProcessRefreshKind, ProcessesToUpdate, UpdateKind};
 
 #[derive(Debug, Clone)]
 pub struct ProcessCpuCounter {
@@ -41,6 +41,8 @@ pub trait ProcessCpuSource: Send {
 }
 pub struct ProcessCpuSampler {
     system: System,
+    #[cfg(target_os = "macos")]
+    macos: super::process_snapshot_macos::ProcessSnapshotReader,
     #[cfg(windows)]
     windows: super::process_snapshot_windows::ProcessSnapshotReader,
 }
@@ -52,6 +54,8 @@ impl Default for ProcessCpuSampler {
             ),
             #[cfg(windows)]
             windows: Default::default(),
+            #[cfg(target_os = "macos")]
+            macos: Default::default(),
         }
     }
 }
@@ -64,6 +68,27 @@ impl ProcessCpuSource for ProcessCpuSampler {
                 "logical CPU count is unavailable",
             ));
         }
+        #[cfg(target_os = "macos")]
+        return Ok(super::process_cpu_macos::fill_unreadable(
+            ProcessCpuSnapshot {
+                logical_cpu_count,
+                usage_scale: CpuUsageScale::SingleCore,
+                processes: self
+                    .macos
+                    .read()?
+                    .into_iter()
+                    .map(|row| row.counter)
+                    .collect(),
+            },
+        ));
+        #[cfg(not(target_os = "macos"))]
+        self.sample_other(logical_cpu_count)
+    }
+}
+
+impl ProcessCpuSampler {
+    #[cfg(not(target_os = "macos"))]
+    fn sample_other(&mut self, logical_cpu_count: usize) -> PlatformResult<ProcessCpuSnapshot> {
         #[cfg(windows)]
         if let Some(processes) = self.windows.read() {
             return Ok(ProcessCpuSnapshot {
@@ -117,16 +142,8 @@ impl ProcessCpuSource for ProcessCpuSampler {
                 })
                 .collect(),
         };
-        #[cfg(target_os = "macos")]
-        return Ok(super::process_cpu_macos::fill_unreadable(snapshot));
-        #[cfg(not(target_os = "macos"))]
         Ok(snapshot)
     }
-}
-
-#[cfg(target_os = "macos")]
-fn counters(pid: u32, _process: &sysinfo::Process) -> Option<(u64, u64)> {
-    super::process_cpu_macos::counters(pid)
 }
 
 #[cfg(windows)]

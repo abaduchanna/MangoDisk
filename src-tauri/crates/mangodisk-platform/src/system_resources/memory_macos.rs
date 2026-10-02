@@ -1,7 +1,7 @@
 //! Native footprint and physical-memory counters; unavailable values are never RSS substitutes.
 use super::memory::ProcessMemory;
 use crate::{PlatformError, PlatformErrorCode, PlatformResult};
-use std::{collections::HashMap, mem::MaybeUninit, path::PathBuf};
+use std::mem::MaybeUninit;
 
 pub(super) fn overview(total: u64) -> PlatformResult<(u64, u64)> {
     static HOST: std::sync::OnceLock<u32> = std::sync::OnceLock::new();
@@ -55,39 +55,16 @@ fn physical_usage(
     )
 }
 
-pub(super) fn fill(processes: &mut [ProcessMemory]) {
-    let apps = objc2::rc::autoreleasepool(|_| {
-        let apps = objc2_app_kit::NSWorkspace::sharedWorkspace().runningApplications();
-        (0..apps.count())
-            .map(|i| {
-                let app = apps.objectAtIndex(i);
-                let name = app.localizedName().map(|value| value.to_string());
-                let path = app
-                    .executableURL()
-                    .and_then(|url| url.path())
-                    .map(|value| PathBuf::from(value.to_string()));
-                (app.processIdentifier() as u32, (name, path))
-            })
-            .collect::<HashMap<_, _>>()
-    });
+pub(super) fn fill_application_metadata(processes: &mut [ProcessMemory]) {
+    let apps = super::application_metadata_macos::read();
     for process in processes {
-        let mut usage = MaybeUninit::<libc::rusage_info_v2>::zeroed();
-        let status = unsafe {
-            libc::proc_pid_rusage(
-                process.pid as i32,
-                libc::RUSAGE_INFO_V2,
-                usage.as_mut_ptr().cast(),
-            )
-        };
-        process.used_bytes =
-            (status == 0).then(|| unsafe { usage.assume_init() }.ri_phys_footprint);
-        if let Some((name, path)) = apps.get(&process.pid) {
+        if let Some(application) = apps.get(&process.pid) {
             process.is_application = true;
-            if let Some(name) = name {
+            if let Some(name) = &application.name {
                 process.name.clone_from(name);
             }
             if process.executable.is_none() {
-                process.executable.clone_from(path);
+                process.executable.clone_from(&application.executable);
             }
         }
     }
@@ -103,17 +80,10 @@ mod tests {
     }
     #[test]
     fn own_footprint_is_readable_and_invalid_pid_remains_unknown() {
-        let mut processes = vec![ProcessMemory {
-            pid: std::process::id(),
-            name: "test".into(),
-            executable: None,
-            used_bytes: None,
-            is_application: false,
-        }];
-        fill(&mut processes);
-        assert!(processes[0].used_bytes.is_some_and(|value| value > 0));
-        processes[0].pid = u32::MAX;
-        fill(&mut processes);
-        assert_eq!(processes[0].used_bytes, None);
+        assert!(
+            super::super::process_cpu_macos::read_usage(std::process::id())
+                .is_some_and(|usage| usage.ri_phys_footprint > 0)
+        );
+        assert!(super::super::process_cpu_macos::read_usage(u32::MAX).is_none());
     }
 }

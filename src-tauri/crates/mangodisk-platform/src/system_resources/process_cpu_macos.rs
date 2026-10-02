@@ -26,26 +26,15 @@ pub(super) fn fill_unreadable(mut snapshot: ProcessCpuSnapshot) -> ProcessCpuSna
             cpu_time_ms: None,
         });
     }
-    objc2::rc::autoreleasepool(|_| {
-        let apps = objc2_app_kit::NSWorkspace::sharedWorkspace().runningApplications();
-        let names = (0..apps.count())
-            .filter_map(|index| {
-                let app = apps.objectAtIndex(index);
-                Some((
-                    app.processIdentifier() as u32,
-                    app.localizedName()?.to_string(),
-                ))
-            })
-            .collect::<HashMap<_, _>>();
-        for process in &mut snapshot.processes {
-            if let Some(name) = names
-                .get(&process.pid)
-                .filter(|name| !name.trim().is_empty())
-            {
-                process.name.clone_from(name);
-            }
+    let applications = super::application_metadata_macos::read();
+    for process in &mut snapshot.processes {
+        if let Some(name) = applications
+            .get(&process.pid)
+            .and_then(|application| application.name.as_ref())
+        {
+            process.name.clone_from(name);
         }
-    });
+    }
     snapshot
 }
 
@@ -165,7 +154,7 @@ fn parse_cpu_time(value: &str) -> Option<u64> {
         .checked_add(seconds * 1000 + fraction * 10)
 }
 
-pub(super) fn counters(pid: u32) -> Option<(u64, u64)> {
+pub(super) fn read_usage(pid: u32) -> Option<libc::rusage_info_v2> {
     let mut usage = std::mem::MaybeUninit::<libc::rusage_info_v2>::zeroed();
     // rusage CPU times use Mach ticks, including on Apple silicon; convert with the native timebase.
     // Do not turn a permission failure or an exited process into an idle reading.
@@ -175,7 +164,10 @@ pub(super) fn counters(pid: u32) -> Option<(u64, u64)> {
     if result != 0 {
         return None;
     }
-    let usage = unsafe { usage.assume_init() };
+    Some(unsafe { usage.assume_init() })
+}
+
+pub(super) fn cpu_time_ms(usage: &libc::rusage_info_v2) -> Option<u64> {
     static TIMEBASE: std::sync::OnceLock<Option<(u32, u32)>> = std::sync::OnceLock::new();
     let (numer, denom) = (*TIMEBASE.get_or_init(|| {
         #[repr(C)]
@@ -198,7 +190,7 @@ pub(super) fn counters(pid: u32) -> Option<(u64, u64)> {
         / u128::from(denom)
         / 1_000_000)
         .min(u128::from(u64::MAX)) as u64;
-    Some((usage.ri_proc_start_abstime, cpu_time_ms))
+    Some(cpu_time_ms)
 }
 
 #[cfg(test)]
