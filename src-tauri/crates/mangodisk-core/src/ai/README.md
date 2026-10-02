@@ -8,7 +8,8 @@ authorize cleanup. Existing native preflight and confirmation remain authoritati
 ## Boundaries
 
 - The page maps its result to `AiContext`, an explicit metadata allowlist.
-  Never add file contents, authentication secrets, process arguments, or arbitrary scan objects. Startup locations are explicitly included for software attribution.
+  Never add file contents, authentication secrets, process arguments, or arbitrary scan objects.
+  Startup locations are explicitly included for software attribution.
   Custom cleanup rules are not yet supported by this adapter.
 - Core validates configuration and context, builds prompts, enforces request
   limits, and decodes streaming responses. Model output is untrusted Markdown.
@@ -56,9 +57,14 @@ authorize cleanup. Existing native preflight and confirmation remain authoritati
   the stable task ID and current status.
   These fields may identify users or installation locations and are
   sent only after an explicit explanation request to the configured provider.
-  Groups are not silently truncated; malformed or oversized requests are rejected.
+  Startup groups are not silently truncated; malformed or oversized requests are rejected.
   Execution arguments, opaque operational IDs, privacy profiles and record details
   remain excluded. Model attribution is inference, not proof of ownership or safety.
+  Custom-provider message text omits the IPC schema version and absent descriptive
+  strings, diagnostics and modification times. It preserves false/zero values,
+  empty source/process inventories, protection policies, paths and null pending
+  drafts. The frontend IPC and signed official-service context retain the complete
+  versioned schema; compact provider text is not a replacement protocol document.
 - Core combines common explanation boundaries with a subject-specific prompt.
   The requested UI language tag explicitly controls the answer language,
   regardless of the language used in item metadata. Rust contains no language
@@ -73,12 +79,13 @@ authorize cleanup. Existing native preflight and confirmation remain authoritati
 
 Prompt text lives in six TOML resources in [`prompts/`](prompts/):
 
-- [system.toml](prompts/system.toml): shared language, presentation and operation boundaries;
+- [system.toml](prompts/system.toml): shared language and operation boundaries plus the response format;
 - [cleanup.toml](prompts/cleanup.toml), [privacy.toml](prompts/privacy.toml),
   [startup.toml](prompts/startup.toml),
   [system-optimization.toml](prompts/system-optimization.toml) and
   [system-maintenance.toml](prompts/system-maintenance.toml): each tool's general
   guidance and conditional instructions.
+
 
 Use multiline literal strings (`'''`) to edit Markdown without escaping newlines
 or backslashes. TOML comments explain when each field applies; comments are never
@@ -203,8 +210,15 @@ typography and inert links. Every streaming update is sanitized through an
 explicit formatting allowlist: no scripts, images, embedded documents, styles,
 or event handlers. If sanitization is unsupported, Vue renders plain text and
 logs a typed compatibility diagnostic. Reasoning stays plain text. Prompts ask
-for a conclusion, useful bullets, and selective bold emphasis, not headings
-or tables. No fixed word or character budget is imposed by the prompt.
+for one short identification sentence and three labeled bullets: purpose/source, operation impact,
+and conditional advice, all in the requested language. Each bullet should use one or two short
+sentences. The format is selected before scope and current-state facts so restrictions and
+unapplied changes remain authoritative. No fixed word or character budget is imposed.
+Each section adds useful information: identify the item, explain its role and supported source,
+describe the operation's consequences, then give a choice with a reason. Translate protocol fields
+into ordinary language rather than exposing flags or rule IDs. Cleanup advice weighs known space
+benefit against reuse cost; file size never establishes that data or software is unused.
+A provider can still violate instructions; inspect actual answers, not just successful streams.
 Language, style, operational boundaries and domain facts are separate prompt sections.
 Unexpected code blocks and tables remain locally scrollable. Copy
 preserves the answer's Markdown source; mouse selection copies visible text.
@@ -251,20 +265,31 @@ Set `MANGODISK_AI_TEST_LANGUAGE` to review another output language (defaults to
 `zh-CN`). This opt-in test prints its synthetic-fixture answer for manual review;
 a successful stream alone does not prove that the requested language was used.
 
-Two ignored tests support reproducible multi-module evaluation:
+Three ignored tests support reproducible multi-module evaluation:
 - `capture_ai_evaluation_catalogs` reads native catalogs into an existing absolute
   `MANGODISK_AI_EVAL_DIRECTORY`, using isolated application state. It never cleans
   files or changes startup/system settings.
 - `evaluate_ai_corpus` reads an explicit JSON array of `{id, context, language?}` from
   `MANGODISK_AI_EVAL_INPUT` and writes answer/usage/timing records to a new
   `MANGODISK_AI_EVAL_OUTPUT` file. It uses the production transport and default
-  reasoning, with two requests at a time and no automatic retries. Optional per-case
+  configuration, with two requests at a time and no automatic retries. Optional per-case
   language defaults to `zh-CN`; set `MANGODISK_AI_EVAL_CONCURRENCY=1` for serial
   comparisons on rate-limited providers. Results include actual input/output token
   usage and the full answer for quality review. The provider
-  variables above are required. Validate costs and review every answer manually;
+  variables above are required unless `MANGODISK_AI_EVAL_CONFIGURATION` selects an existing
+  custom-provider configuration JSON. That mode preserves the saved model, reasoning, custom
+  headers and generation overrides without copying credentials into artifacts or command arguments.
+  Production AI diagnostics are emitted without configuration, content, answers or reasoning.
+  Validate costs and review every answer manually;
   HTTP success is not evidence of factual accuracy.
-Keep catalogs, corpora and raw answers outside the repository and feedback logs:
+- `export_ai_evaluation_messages` reads the same corpus and writes only production
+  system/user messages to a new `MANGODISK_AI_EVAL_OUTPUT` file, without credentials
+  or network IO. Use absolute input/output paths. Export before and after changes
+  to compare request sizes and replay identical cases with unchanged model settings.
+  Measure tokens through provider usage, not character counts; compare output
+  quality and current-state safety separately. Prompt compression should merge
+  repeated wording while preserving state/scope rules that encode measured regressions.
+Keep catalogs, corpora and raw answers outside version-controlled files and feedback logs:
 they can contain private paths and installation details. Output files are never
 overwritten, so completed evaluation evidence survives a later failure.
 

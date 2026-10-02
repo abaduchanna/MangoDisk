@@ -35,6 +35,7 @@ impl Deref for PromptText {
 pub(super) struct SystemPrompts {
     pub(super) shared: PromptText,
     pub(super) connection_test: PromptText,
+    pub(super) response_format: PromptText,
 }
 
 #[derive(Deserialize)]
@@ -81,6 +82,7 @@ pub(super) struct SystemOptimizationPrompts {
 #[serde(deny_unknown_fields)]
 pub(super) struct SystemMaintenancePrompts {
     pub(super) general: PromptText,
+    pub(super) available: PromptText,
     pub(super) healthy: PromptText,
     pub(super) unavailable: PromptText,
     pub(super) system_integrity: PromptText,
@@ -104,6 +106,7 @@ impl PromptCatalog {
         [
             ("system.shared", &self.system.shared),
             ("system.connection_test", &self.system.connection_test),
+            ("system.response_format", &self.system.response_format),
             ("cleanup.general", &self.cleanup.general),
             ("cleanup.scan_results", &self.cleanup.scan_results),
             (
@@ -157,6 +160,10 @@ impl PromptCatalog {
             (
                 "system-maintenance.general",
                 &self.system_maintenance.general,
+            ),
+            (
+                "system-maintenance.available",
+                &self.system_maintenance.available,
             ),
             (
                 "system-maintenance.healthy",

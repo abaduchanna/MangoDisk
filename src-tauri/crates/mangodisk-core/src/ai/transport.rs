@@ -41,7 +41,7 @@ fn payload(config: &AiConfiguration, request: &AiRequest) -> Result<serde_json::
     }
     let user = if let Some(context) = &request.context {
         context.validate()?;
-        serde_json::to_string(context).map_err(|_| AiError::InvalidContext)?
+        context.provider_json()?
     } else {
         "Connection test only. Reply with OK.".to_owned()
     };
@@ -302,6 +302,36 @@ pub(super) async fn stream_request(
 mod tests {
 
     use super::*;
+
+    #[test]
+    #[ignore = "exports production messages to an explicit private artifact file without network IO"]
+    fn export_ai_evaluation_messages() {
+        let input = std::env::var_os("MANGODISK_AI_EVAL_INPUT").expect("explicit corpus file");
+        let output = std::env::var_os("MANGODISK_AI_EVAL_OUTPUT").expect("explicit output file");
+        let cases: Vec<serde_json::Value> =
+            serde_json::from_slice(&std::fs::read(input).unwrap()).unwrap();
+        assert!(!cases.is_empty() && cases.len() <= 64);
+        let config = fixture_config("https://example.com/v1".into());
+        let values: Vec<_> = cases
+            .into_iter()
+            .map(|case| {
+                let request = AiRequest {
+                    context: Some(serde_json::from_value(case["context"].clone()).unwrap()),
+                    language: case["language"].as_str().unwrap_or("zh-CN").into(),
+                };
+                let body = payload(&config, &request).unwrap();
+                json!({"id":case["id"],"language":request.language,
+                    "module":request.context.unwrap().subject.module_name(),
+                    "messages":body["messages"]})
+            })
+            .collect();
+        let mut file = std::fs::OpenOptions::new()
+            .write(true)
+            .create_new(true)
+            .open(output)
+            .unwrap();
+        std::io::Write::write_all(&mut file, &serde_json::to_vec(&values).unwrap()).unwrap();
+    }
 
     #[test]
     fn opencode_go_requests_include_a_private_session() {
@@ -813,6 +843,11 @@ mod tests {
             "unapplied draft",
             "not that a fault was detected",
         ];
+        assert_eq!(
+            fixtures.len(),
+            expected.len(),
+            "every module fixture must have a prompt boundary assertion"
+        );
         for (fixture, boundary) in fixtures.into_iter().zip(expected) {
             let context: AiContext = serde_json::from_value(fixture).unwrap();
             let (endpoint, thread) = server(200, "data: {\"choices\":[{\"delta\":{\"content\":\"Purpose.\"}}]}\n\ndata: {\"choices\":[{\"delta\":{\"content\":\" Impact.\"},\"finish_reason\":\"stop\"}]}\n\ndata: [DONE]\n\n");

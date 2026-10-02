@@ -14,6 +14,9 @@ pub(super) fn system_prompt(language: &str, context: Option<&AiContext>) -> Stri
     let mut prompt = PROMPTS.system.shared.replace("{{language}}", language);
     let sections = [
         module_guidance(context.map(|context| &context.subject)),
+        context
+            .map(|_| &*PROMPTS.system.response_format)
+            .unwrap_or_default(),
         context.map(scope_guidance).unwrap_or_default(),
         context.map(state_guidance).unwrap_or_default(),
     ];
@@ -45,6 +48,10 @@ fn module_guidance(subject: Option<&AiSubject>) -> &'static str {
 fn state_guidance(context: &AiContext) -> &'static str {
     match &context.subject {
         AiSubject::Cleanup { .. } => &PROMPTS.cleanup.scan_results,
+        AiSubject::SystemMaintenance {
+            status: SystemMaintenanceStatus::Available,
+            ..
+        } => &PROMPTS.system_maintenance.available,
         AiSubject::Privacy {
             capability: PrivacyCapabilityState::PermissionRequired,
             ..
@@ -176,7 +183,11 @@ mod tests {
     fn native_conditions_select_every_bundled_section() {
         use std::collections::HashSet;
 
-        let mut selected = HashSet::from([&*PROMPTS.system.shared, module_guidance(None)]);
+        let mut selected = HashSet::from([
+            &*PROMPTS.system.shared,
+            &*PROMPTS.system.response_format,
+            module_guidance(None),
+        ]);
         let mut visit = |item: &AiContext| {
             for section in [
                 module_guidance(Some(&item.subject)),

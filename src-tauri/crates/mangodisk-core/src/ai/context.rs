@@ -164,6 +164,40 @@ impl AiSubject {
 }
 
 impl AiContext {
+    /// Provider text is not the versioned IPC document. Omit only absent descriptive
+    /// metadata; false/zero values, empty inventories and null drafts remain facts.
+    pub(super) fn provider_json(&self) -> Result<String, AiError> {
+        fn omit_absent_metadata(value: &mut serde_json::Value) {
+            match value {
+                serde_json::Value::Object(fields) => {
+                    fields.retain(|key, value| {
+                        value.as_str() != Some("")
+                            && !(value.is_null()
+                                && matches!(
+                                    key.as_str(),
+                                    "diagnostic" | "modifiedAtMs" | "blockReason"
+                                ))
+                            && !(key == "diagnostics"
+                                && value.as_array().is_some_and(Vec::is_empty))
+                    });
+                    for value in fields.values_mut() {
+                        omit_absent_metadata(value);
+                    }
+                }
+                serde_json::Value::Array(values) => {
+                    for value in values {
+                        omit_absent_metadata(value);
+                    }
+                }
+                _ => {}
+            }
+        }
+        let mut value = serde_json::to_value(self).map_err(|_| AiError::InvalidContext)?;
+        value.as_object_mut().unwrap().remove("schemaVersion");
+        omit_absent_metadata(&mut value);
+        serde_json::to_string(&value).map_err(|_| AiError::InvalidContext)
+    }
+
     pub(super) fn validate(&self) -> Result<(), AiError> {
         let invalid_subject = match &self.subject {
             AiSubject::Cleanup { impact, scan, .. } => {
@@ -205,11 +239,56 @@ impl AiContext {
 #[cfg(test)]
 mod tests {
     use super::*;
+
     pub(super) fn fixtures() -> Vec<serde_json::Value> {
         serde_json::from_str(include_str!(
             "../../../../../tests/fixtures/ai-context-v2.json"
         ))
         .unwrap()
+    }
+
+    #[test]
+    fn provider_context_preserves_decision_facts_and_original_metadata() {
+        let mut fixture = fixtures().remove(3);
+        fixture["subject"]["pendingTarget"] = serde_json::Value::Null;
+        let context: AiContext = serde_json::from_value(fixture).unwrap();
+        let value: serde_json::Value =
+            serde_json::from_str(&context.provider_json().unwrap()).unwrap();
+        assert_eq!(value["subject"]["pendingTarget"], serde_json::Value::Null);
+        assert!(value["subject"].get("pendingTarget").is_some());
+        assert_eq!(value["subject"]["hasRecordedOriginalValue"], false);
+        assert_eq!(value["subject"]["requiresRestart"], true);
+        assert!(value.get("schemaVersion").is_none());
+        assert!(value["subject"].get("diagnostic").is_none());
+
+        let context: AiContext = serde_json::from_value(fixtures().remove(0)).unwrap();
+        let value: serde_json::Value =
+            serde_json::from_str(&context.provider_json().unwrap()).unwrap();
+        assert_eq!(value["subject"]["scan"]["sourceCount"], 0);
+        assert_eq!(value["subject"]["scan"]["sources"], serde_json::json!([]));
+        assert_eq!(
+            value["subject"]["scan"]["runningProcesses"],
+            serde_json::json!([])
+        );
+        assert_eq!(value["subject"]["scan"]["sourcesTruncated"], false);
+
+        let fixture = fixtures().remove(2);
+        let context: AiContext = serde_json::from_value(fixture.clone()).unwrap();
+        let value: serde_json::Value =
+            serde_json::from_str(&context.provider_json().unwrap()).unwrap();
+        let identity = &value["subject"]["entries"][0]["identity"];
+        assert!(identity.get("publisher").is_none());
+        assert_eq!(identity["trust"], "unknown");
+        assert_eq!(
+            identity["executablePath"],
+            fixture["subject"]["entries"][0]["identity"]["executablePath"]
+        );
+        assert_eq!(
+            value["subject"]["entries"][0]["configuredState"],
+            "disabled"
+        );
+        assert_eq!(value["subject"]["entries"][0]["runtimeState"], "running");
+        assert_eq!(serde_json::to_value(context).unwrap(), fixture);
     }
 
     #[test]
