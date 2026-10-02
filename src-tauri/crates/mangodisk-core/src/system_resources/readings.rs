@@ -5,6 +5,7 @@ use mangodisk_platform::system_resources::{
     network::{InterfaceSample, NetworkInterface},
 };
 use serde::Serialize;
+use std::sync::Arc;
 
 use super::{
     cpu::{CpuBaselineReason, CpuDelta},
@@ -21,8 +22,8 @@ pub struct ResourceReadings {
     pub schema_version: u32,
     pub observed_at_ms: u64,
     pub cpu: MetricReading<CpuUsage>,
-    pub cpu_processes: MetricReading<ProcessCpuSummary>,
-    pub memory_processes: MetricReading<super::models::ProcessMemorySummary>,
+    pub cpu_processes: MetricReading<Arc<ProcessCpuSummary>>,
+    pub memory_processes: MetricReading<Arc<super::models::ProcessMemorySummary>>,
     pub memory: MetricReading<SystemResourceSnapshot>,
     pub network: MetricReading<NetworkRate>,
     pub disk: MetricReading<DiskUsage>,
@@ -101,7 +102,8 @@ impl ResourceCache {
 
     pub fn memory(&mut self, mut snapshot: SystemResourceSnapshot) {
         if let Some(summary) = snapshot.processes.take() {
-            self.readings.memory_processes = MetricReading::ready(summary, snapshot.sampled_at_ms);
+            self.readings.memory_processes =
+                MetricReading::ready(Arc::new(summary), snapshot.sampled_at_ms);
         }
         let sampled_at_ms = snapshot.sampled_at_ms;
         self.memory_history.push(TrendPoint {
@@ -184,7 +186,11 @@ impl ResourceCache {
 
     pub fn cpu_processes(&mut self, reading: MetricReading<ProcessCpuSummary>) {
         if reading.value.is_some() || self.readings.cpu_processes.value.is_none() {
-            self.readings.cpu_processes = reading;
+            self.readings.cpu_processes = MetricReading {
+                status: reading.status,
+                sampled_at_ms: reading.sampled_at_ms,
+                value: reading.value.map(Arc::new),
+            };
         } else if reading.status != MetricStatus::Loading {
             // A failed query changes freshness, not the last successful observation.
             self.readings.cpu_processes.status = reading.status;
@@ -214,7 +220,6 @@ impl ResourceCache {
             MetricId::Cpu => {
                 self.readings.cpu.status = status;
                 self.cpu_delta.reset();
-                self.readings.cpu_processes.status = status;
             }
             MetricId::Memory => {
                 self.readings.memory.status = status;
@@ -260,7 +265,9 @@ impl ResourceCache {
         }
     }
 
-    pub fn snapshot(&mut self, now_ms: u64) -> ResourceReadings {
+    /// Update freshness without copying application identities or rebuilding histories.
+    pub fn expire(&mut self, now_ms: u64) -> bool {
+        let before = self.statuses();
         self.readings.observed_at_ms = now_ms;
         self.readings
             .cpu
@@ -281,6 +288,23 @@ impl ResourceCache {
         self.readings
             .cpu_processes
             .expire(now_ms, MetricId::Cpu.freshness_ms());
+        before != self.statuses()
+    }
+
+    fn statuses(&self) -> [MetricStatus; 7] {
+        [
+            self.readings.cpu.status,
+            self.readings.memory.status,
+            self.readings.network.status,
+            self.readings.disk.status,
+            self.readings.disk_io.status,
+            self.readings.cpu_processes.status,
+            self.readings.memory_processes.status,
+        ]
+    }
+
+    pub fn snapshot(&mut self, now_ms: u64) -> ResourceReadings {
+        self.expire(now_ms);
         self.readings.memory_history = self.memory_history.snapshot(now_ms);
         self.readings.disk_io_history = self.disk_io_history.snapshot(now_ms);
         self.readings.cpu_history = self.cpu_history.snapshot(now_ms);
@@ -293,6 +317,33 @@ impl ResourceCache {
 mod tests {
     use super::*;
     use mangodisk_platform::system_resources::cpu::CpuCounters;
+
+    #[test]
+    fn snapshots_share_immutable_rankings_and_keep_the_wire_shape() {
+        let mut cache = ResourceCache::default();
+        cache.cpu_processes(MetricReading::ready(
+            ProcessCpuSummary {
+                usage_scale:
+                    mangodisk_platform::system_resources::process_cpu::CpuUsageScale::TotalCapacity,
+                applications: vec![],
+                readable_process_count: 12,
+                omitted_process_count: 1,
+            },
+            1000,
+        ));
+        let first = cache.snapshot(1000);
+        let second = cache.snapshot(2000);
+        assert!(Arc::ptr_eq(
+            first.cpu_processes.value.as_ref().unwrap(),
+            second.cpu_processes.value.as_ref().unwrap()
+        ));
+        let wire = serde_json::to_value(&second).unwrap();
+        assert_eq!(wire["schemaVersion"], 7);
+        assert_eq!(wire["cpuProcesses"]["value"]["readableProcessCount"], 12);
+        assert!(!cache.expire(2000));
+        assert!(cache.expire(6001));
+        assert!(!cache.expire(6002));
+    }
 
     #[test]
     fn memory_overview_updates_preserve_detail_timestamp_and_empty_samples_clear_rows() {

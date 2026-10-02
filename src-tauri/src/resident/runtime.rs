@@ -1,5 +1,5 @@
 use mangodisk_core::system_resources::{
-    metrics::{MetricId, MetricReading, MetricStatus},
+    metrics::{MetricId, MetricStatus},
     readings::{ResourceCache, ResourceReadings},
 };
 use serde::Serialize;
@@ -15,6 +15,7 @@ use tauri::{Listener, Manager};
 
 use super::{
     preferences::ResidentPreferences,
+    sampling_diagnostics::{Query, SamplingDiagnostics},
     sampling_schedule::{Demand, SamplingSlot},
     sampling_workers::{self, Observation, SamplingEvent},
     TRAY_ID,
@@ -45,6 +46,7 @@ pub struct ResidentState {
     pub reading: Mutex<ResidentReading>,
     pub published_reading: Mutex<ResidentReading>,
     catalogue: AtomicU8,
+    process_refresh: AtomicBool,
     wake: SyncSender<SamplingEvent>,
 }
 
@@ -75,8 +77,14 @@ impl ResidentState {
         self.wake();
     }
 
-    fn cpu_interval_ms(&self) -> u64 {
-        MetricId::Cpu.interval_ms()
+    pub fn refresh_cpu_processes(&self) {
+        self.process_refresh.store(true, Ordering::Relaxed);
+        self.wake();
+    }
+
+    fn cpu_processes_visible(&self) -> bool {
+        self.panel_open.load(Ordering::Relaxed)
+            && *self.panel_metric.lock().unwrap_or_else(|e| e.into_inner()) == MetricId::Cpu
     }
 
     fn demands(&self, warm_icons: bool) -> [Demand; 4] {
@@ -97,9 +105,8 @@ impl ResidentState {
                 || (metric == MetricId::Network && catalogue & 1 != 0)
                 || (metric == MetricId::Disk && catalogue & 2 != 0),
             detailed: preferences.enabled
-                && (metric == MetricId::Cpu
-                    || (metric == MetricId::Memory
-                        && ((panel_open && selected == metric) || warm_icons))),
+                && metric == MetricId::Memory
+                && ((panel_open && selected == metric) || warm_icons),
             selection: match metric {
                 MetricId::Network => preferences.network_interface.clone(),
                 MetricId::Disk => preferences.disk_volume.clone(),
@@ -130,6 +137,7 @@ pub fn start(app: &tauri::AppHandle, preferences: ResidentPreferences) -> Arc<Re
             resources: ResourceReadings::default(),
         }),
         catalogue: AtomicU8::new(0),
+        process_refresh: AtomicBool::new(false),
         wake: sender.clone(),
     });
     // Publish state before any worker can call a desktop adapter that looks it up.
@@ -160,11 +168,11 @@ pub fn start(app: &tauri::AppHandle, preferences: ResidentPreferences) -> Arc<Re
         let mut disk_status = MetricStatus::Loading;
         let mut warm_icons = worker.enabled();
         let mut previous_status = [MetricStatus::Loading; 4];
-        let mut durations = Vec::new();
+        let mut diagnostics = SamplingDiagnostics::default();
         let mut summary_at = Instant::now();
-        let mut dropped = 0u64;
         let mut cpu_baseline = None;
-        let mut process_cpu_status = MetricStatus::Loading;
+        let mut process_cpu =
+            super::process_cpu_sampling::ProcessCpuSampling::start(origin, sender.clone());
         let mut cpu_retries = 0u8;
         let mut loop_at = Instant::now();
         let mut was_active = worker.enabled();
@@ -188,6 +196,14 @@ pub fn start(app: &tauri::AppHandle, preferences: ResidentPreferences) -> Arc<Re
             }
             loop_delayed = delayed;
             let demands = worker.demands(warm_icons);
+            let mut changed = false;
+            changed |= process_cpu.poll(
+                active,
+                active && worker.cpu_processes_visible(),
+                worker.process_refresh.swap(false, Ordering::Relaxed),
+                origin.elapsed().as_millis() as u64,
+                &mut cache,
+            );
             if disk_slot.update(worker.disk_activity_demand()) {
                 cache.stop_disk_io();
                 log::info!("resident_disk_io_demand active={}", disk_slot.demand.active);
@@ -199,28 +215,19 @@ pub fn start(app: &tauri::AppHandle, preferences: ResidentPreferences) -> Arc<Re
             }
             for (index, metric) in MetricId::ALL.into_iter().enumerate() {
                 let selection_changed = slots[index].demand.selection != demands[index].selection;
-                let details_changed = slots[index].demand.detailed != demands[index].detailed;
                 if slots[index].update(demands[index].clone()) {
-                    if metric == MetricId::Cpu && details_changed {
-                        cache.clear_cpu_processes();
-                    }
                     if selection_changed {
                         cache.reset(metric);
                     } else if !demands[index].active {
                         cache.suspend(metric);
                     }
-                    if metric == MetricId::Cpu && !demands[index].active {
+                    if !demands[index].active {
                         // A queued query will release again when its completion arrives.
                         // Never block the coordinator behind a native worker.
-                        let _ = jobs[index].try_send(sampling_workers::Request::ReleaseCpu);
+                        let _ = jobs[index].try_send(sampling_workers::Request::Release);
                     }
                 }
-                // Keep process baselines warm at the same two-second cadence on all surfaces.
-                let interval_ms = if metric == MetricId::Cpu {
-                    worker.cpu_interval_ms()
-                } else {
-                    metric.interval_ms()
-                };
+                let interval_ms = metric.interval_ms();
                 if let Some(generation) =
                     slots[index].begin(origin.elapsed().as_millis() as u64, interval_ms)
                 {
@@ -238,6 +245,7 @@ pub fn start(app: &tauri::AppHandle, preferences: ResidentPreferences) -> Arc<Re
             let event = if demands.iter().any(|demand| demand.active)
                 || disk_slot.demand.active
                 || display_pending.is_some()
+                || changed
             {
                 match events.recv_timeout(Duration::from_millis(
                     slots
@@ -246,6 +254,7 @@ pub fn start(app: &tauri::AppHandle, preferences: ResidentPreferences) -> Arc<Re
                         .min()
                         .unwrap_or(1000)
                         .min(disk_slot.wait_ms(origin.elapsed().as_millis() as u64))
+                        .min(process_cpu.wait_ms(origin.elapsed().as_millis() as u64))
                         .min(display_pending.map_or(1000, |deadline| {
                             (deadline
                                 .saturating_duration_since(Instant::now())
@@ -268,8 +277,27 @@ pub fn start(app: &tauri::AppHandle, preferences: ResidentPreferences) -> Arc<Re
                 display_updated = Instant::now();
                 display_pending = None;
             }
-            let mut changed = false;
             let event = match event {
+                Some(SamplingEvent::ProcessCpu(completion)) => {
+                    diagnostics.record(Query::CpuProcesses, completion.duration_ms);
+                    changed |= process_cpu.poll(
+                        worker.enabled(),
+                        worker.cpu_processes_visible(),
+                        false,
+                        origin.elapsed().as_millis() as u64,
+                        &mut cache,
+                    );
+                    if process_cpu.complete(
+                        completion,
+                        origin.elapsed().as_millis() as u64,
+                        &mut cache,
+                    ) {
+                        changed = true;
+                    } else {
+                        diagnostics.discard(Query::CpuProcesses);
+                    }
+                    None
+                }
                 Some(SamplingEvent::DiskIo(completion)) => {
                     if disk_slot.update(worker.disk_activity_demand()) {
                         cache.stop_disk_io();
@@ -277,10 +305,7 @@ pub fn start(app: &tauri::AppHandle, preferences: ResidentPreferences) -> Arc<Re
                     }
                     if disk_slot.complete(completion.generation) {
                         changed = true;
-                        durations.push(completion.duration_ms);
-                        if durations.len() > 1200 {
-                            durations.remove(0);
-                        }
+                        diagnostics.record(Query::DiskIo, completion.duration_ms);
                         if completion.duration_ms > 5000 {
                             cache.fail_disk_io(MetricStatus::Stale);
                         } else {
@@ -293,8 +318,9 @@ pub fn start(app: &tauri::AppHandle, preferences: ResidentPreferences) -> Arc<Re
                                 Err(error) => {
                                     if disk_status != MetricStatus::Unsupported {
                                         log::warn!(
-                                            "resident_disk_io_unavailable code={:?}",
-                                            error.code()
+                                            "resident_disk_io_unavailable code={:?} error={}",
+                                            error.code(),
+                                            mangodisk_platform::diagnostics::text(&error)
                                         );
                                     }
                                     cache.fail_disk_io(MetricStatus::Unsupported);
@@ -302,7 +328,7 @@ pub fn start(app: &tauri::AppHandle, preferences: ResidentPreferences) -> Arc<Re
                             }
                         }
                     } else {
-                        dropped += 1;
+                        diagnostics.discard(Query::DiskIo);
                     }
                     None
                 }
@@ -317,28 +343,21 @@ pub fn start(app: &tauri::AppHandle, preferences: ResidentPreferences) -> Arc<Re
                 // commands may have raced the queued wake and this native result.
                 let demand = worker.demands(warm_icons)[index].clone();
                 let selection_changed = slots[index].demand.selection != demand.selection;
-                let details_changed = slots[index].demand.detailed != demand.detailed;
                 if slots[index].update(demand) {
-                    if completion.metric == MetricId::Cpu && details_changed {
-                        cache.clear_cpu_processes();
-                    }
                     if selection_changed {
                         cache.reset(completion.metric);
                     } else if !slots[index].demand.active {
                         cache.suspend(completion.metric);
                     }
                 }
-                if completion.metric == MetricId::Cpu && !slots[index].demand.active {
+                if !slots[index].demand.active {
                     // Disabled workers receive no further periodic queries; explicitly
-                    // drop process maps after any previously queued sample has finished.
-                    let _ = jobs[index].try_send(sampling_workers::Request::ReleaseCpu);
+                    // release native readers after a previously queued sample finishes.
+                    let _ = jobs[index].try_send(sampling_workers::Request::Release);
                 }
                 if slots[index].complete(completion.generation) {
                     changed = true;
-                    durations.push(completion.duration_ms);
-                    if durations.len() > 1200 {
-                        durations.remove(0);
-                    }
+                    diagnostics.record(completion.metric.into(), completion.duration_ms);
                     if completion.duration_ms > completion.metric.freshness_ms() {
                         if previous_status[index] != MetricStatus::Stale {
                             log::warn!(
@@ -348,36 +367,10 @@ pub fn start(app: &tauri::AppHandle, preferences: ResidentPreferences) -> Arc<Re
                             );
                         }
                         cache.fail(completion.metric, MetricStatus::Stale);
-                        dropped += 1;
+                        diagnostics.discard(completion.metric.into());
                     } else {
                         match completion.result {
-                            Ok(Observation::Cpu {
-                                counters,
-                                processes,
-                            }) => {
-                                if let Some(result) = processes {
-                                    let reading = match result {
-                                        Ok(Some(summary)) => {
-                                            MetricReading::ready(summary, completion.timestamp_ms)
-                                        }
-                                        Ok(None) => MetricReading::default(),
-                                        Err(error) => {
-                                            if process_cpu_status != MetricStatus::Failed {
-                                                log::warn!(
-                                                    "resident_process_cpu_failed code={:?} error={}",
-                                                    error.code(),
-                                                    mangodisk_platform::diagnostics::text(&error)
-                                                );
-                                            }
-                                            MetricReading {
-                                                status: MetricStatus::Failed,
-                                                ..Default::default()
-                                            }
-                                        }
-                                    };
-                                    process_cpu_status = reading.status;
-                                    cache.cpu_processes(reading);
-                                }
+                            Ok(Observation::Cpu(counters)) => {
                                 if let Some(reason) = cache.cpu(
                                     counters,
                                     completion.monotonic_ms,
@@ -409,9 +402,11 @@ pub fn start(app: &tauri::AppHandle, preferences: ResidentPreferences) -> Arc<Re
                                 }
                             }
                             Ok(Observation::Memory(snapshot)) => {
-                                cache.memory(snapshot.clone());
+                                let warm_summary =
+                                    warm_icons.then(|| snapshot.processes.clone()).flatten();
+                                cache.memory(snapshot);
                                 if warm_icons {
-                                    if let Some(summary) = snapshot.processes {
+                                    if let Some(summary) = warm_summary {
                                         let app = app.clone();
                                         // Icon I/O has its own bounded one-time warm-up;
                                         // it cannot block either sample publication or the memory worker.
@@ -449,9 +444,10 @@ pub fn start(app: &tauri::AppHandle, preferences: ResidentPreferences) -> Arc<Re
                                 }
                                 if previous_status[index] != MetricStatus::Failed {
                                     log::warn!(
-                                        "resident_sample_failed metric={:?} code={:?}",
+                                        "resident_sample_failed metric={:?} code={:?} error={}",
                                         completion.metric,
-                                        error.code()
+                                        error.code(),
+                                        mangodisk_platform::diagnostics::text(&error)
                                     );
                                 }
                                 cache.fail(completion.metric, MetricStatus::Failed);
@@ -465,38 +461,38 @@ pub fn start(app: &tauri::AppHandle, preferences: ResidentPreferences) -> Arc<Re
                         }
                     }
                 } else {
-                    dropped += 1;
+                    diagnostics.discard(completion.metric.into());
                 }
             }
-            let resources = cache.snapshot(sampling_workers::timestamp_ms());
-            if resources.disk_io.status != disk_status {
-                changed = true;
-                log::info!(
-                    "resident_disk_io_state from={:?} to={:?} scope=all_devices",
-                    disk_status,
-                    resources.disk_io.status
-                );
-                disk_status = resources.disk_io.status;
-            }
-            let statuses = [
-                resources.cpu.status,
-                resources.memory.status,
-                resources.network.status,
-                resources.disk.status,
-            ];
-            for index in 0..4 {
-                if statuses[index] != previous_status[index] {
-                    changed = true;
-                    log::info!(
-                        "resident_metric_state metric={:?} from={:?} to={:?}",
-                        MetricId::ALL[index],
-                        previous_status[index],
-                        statuses[index]
-                    );
-                }
-            }
-            previous_status = statuses;
+            let now_ms = sampling_workers::timestamp_ms();
+            changed |= cache.expire(now_ms);
             if changed {
+                let resources = cache.snapshot(now_ms);
+                if resources.disk_io.status != disk_status {
+                    log::info!(
+                        "resident_disk_io_state from={:?} to={:?} scope=all_devices",
+                        disk_status,
+                        resources.disk_io.status
+                    );
+                    disk_status = resources.disk_io.status;
+                }
+                let statuses = [
+                    resources.cpu.status,
+                    resources.memory.status,
+                    resources.network.status,
+                    resources.disk.status,
+                ];
+                for index in 0..4 {
+                    if statuses[index] != previous_status[index] {
+                        log::info!(
+                            "resident_metric_state metric={:?} from={:?} to={:?}",
+                            MetricId::ALL[index],
+                            previous_status[index],
+                            statuses[index]
+                        );
+                    }
+                }
+                previous_status = statuses;
                 {
                     let mut reading = worker
                         .reading
@@ -532,19 +528,15 @@ pub fn start(app: &tauri::AppHandle, preferences: ResidentPreferences) -> Arc<Re
                         .max(display_updated + Duration::from_secs(1))
                 });
             }
-            if display_pending.is_some_and(|deadline| Instant::now() >= deadline) {
+            if process_cpu.take_refresh_completed()
+                || display_pending.is_some_and(|deadline| Instant::now() >= deadline)
+            {
                 presentation.publish();
                 display_updated = Instant::now();
                 display_pending = None;
             }
             if summary_at.elapsed() >= Duration::from_secs(300) {
-                durations.sort_unstable();
-                let percentile = |percent: usize| {
-                    durations
-                        .get(durations.len().saturating_sub(1) * percent / 100)
-                        .copied()
-                        .unwrap_or(0)
-                };
+                diagnostics.log_and_reset(summary_at.elapsed().as_millis());
                 let renders = app
                     .state::<Mutex<super::tray_display::DisplayState>>()
                     .try_lock()
@@ -554,10 +546,8 @@ pub fn start(app: &tauri::AppHandle, preferences: ResidentPreferences) -> Arc<Re
                     .iter()
                     .filter(|id| app.tray_by_id(id.tray_id()).is_some())
                     .count();
-                log::info!("resident_sample_summary samples={} p50_ms={} p95_ms={} discarded={} tray_renders={:?} tray_handles={} loop_max_ms={loop_max_ms}", durations.len(), percentile(50), percentile(95), dropped, renders, handles);
+                log::info!("resident_runtime_summary tray_renders={renders:?} tray_handles={handles} loop_max_ms={loop_max_ms}");
                 loop_max_ms = 0;
-                durations.clear();
-                dropped = 0;
                 summary_at = Instant::now();
             }
         }
@@ -594,6 +584,7 @@ mod overview_tests {
                 resources: ResourceReadings::default(),
             }),
             catalogue: AtomicU8::new(0),
+            process_refresh: AtomicBool::new(false),
             wake,
         }
     }
@@ -628,46 +619,28 @@ mod overview_tests {
     }
 
     #[test]
-    fn resident_keeps_cpu_processes_warm_and_limits_memory_process_work() {
+    fn process_detail_visibility_never_changes_overview_cadence() {
         let state = test_state();
-        for selected in [MetricId::Network, MetricId::Disk] {
+        for selected in MetricId::ALL {
             *state.panel_metric.lock().unwrap() = selected;
-            assert!(state.disk_activity_demand().active);
             for (metric, demand) in MetricId::ALL.into_iter().zip(state.demands(false)) {
                 assert!(demand.active);
-                assert_eq!(demand.detailed, metric == MetricId::Cpu);
+                assert_eq!(
+                    demand.detailed,
+                    metric == MetricId::Memory && selected == MetricId::Memory
+                );
             }
+            assert_eq!(state.cpu_processes_visible(), selected == MetricId::Cpu);
+            assert_eq!(MetricId::Cpu.interval_ms(), 2000);
+            assert_eq!(MetricId::Memory.interval_ms(), 3000);
         }
-        *state.panel_metric.lock().unwrap() = MetricId::Cpu;
-        for (metric, demand) in MetricId::ALL.into_iter().zip(state.demands(false)) {
-            assert_eq!(demand.detailed, metric == MetricId::Cpu);
-        }
-        *state.panel_metric.lock().unwrap() = MetricId::Memory;
-        assert!(state.disk_activity_demand().active);
-        for (metric, demand) in MetricId::ALL.into_iter().zip(state.demands(false)) {
-            assert!(demand.active);
-            assert_eq!(
-                demand.detailed,
-                matches!(metric, MetricId::Cpu | MetricId::Memory)
-            );
-        }
-        assert_eq!(state.cpu_interval_ms(), 2000);
-        let cpu_demand = state.demands(false)[0].clone();
-        let mut cpu_slot = SamplingSlot::default();
-        cpu_slot.update(cpu_demand.clone());
         state.panel_open.store(false, Ordering::Relaxed);
-        assert_eq!(state.demands(false)[0], cpu_demand);
-        assert!(!cpu_slot.update(state.demands(false)[0].clone()));
-        state.panel_open.store(true, Ordering::Relaxed);
-        *state.panel_metric.lock().unwrap() = MetricId::Cpu;
-        assert!(!cpu_slot.update(state.demands(false)[0].clone()));
-        assert_eq!(state.cpu_interval_ms(), 2000);
-        state.panel_open.store(false, Ordering::Relaxed);
+        assert!(!state.cpu_processes_visible());
+        assert!(state
+            .demands(false)
+            .iter()
+            .all(|demand| demand.active && !demand.detailed));
         assert!(state.disk_activity_demand().active);
-        for (metric, demand) in MetricId::ALL.into_iter().zip(state.demands(false)) {
-            assert!(demand.active);
-            assert_eq!(demand.detailed, metric == MetricId::Cpu);
-        }
         state.preferences.lock().unwrap().enabled = false;
         assert!(!state.disk_activity_demand().active);
         assert!(state

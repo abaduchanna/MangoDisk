@@ -36,7 +36,7 @@ import type { ResidentReading } from '@/lib/models/resident';
 vi.mock('@/lib/services/resident-service', () => ({
   ResidentService: {
     onReading: vi.fn(),
-    onFocusChanged: vi.fn(),
+    onPanelVisibility: vi.fn(),
     onPanelMetric: vi.fn(),
     panelMetric: vi.fn(),
     selectMetric: vi.fn(),
@@ -126,7 +126,7 @@ describe('monitoring panel interactions', () => {
     vi.mocked(FileIconService.peek).mockReturnValue('cached');
     vi.mocked(FileIconService.resolve).mockResolvedValue(null);
     vi.mocked(ResidentService.onReading).mockResolvedValue(vi.fn());
-    vi.mocked(ResidentService.onFocusChanged).mockImplementation(async handler => {
+    vi.mocked(ResidentService.onPanelVisibility).mockImplementation(async handler => {
       handler(true);
       return vi.fn<() => void>();
     });
@@ -289,9 +289,9 @@ describe('monitoring panel interactions', () => {
     expect(wrapper.get('.detail-summary').classes()).toContain('resource-overview');
     expect(wrapper.find('.detail-summary .cpu-scope').exists()).toBe(false);
     expect(wrapper.find('.list-empty').exists()).toBe(false);
-    const focus = vi.mocked(ResidentService.onFocusChanged).mock.calls[0]![0];
-    focus(false);
-    focus(true);
+    const visibility = vi.mocked(ResidentService.onPanelVisibility).mock.calls[0]![0];
+    visibility(false);
+    visibility(true);
     await flushPromises();
     expect(wrapper.get('.application-row strong').text()).toBe('12.3%');
     expect(wrapper.find('.list-empty').exists()).toBe(false);
@@ -336,20 +336,32 @@ describe('monitoring panel interactions', () => {
     }
   );
 
-  it('stops overview animation on native blur even when the document stays visible', async () => {
-    vi.mocked(ResidentService.onFocusChanged).mockResolvedValueOnce(vi.fn());
+  it('stops overview animation on native hide even when the document stays visible', async () => {
+    vi.mocked(ResidentService.onPanelVisibility).mockResolvedValueOnce(vi.fn());
     vi.mocked(ResidentService.panelMetric).mockResolvedValue('network');
     const { wrapper } = render();
     await flushPromises();
     expect(wrapper.findAllComponents(ResourceOverview)).toHaveLength(4);
-    const focus = vi.mocked(ResidentService.onFocusChanged).mock.calls[0]![0];
+    const visibility = vi.mocked(ResidentService.onPanelVisibility).mock.calls[0]![0];
     expect(wrapper.findAllComponents(ResourceOverview).every(card => card.props('active') === false)).toBe(true);
-    focus(true);
+    visibility(true);
     await flushPromises();
     expect(wrapper.findAllComponents(ResourceOverview).every(card => card.props('active') === true)).toBe(true);
-    focus(false);
+    visibility(false);
     await flushPromises();
     expect(wrapper.findAllComponents(ResourceOverview).every(card => card.props('active') === false)).toBe(true);
+  });
+
+  it('renders cached rows when shown before native focus arrives', async () => {
+    vi.mocked(ResidentService.onPanelVisibility).mockResolvedValueOnce(vi.fn());
+    const { wrapper } = render();
+    await flushPromises();
+    expect(wrapper.find('.application-row').exists()).toBe(false);
+    const visible = vi.mocked(ResidentService.onPanelVisibility).mock.calls[0]?.[0];
+    visible?.(true);
+    await flushPromises();
+    expect(wrapper.text()).toContain('Browser');
+    expect(wrapper.find('.application-row').exists()).toBe(true);
   });
 
   it('moves keyboard focus with the selected resource tab', async () => {
@@ -373,8 +385,8 @@ describe('monitoring panel interactions', () => {
     await flushPromises();
     await wrapper.get('#metric-tab-memory').trigger('click');
     expect(store.selectedMetric).toBe('memory');
-    const focus = vi.mocked(ResidentService.onFocusChanged).mock.calls[0]![0];
-    focus(true);
+    const visibility = vi.mocked(ResidentService.onPanelVisibility).mock.calls[0]![0];
+    visibility(true);
     await flushPromises();
     expect(wrapper.get('#metric-tab-memory').attributes('aria-selected')).toBe('true');
     expect(store.selectedMetric).toBe('memory');
@@ -449,15 +461,15 @@ describe('monitoring panel interactions', () => {
     vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] });
     const { wrapper, store } = render();
     await flushPromises();
-    const focus = vi.mocked(ResidentService.onFocusChanged).mock.calls[0]![0];
+    const visibility = vi.mocked(ResidentService.onPanelVisibility).mock.calls[0]![0];
     store.releaseResult = { schemaVersion: 1, status: 'completed', observedReductionBytes: 1 };
     await flushPromises();
     const cached = vi.spyOn(store, 'load');
-    focus(true);
+    visibility(true);
     expect(cached).toHaveBeenCalledOnce();
     expect(store.releaseResult).toBeNull();
     store.releasing = true;
-    focus(true);
+    visibility(true);
     expect(store.releasing).toBe(true);
     store.releasing = false;
     store.releaseResult = { schemaVersion: 1, status: 'completed', observedReductionBytes: 2 };
@@ -509,8 +521,8 @@ describe('monitoring panel interactions', () => {
     expect(wrapper.text()).toContain('Browser');
   });
 
-  it('renders cached data on focus before slow icons finish without replacing the row', async () => {
-    vi.mocked(ResidentService.onFocusChanged).mockResolvedValueOnce(vi.fn());
+  it('renders cached data when shown before slow icons finish without replacing the row', async () => {
+    vi.mocked(ResidentService.onPanelVisibility).mockResolvedValueOnce(vi.fn());
     let finish!: (value: string | null) => void;
     vi.mocked(FileIconService.peek).mockReturnValue(undefined);
     vi.mocked(FileIconService.resolve).mockReturnValue(
@@ -523,7 +535,7 @@ describe('monitoring panel interactions', () => {
     expect(ResidentService.panelReady).toHaveBeenCalledOnce();
     expect(wrapper.find('.application-row').exists()).toBe(false);
     expect(FileIconService.resolve).not.toHaveBeenCalled();
-    vi.mocked(ResidentService.onFocusChanged).mock.calls[0]![0](true);
+    vi.mocked(ResidentService.onPanelVisibility).mock.calls[0]![0](true);
     await flushPromises();
     expect(wrapper.text()).toContain('Browser');
     const row = wrapper.get('.application-row').element;

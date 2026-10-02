@@ -9,6 +9,7 @@ const WIDTH: f64 = 390.0;
 const HEIGHT: f64 = 610.0;
 
 pub const METRIC_EVENT: &str = "resident-panel-metric";
+pub const VISIBILITY_EVENT: &str = "resident-panel-visibility";
 
 pub fn select_metric(app: &tauri::AppHandle, metric: MetricId) {
     let state = app.state::<Arc<ResidentState>>();
@@ -17,7 +18,11 @@ pub fn select_metric(app: &tauri::AppHandle, metric: MetricId) {
         .lock()
         .unwrap_or_else(|error| error.into_inner()) = metric;
     let _ = app.emit_to(PANEL_LABEL, METRIC_EVENT, metric);
-    state.wake();
+    if metric == MetricId::Cpu && state.panel_open.load(Ordering::Relaxed) {
+        state.refresh_cpu_processes();
+    } else {
+        state.wake();
+    }
 }
 
 pub fn toggle_from(
@@ -82,6 +87,9 @@ pub fn open(app: &tauri::AppHandle) -> tauri::Result<()> {
         state.panel_ready.load(Ordering::Relaxed)
     );
     state.panel_open.store(true, Ordering::Relaxed);
+    if *state.panel_metric.lock().unwrap_or_else(|e| e.into_inner()) == MetricId::Cpu {
+        state.refresh_cpu_processes();
+    }
     // Showing never waits for Vue, preference I/O, samples, or icon resolution.
     // Usually startup has already prepared the hidden WebView; an early click
     // still reveals its first frame while frontend initialization completes.
@@ -288,6 +296,8 @@ pub fn hide(app: &tauri::AppHandle) {
     if let Some(window) = app.get_webview_window(PANEL_LABEL) {
         if let Err(error) = window.hide() {
             log::warn!("resident_panel_hide_failed error={error}");
+        } else {
+            let _ = app.emit_to(PANEL_LABEL, VISIBILITY_EVENT, false);
         }
     }
     state.wake();
@@ -375,6 +385,9 @@ fn show(app: &tauri::AppHandle) -> tauri::Result<()> {
         );
     }
     window.show()?;
+    // Windows can reveal a taskbar popup before granting native focus. Its
+    // visible content must resume independently of that later focus event.
+    let _ = app.emit_to(PANEL_LABEL, VISIBILITY_EVENT, true);
     #[cfg(target_os = "macos")]
     window.with_webview(|webview| {
         use objc2_app_kit::NSWindow;

@@ -10,7 +10,9 @@ pub mod panel;
 mod preference_schema;
 pub mod preferences;
 mod presentation;
+mod process_cpu_sampling;
 pub mod runtime;
+mod sampling_diagnostics;
 mod sampling_schedule;
 mod sampling_workers;
 

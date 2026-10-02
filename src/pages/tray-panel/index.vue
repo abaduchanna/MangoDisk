@@ -48,9 +48,9 @@ const automaticReleaseRule = computed(() => {
   return rules.join(' · ');
 });
 const panel = ref<HTMLElement | null>(null);
-// Native popup hiding does not consistently update document.hidden in WebView2.
-// A prewarmed, unfocused panel must not start chart animation loops.
-const panelFocused = ref(false);
+// Native visibility controls rendering: Windows can reveal an unfocused popup,
+// and hiding it does not consistently update document.hidden in WebView2.
+const panelVisible = ref(false);
 // Native CPU/memory entries open their detail lists; other metrics share the overview.
 const selectedTab = computed(() =>
   store.selectedMetric === 'memory' ? 'memory' : store.selectedMetric === 'cpu' ? 'cpu' : 'overview'
@@ -134,10 +134,10 @@ async function connect() {
       );
       if (!disposed)
         pending.push(
-          await ResidentService.onFocusChanged(focused => {
+          await ResidentService.onPanelVisibility(visible => {
             if (disposed) return;
-            panelFocused.value = focused;
-            if (!focused) return;
+            panelVisible.value = visible;
+            if (!visible) return;
             // A prewarmed WebView survives closing. Do not present an old result
             // as a new action's state when the user returns to the panel.
             if (!store.releasing) store.releaseResult = null;
@@ -247,7 +247,7 @@ onBeforeUnmount(() => {
           v-for="metric in overviewMetrics"
           :key="metric"
           class="detail-summary"
-          :active="panelFocused"
+          :active="panelVisible"
           :metric="metric"
           :interactive="metric === 'cpu' || metric === 'memory'"
           :reading="store.reading"
@@ -266,11 +266,11 @@ onBeforeUnmount(() => {
         role="tabpanel"
         aria-labelledby="metric-tab-cpu"
       >
-        <MdResourceOverview class="detail-summary" metric="cpu" :reading="store.reading" :active="panelFocused" />
+        <MdResourceOverview class="detail-summary" metric="cpu" :reading="store.reading" :active="panelVisible" />
         <MdApplicationResourceList
           class="monitor-processes"
           metric="cpu"
-          :active="panelFocused"
+          :active="panelVisible"
           :summary="store.reading.cpuProcesses.value"
           :status="store.reading.cpuProcesses.status"
         />
@@ -292,7 +292,7 @@ onBeforeUnmount(() => {
             :releasing="store.releasing"
             :release-result="store.releaseResult"
             :release-available="memoryReleaseSupported"
-            :active="panelFocused"
+            :active="panelVisible"
             :automatic-release="memorySettings.preferences?.automatic ?? null"
             :release-settings-failed="memorySettings.failed"
             :automatic-release-rule="automaticReleaseRule"
@@ -302,7 +302,7 @@ onBeforeUnmount(() => {
           />
           <MdApplicationResourceList
             class="monitor-processes"
-            :active="panelFocused"
+            :active="panelVisible"
             :summary="store.reading.memoryProcesses.value"
             :status="store.reading.memoryProcesses.status"
           />

@@ -24,7 +24,7 @@ pub fn monitoring_get_reading(
 
 #[tauri::command]
 pub fn monitoring_refresh(state: tauri::State<'_, Arc<ResidentState>>) {
-    state.wake();
+    state.refresh_cpu_processes();
 }
 
 #[tauri::command]
