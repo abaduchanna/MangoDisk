@@ -2,7 +2,7 @@
 
 Explicit per-item requests explain built-in cleanup rules, privacy data kinds,
 startup registrations, system settings, maintenance actions, large files, and
-exact-content duplicate copies.
+exact-content duplicate copies, and application uninstall candidates.
 It does not select items, change risk classifications, execute commands, or
 authorize cleanup. Existing native preflight and confirmation remain authoritative.
 
@@ -39,7 +39,7 @@ authorize cleanup. Existing native preflight and confirmation remain authoritati
   Each module owns one panel and IPC session. Navigation and minimize preserve
   its stream, answer, reasoning and minimized state. Close cancels only that
   module; selecting another item in the same module replaces its previous request.
-  The backend permits up to eight independent reservations: seven module streams
+  The backend permits up to nine independent reservations: eight module streams
   plus a connection test. Cancellation and completion release only their own IDs.
   State is memory-only and does not survive application exit. Configuration changes
   cancel active requests and clear the shared cache, but retain displayed answers;
@@ -56,6 +56,22 @@ authorize cleanup. Existing native preflight and confirmation remain authoritati
   and diagnostic codes; `hasRecordedOriginalValue` describes existing saved history,
   not whether future changes can capture an original value. Maintenance includes
   the stable task ID and current status.
+  Application uninstall includes product identity, native capability, record state, installation mode,
+  catalog availability and an unapplied default/current component scope. Equal component kind/risk/
+  selection facts are aggregated; component IDs, associated data paths, fingerprints and executable
+  uninstall commands are excluded. Vendor uninstallers own their cleanup scope; retained components
+  do not guarantee that a vendor preserves data. Orphaned record removal is not uninstalling software.
+  Optional identity metadata is tagged by platform: macOS supplies bundle identifier, product name,
+  category and signing metadata; Windows supplies available executable version resources and package
+  identity alongside catalog publisher/source facts. Missing fields remain unknown. Certificate subjects
+  are not publishers, and reading signing metadata does not validate signatures, safety or notarization.
+  `describe_application_identity` resolves an application ID and catalog revision before native reads;
+  it accepts no frontend path. These bounded reads run only for an explicit explanation request, never
+  during the catalog scan, and do not execute the app or search the web. Identity response schema 1 is
+  independent of context schema 2. Read failures retain the existing catalog-based explanation;
+  stale selection/catalog callbacks are discarded, as are identity reads pending when the panel is
+  closed, AI is disabled or provider configuration changes. Windows version-resource evidence uses
+  a separately retained AppX manifest executable; merged registry icon/process hints are never used. Unknown identity fields are omitted from provider text.
   These fields may identify users or installation locations and are
   sent only after an explicit explanation request to the configured provider.
   Startup groups are not silently truncated; malformed or oversized requests are rejected.
@@ -85,7 +101,7 @@ authorize cleanup. Existing native preflight and confirmation remain authoritati
 
 ## Editing prompts
 
-Prompt text lives in eight TOML resources in [`prompts/`](prompts/):
+Prompt text lives in nine TOML resources in [`prompts/`](prompts/):
 
 - [system.toml](prompts/system.toml): shared language and operation boundaries plus the response format;
 - [cleanup.toml](prompts/cleanup.toml), [privacy.toml](prompts/privacy.toml),
@@ -96,7 +112,8 @@ Prompt text lives in eight TOML resources in [`prompts/`](prompts/):
 - [large-files.toml](prompts/large-files.toml) and
   [duplicate-files.toml](prompts/duplicate-files.toml): file attribution, permanent-deletion
   consequences, exact-equality boundaries, protected targets and partial copy listings.
-
+- [application-uninstall.toml](prompts/application-uninstall.toml): product identification and concrete
+  functions, platform-specific evidence limits, proposed scope and native installer boundaries.
 
 Use multiline literal strings (`'''`) to edit Markdown without escaping newlines
 or backslashes. TOML comments explain when each field applies; comments are never
@@ -261,7 +278,7 @@ Official error mapping lives in `official_protocol`, without dependencies on
 request construction or network IO. The frontend collects typed client metadata;
 only the update adapter projects it into HTTP headers.
 
-`tests/fixtures/ai-context-v2.json` contains seven synthetic module contexts shared
+`tests/fixtures/ai-context-v2.json` contains eight synthetic module contexts shared
 by frontend projection tests and Rust deserialization, prompt, and transport tests.
 It is test-only contract evidence, not persisted settings or a production request
 source. Keep the shared fixture so field/schema drift fails on both sides.

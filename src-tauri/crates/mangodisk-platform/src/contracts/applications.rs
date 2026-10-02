@@ -114,6 +114,10 @@ pub struct InstalledApplication {
     /// metadata only and never authorizes deletion or native uninstall.
     pub bundle_path: Option<PathBuf>,
     pub executable_paths: Vec<PathBuf>,
+    /// Exact executable from an AppX manifest, separate from registry icon/process hints.
+    /// Only this provenance permits using version resources as package identity evidence.
+    #[cfg(windows)]
+    pub package_executable_path: Option<PathBuf>,
     /// Structured native uninstall registration discovered by the platform.
     ///
     /// Free-form command strings are intentionally excluded. Core may only

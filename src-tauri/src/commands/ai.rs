@@ -50,9 +50,9 @@ impl AiRuntimeState {
     }
 }
 
-// Seven module streams and one connection test can coexist. Keep reservations
+// Eight module streams and one connection test can coexist. Keep reservations
 // bounded so abandoned IPC calls cannot consume unbounded client resources.
-const MAX_ACTIVE_REQUESTS: usize = 8;
+const MAX_ACTIVE_REQUESTS: usize = 9;
 
 impl AiRuntime {
     fn preferences(&self) -> Result<AiPreferences, AiError> {
@@ -427,7 +427,7 @@ mod tests {
     }
 
     #[test]
-    fn seven_modules_and_connection_test_fit_with_bounded_capacity() {
+    fn eight_modules_and_connection_test_fit_with_bounded_capacity() {
         let runtime = enabled_runtime();
         let ids: Vec<_> = (0..MAX_ACTIVE_REQUESTS)
             .map(|_| runtime.begin().unwrap())

@@ -36,10 +36,11 @@ pub use applications::uninstall::{
     ApplicationUninstallComponent, ApplicationUninstallComponentKind,
     ApplicationUninstallComponentSummary, ApplicationUninstallExecutionItemResult,
     ApplicationUninstallExecutionItemStatus, ApplicationUninstallExecutionProgress,
-    ApplicationUninstallExecutionStage, ApplicationUninstallInspection,
-    ApplicationUninstallInstallerKind, ApplicationUninstallPlan, ApplicationUninstallPlanItem,
-    ApplicationUninstallPlatform, ApplicationUninstallRecordState, ApplicationUninstallResult,
-    ApplicationUninstallRisk, ApplicationUninstallScanResult, ApplicationUninstallService,
+    ApplicationUninstallExecutionStage, ApplicationUninstallIdentity,
+    ApplicationUninstallInspection, ApplicationUninstallInstallerKind, ApplicationUninstallPlan,
+    ApplicationUninstallPlanItem, ApplicationUninstallPlatform, ApplicationUninstallRecordState,
+    ApplicationUninstallResult, ApplicationUninstallRisk, ApplicationUninstallScanResult,
+    ApplicationUninstallService,
 };
 pub use cleanup::{
     CleanupActionKind, CleanupActionReason, CleanupActionResult, CleanupActionStatus,

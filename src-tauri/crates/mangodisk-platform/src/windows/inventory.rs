@@ -624,6 +624,7 @@ fn merge_packaged_application(
                 .or(existing.installed_at_ms);
             existing.icon_path = Some(icon_path);
             existing.bundle_path = Some(install_location);
+            existing.package_executable_path = executable_path.clone();
             if let Some(path) = executable_path {
                 existing.executable_paths.push(path);
             }
@@ -669,6 +670,7 @@ fn merge_packaged_application(
                 .and_then(system_time_millis),
             icon_path: Some(icon_path),
             bundle_path: Some(install_location),
+            package_executable_path: executable_path.clone(),
             executable_paths: executable_path.into_iter().collect(),
             uninstall_registration: Some(uninstall_registration),
         },
@@ -1118,6 +1120,7 @@ fn read_uninstall_view(
                 icon_path,
                 bundle_path: install_location,
                 executable_paths,
+                package_executable_path: None,
                 uninstall_registration,
             });
     }
@@ -1926,6 +1929,7 @@ function Get-AppxPackageManifest {
                 icon_path: None,
                 bundle_path: None,
                 executable_paths: Vec::new(),
+                package_executable_path: None,
                 uninstall_registration: None,
             },
         )]);
@@ -1956,6 +1960,71 @@ function Get-AppxPackageManifest {
             )
         }));
     }
+    #[test]
+    fn packaged_identity_keeps_manifest_provenance_when_registry_hints_are_merged() {
+        let root = tempfile::tempdir().unwrap();
+        let registry_executable = root.path().join("registry-uninstaller.exe");
+        let manifest_executable = root.path().join("product.exe");
+        fs::write(&registry_executable, b"registry fixture").unwrap();
+        fs::write(&manifest_executable, b"manifest fixture").unwrap();
+        let mut applications = HashMap::from([(
+            "registry-key".to_string(),
+            InstalledApplication {
+                system_signed: false,
+                uninstall_diagnostic: None,
+                catalog_identifier: "windows-registry:example".into(),
+                source_identities: vec![ApplicationSourceIdentity {
+                    source: ApplicationInventorySource::WindowsRegistry,
+                    identifier: "registry-key".into(),
+                }],
+                primary_identifier: "Example_123".into(),
+                identifiers: vec!["Example_123".into()],
+                name: "Example".into(),
+                version: None,
+                publisher: None,
+                estimated_bytes: 0,
+                last_used_at_ms: None,
+                installed_at_ms: None,
+                icon_path: Some(registry_executable.clone()),
+                bundle_path: None,
+                executable_paths: vec![registry_executable.clone()],
+                package_executable_path: None,
+                uninstall_registration: None,
+            },
+        )]);
+        let package = |executable: &str| PackagedApplicationRecord {
+            system_signed: false,
+            package_family_name: "Example_123".into(),
+            package_full_name: "Example_1.0.0.0_x64__123".into(),
+            name: "Example".into(),
+            version: "1.0.0.0".into(),
+            publisher: "Example Publisher".into(),
+            install_location: root.path().to_string_lossy().into_owned(),
+            executable: executable.into(),
+            icon: String::new(),
+        };
+        merge_packaged_application(&mut applications, package("product.exe"));
+        let application = &applications["registry-key"];
+        assert_eq!(
+            application.executable_paths.first(),
+            Some(&registry_executable)
+        );
+        assert_eq!(
+            application.package_executable_path.as_ref(),
+            Some(&manifest_executable)
+        );
+        assert!(application
+            .source_identities
+            .iter()
+            .any(|identity| { identity.source == ApplicationInventorySource::WindowsAppx }));
+
+        // A missing manifest executable must clear old identity evidence, not reuse icon hints.
+        merge_packaged_application(&mut applications, package("missing.exe"));
+        assert!(applications["registry-key"]
+            .package_executable_path
+            .is_none());
+    }
+
     #[test]
     fn packaged_application_icon_must_remain_inside_the_package() {
         let root = std::path::Path::new(r"C:\Program Files\WindowsApps\Example");

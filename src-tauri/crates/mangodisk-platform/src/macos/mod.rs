@@ -1,5 +1,6 @@
 mod allocated_content;
 mod analysis;
+pub(crate) mod application_identity;
 mod bulk_directory;
 mod change_tracking;
 mod directories;

@@ -236,6 +236,7 @@ pub fn run() {
             commands::applications::open_windows_installed_apps,
             commands::applications::remove_application_record,
             commands::applications::log_application_uninstall_details,
+            commands::applications::describe_application_identity,
             commands::applications::cancel_application_uninstall_catalog_scan,
             commands::applications::execute_application_leftovers,
             commands::applications::cancel_application_leftovers,

@@ -5,6 +5,8 @@ import type { SystemSettingItem, SystemSettingTargetState } from './system-setti
 import type { SystemMaintenanceItem } from './system-maintenance';
 import type { LargeFileEntry } from './large-file';
 import type { DuplicateEntryDeletePolicy, DuplicateGroupKind } from './duplicate-file';
+import type { ApplicationUninstallCandidate, ApplicationUninstallComponentSummary } from './application';
+import type { ApplicationIdentityMetadata, ApplicationUninstallInventorySource } from './application';
 
 export type AiReasoningMode = 'default' | 'disabled';
 export type AiServiceMode = 'free' | 'custom';
@@ -165,6 +167,28 @@ export const AI_DUPLICATE_COPY_LIMIT = 31;
 
 /** Each module exposes only facts relevant to its explanation, not its full domain object. */
 export type AiSubject =
+  | ({
+      module: 'applicationUninstall';
+      identity?: ApplicationIdentityMetadata;
+      installationSources?: ApplicationUninstallInventorySource[];
+      executionSupported: boolean;
+      catalogActionable: boolean;
+      recordRemovalAvailable: boolean;
+      selectionKind: 'default' | 'current';
+      components: (Pick<ApplicationUninstallComponentSummary, 'kind' | 'risk' | 'bytes'> & { selected: boolean })[];
+    } & Pick<
+      ApplicationUninstallCandidate,
+      | 'platform'
+      | 'publisher'
+      | 'version'
+      | 'applicationPath'
+      | 'capability'
+      | 'recordState'
+      | 'systemKind'
+      | 'installerKind'
+      | 'executionMode'
+      | 'associatedDataComplete'
+    >)
   | { module: 'largeFiles'; file: AiFileMetadata }
   | {
       module: 'duplicateFiles';

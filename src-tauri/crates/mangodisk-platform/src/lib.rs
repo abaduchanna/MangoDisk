@@ -2,7 +2,9 @@
 mod elevation;
 #[cfg(windows)]
 pub use elevation::run_elevation_helper_mode;
+mod application_identity;
 pub mod application_quit;
+pub use application_identity::read_application_identity;
 #[cfg(not(target_os = "linux"))]
 mod browser_profile;
 mod command;

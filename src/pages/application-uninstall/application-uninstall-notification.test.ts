@@ -1,5 +1,7 @@
 // @vitest-environment happy-dom
 
+import { createPinia } from 'pinia';
+
 import { shallowMount } from '@vue/test-utils';
 import { createI18n } from 'vue-i18n';
 import { afterEach, describe, expect, it, vi } from 'vitest';
@@ -94,7 +96,7 @@ function render(locale: keyof typeof messages) {
       closingApplications: false,
       closeResult: null,
     },
-    global: { plugins: [createI18n({ legacy: false, locale, messages })] },
+    global: { plugins: [createPinia(), createI18n({ legacy: false, locale, messages })] },
   });
 }
 

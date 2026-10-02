@@ -1,5 +1,7 @@
 // @vitest-environment happy-dom
 
+import { createPinia } from 'pinia';
+
 import { flushPromises, mount, shallowMount } from '@vue/test-utils';
 import { createI18n } from 'vue-i18n';
 import { afterEach, describe, expect, it, vi } from 'vitest';
@@ -62,7 +64,7 @@ function render(locale: keyof typeof messages, overrides: Partial<ApplicationUni
       uninstallEnabled: true,
     },
     global: {
-      plugins: [createI18n({ legacy: false, locale, messages })],
+      plugins: [createPinia(), createI18n({ legacy: false, locale, messages })],
       stubs: { MdApplicationIcon: true, MdIcon: true, MdIconAction: true },
     },
   });
@@ -181,7 +183,7 @@ describe('explicit record removal', () => {
         closeResult: null,
       },
       global: {
-        plugins: [createI18n({ legacy: false, locale: 'en-US', messages })],
+        plugins: [createPinia(), createI18n({ legacy: false, locale: 'en-US', messages })],
         renderStubDefaultSlot: true,
       },
     });

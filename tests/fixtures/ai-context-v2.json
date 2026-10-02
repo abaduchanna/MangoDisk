@@ -62,9 +62,7 @@
             "trust": "unknown"
           },
           "sourceKind": "service",
-          "triggers": [
-            "boot"
-          ],
+          "triggers": ["boot"],
           "configuredState": "disabled",
           "runtimeState": "running",
           "controlCapability": "systemManaged",
@@ -152,6 +150,43 @@
         }
       ],
       "omittedCount": 0
+    }
+  },
+  {
+    "schemaVersion": 2,
+    "platform": "macos",
+    "title": "Example Writer",
+    "description": "",
+    "subject": {
+      "module": "applicationUninstall",
+      "platform": "macosBundle",
+      "publisher": "Example",
+      "version": "1.0",
+      "applicationPath": "/Applications/Example Writer.app",
+      "capability": "ready",
+      "recordState": "installed",
+      "systemKind": "unclassified",
+      "installerKind": null,
+      "executionMode": null,
+      "associatedDataComplete": false,
+      "executionSupported": true,
+      "catalogActionable": true,
+      "recordRemovalAvailable": false,
+      "selectionKind": "default",
+      "components": [
+        {
+          "kind": "applicationBinary",
+          "risk": "required",
+          "bytes": 104857600,
+          "selected": true
+        },
+        {
+          "kind": "applicationSupport",
+          "risk": "userData",
+          "bytes": 1024,
+          "selected": false
+        }
+      ]
     }
   }
 ]

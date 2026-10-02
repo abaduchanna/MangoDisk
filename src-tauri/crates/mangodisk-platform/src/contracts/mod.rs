@@ -1,7 +1,11 @@
 mod name_exclusions;
 pub use name_exclusions::{ExcludedNameKind, NameExclusions, ScanNameExclusion};
 mod ai_models;
+mod application_identity;
 mod applications;
+pub use application_identity::{
+    ApplicationIdentityMetadata, ApplicationSigningKind, ApplicationSigningMetadata,
+};
 mod directory_aggregate;
 mod disk_cleanup;
 mod error;

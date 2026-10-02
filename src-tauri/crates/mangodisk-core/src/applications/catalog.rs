@@ -619,6 +619,8 @@ mod icon_tests {
         InstalledApplication {
             #[cfg(windows)]
             system_signed: false,
+            #[cfg(windows)]
+            package_executable_path: None,
             uninstall_diagnostic: None,
             catalog_identifier: format!("fixture:{name}"),
             primary_identifier: format!("fixture.{name}"),

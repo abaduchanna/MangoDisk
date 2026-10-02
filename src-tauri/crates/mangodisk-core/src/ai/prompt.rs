@@ -1,4 +1,7 @@
 use super::context::{AiContext, AiPlatform, AiSubject};
+use crate::applications::uninstall::{
+    ApplicationUninstallCapability, ApplicationUninstallRecordState,
+};
 use crate::privacy::{PrivacyCapabilityState, PrivacyDataKind};
 use crate::storage::duplicates::DuplicateEntryDeletePolicy;
 use crate::system_maintenance::SystemMaintenanceStatus;
@@ -35,6 +38,7 @@ pub(super) fn system_prompt(language: &str, context: Option<&AiContext>) -> Stri
 /// Keep domain facts separate from shared language, presentation and safety instructions.
 fn module_guidance(subject: Option<&AiSubject>) -> &'static str {
     match subject {
+        Some(AiSubject::ApplicationUninstall { .. }) => &PROMPTS.application_uninstall.general,
         None => &PROMPTS.system.connection_test,
         Some(AiSubject::Cleanup { .. }) => &PROMPTS.cleanup.general,
         Some(AiSubject::LargeFiles { .. }) => &PROMPTS.large_files.general,
@@ -50,6 +54,33 @@ fn module_guidance(subject: Option<&AiSubject>) -> &'static str {
 /// unreadable privacy data must not be described as empty from its zero count.
 fn state_guidance(context: &AiContext) -> &'static str {
     match &context.subject {
+        AiSubject::ApplicationUninstall {
+            record_state: ApplicationUninstallRecordState::OrphanedRegistration,
+            ..
+        } => &PROMPTS.application_uninstall.orphaned_record,
+        AiSubject::ApplicationUninstall {
+            capability,
+            execution_supported,
+            catalog_actionable,
+            ..
+        } if !execution_supported
+            || !catalog_actionable
+            || matches!(
+                capability,
+                ApplicationUninstallCapability::ProtectedApplication
+                    | ApplicationUninstallCapability::ViewOnly
+            ) =>
+        {
+            &PROMPTS.application_uninstall.unavailable
+        }
+        AiSubject::ApplicationUninstall {
+            capability: ApplicationUninstallCapability::ApplicationRunning,
+            ..
+        } => &PROMPTS.application_uninstall.application_running,
+        AiSubject::ApplicationUninstall {
+            capability: ApplicationUninstallCapability::RequiresElevation,
+            ..
+        } => &PROMPTS.application_uninstall.requires_elevation,
         AiSubject::Cleanup { .. } => &PROMPTS.cleanup.scan_results,
         AiSubject::SystemMaintenance {
             status: SystemMaintenanceStatus::Available,
@@ -182,6 +213,37 @@ fn scope_guidance(context: &AiContext) -> &'static str {
 mod tests {
     use super::*;
 
+    #[test]
+    fn uninstall_restrictions_precede_running_or_elevation_prerequisites() {
+        let mut item = context(7);
+        if let AiSubject::ApplicationUninstall {
+            capability,
+            execution_supported,
+            ..
+        } = &mut item.subject
+        {
+            *capability = ApplicationUninstallCapability::ApplicationRunning;
+            *execution_supported = false;
+        }
+        assert_eq!(
+            state_guidance(&item),
+            &*PROMPTS.application_uninstall.unavailable
+        );
+        if let AiSubject::ApplicationUninstall {
+            record_state,
+            record_removal_available,
+            ..
+        } = &mut item.subject
+        {
+            *record_state = ApplicationUninstallRecordState::OrphanedRegistration;
+            *record_removal_available = true;
+        }
+        assert_eq!(
+            state_guidance(&item),
+            &*PROMPTS.application_uninstall.orphaned_record
+        );
+    }
+
     fn context(index: usize) -> AiContext {
         let fixtures: Vec<serde_json::Value> = serde_json::from_str(include_str!(
             "../../../../../tests/fixtures/ai-context-v2.json"
@@ -210,9 +272,30 @@ mod tests {
                 }
             }
         };
-        for index in 0..7 {
+        for index in 0..8 {
             visit(&context(index));
         }
+        let mut uninstall = context(7);
+        for capability in [
+            ApplicationUninstallCapability::Ready,
+            ApplicationUninstallCapability::ApplicationRunning,
+            ApplicationUninstallCapability::RequiresElevation,
+            ApplicationUninstallCapability::ProtectedApplication,
+            ApplicationUninstallCapability::ViewOnly,
+        ] {
+            if let AiSubject::ApplicationUninstall {
+                capability: value, ..
+            } = &mut uninstall.subject
+            {
+                *value = capability;
+            }
+            visit(&uninstall);
+        }
+        if let AiSubject::ApplicationUninstall { record_state, .. } = &mut uninstall.subject {
+            *record_state = ApplicationUninstallRecordState::OrphanedRegistration;
+        }
+        visit(&uninstall);
+
         let mut cleanup = context(0);
         if let AiSubject::Cleanup { scan, .. } = &mut cleanup.subject {
             scan.rule_id = "special.macos-universal-binaries".into();
@@ -317,7 +400,7 @@ mod tests {
         for tag in [
             "en-US", "zh-CN", "zh-TW", "ja-JP", "fr-FR", "pt-BR", "zh-Hant",
         ] {
-            for index in 0..7 {
+            for index in 0..8 {
                 let mut item = context(index);
                 item.title = "\u{6d4f}\u{89c8}\u{5668}\u{7f13}\u{5b58}".into();
                 let prompt = system_prompt(tag, Some(&item));
@@ -330,7 +413,7 @@ mod tests {
 
     #[test]
     fn every_module_requests_compact_markdown_without_action_authority() {
-        for index in 0..7 {
+        for index in 0..8 {
             let prompt = system_prompt("zh-CN", Some(&context(index)));
             assert!(prompt.contains("Use concise Markdown"));
             assert!(prompt.contains("blank line before lists"));

@@ -844,6 +844,7 @@ mod tests {
             "not that a fault was detected",
             "not a verified cleanup candidate",
             "different paths are interchangeable",
+            "Uninstalling removes application functionality",
         ];
         assert_eq!(
             fixtures.len(),

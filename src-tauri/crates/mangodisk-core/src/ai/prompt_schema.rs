@@ -75,6 +75,16 @@ pub(super) struct LargeFilesPrompts {
 
 #[derive(Deserialize)]
 #[serde(deny_unknown_fields)]
+pub(super) struct ApplicationUninstallPrompts {
+    pub(super) general: PromptText,
+    pub(super) unavailable: PromptText,
+    pub(super) orphaned_record: PromptText,
+    pub(super) application_running: PromptText,
+    pub(super) requires_elevation: PromptText,
+}
+
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
 pub(super) struct DuplicateFilesPrompts {
     pub(super) general: PromptText,
     pub(super) protected_target: PromptText,
@@ -106,6 +116,7 @@ pub(super) struct SystemMaintenancePrompts {
 }
 
 pub(super) struct PromptCatalog {
+    pub(super) application_uninstall: ApplicationUninstallPrompts,
     pub(super) system: SystemPrompts,
     pub(super) cleanup: CleanupPrompts,
     pub(super) privacy: PrivacyPrompts,
@@ -120,6 +131,26 @@ impl PromptCatalog {
     /// Named sections support precise build errors and selection-coverage tests.
     pub(super) fn sections(&self) -> impl Iterator<Item = (&'static str, &str)> {
         [
+            (
+                "application-uninstall.general",
+                &self.application_uninstall.general,
+            ),
+            (
+                "application-uninstall.unavailable",
+                &self.application_uninstall.unavailable,
+            ),
+            (
+                "application-uninstall.orphaned_record",
+                &self.application_uninstall.orphaned_record,
+            ),
+            (
+                "application-uninstall.application_running",
+                &self.application_uninstall.application_running,
+            ),
+            (
+                "application-uninstall.requires_elevation",
+                &self.application_uninstall.requires_elevation,
+            ),
             ("system.shared", &self.system.shared),
             ("system.connection_test", &self.system.connection_test),
             ("system.response_format", &self.system.response_format),
@@ -250,6 +281,10 @@ fn parse_document<T: serde::de::DeserializeOwned>(name: &str, source: &str) -> R
 /// Sources are embedded, so runtime cannot observe a different file from validation.
 pub(super) fn load() -> Result<PromptCatalog, String> {
     let catalog = PromptCatalog {
+        application_uninstall: parse_document(
+            "application-uninstall",
+            include_str!("prompts/application-uninstall.toml"),
+        )?,
         system: parse_document("system", include_str!("prompts/system.toml"))?,
         cleanup: parse_document("cleanup", include_str!("prompts/cleanup.toml"))?,
         privacy: parse_document("privacy", include_str!("prompts/privacy.toml"))?,
