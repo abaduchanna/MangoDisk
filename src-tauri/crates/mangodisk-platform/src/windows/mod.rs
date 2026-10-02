@@ -7,6 +7,7 @@ mod directory_identity;
 mod disk_cleanup;
 mod file_layout;
 mod file_space;
+pub(crate) mod file_version;
 mod inventory;
 mod large_files;
 mod native_io;
