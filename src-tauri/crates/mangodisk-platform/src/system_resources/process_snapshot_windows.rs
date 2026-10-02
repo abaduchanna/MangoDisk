@@ -1,7 +1,11 @@
 //! Batch process measurements include system processes without privileged handles.
 use super::process_cpu::ProcessCpuCounter;
 use crate::{PlatformError, PlatformErrorCode, PlatformResult};
-use std::{ffi::c_void, mem::size_of, sync::OnceLock};
+use std::{
+    ffi::c_void,
+    mem::size_of,
+    sync::{Arc, Mutex, OnceLock},
+};
 use windows_sys::Win32::{
     Foundation::{STATUS_INFO_LENGTH_MISMATCH, STATUS_SUCCESS},
     System::{
@@ -23,7 +27,7 @@ pub(super) struct ProcessReading {
 #[derive(Default)]
 pub(super) struct ProcessSnapshotReader {
     buffer: Vec<u64>,
-    images: super::process_image_windows::ImageCache,
+    images: Option<Arc<Mutex<super::process_image_windows::ImageCache>>>,
     fallback: bool,
 }
 impl ProcessSnapshotReader {
@@ -31,6 +35,9 @@ impl ProcessSnapshotReader {
         match self.query() {
             Ok(mut rows) => {
                 self.images
+                    .get_or_insert_with(super::process_image_windows::shared_cache)
+                    .lock()
+                    .unwrap_or_else(|error| error.into_inner())
                     .attach(rows.iter_mut().map(|row| &mut row.counter));
                 if self.fallback {
                     log::info!(
@@ -368,6 +375,44 @@ mod tests {
         let mut rows = parse_rows(bytes(&fixture(std::process::id(), "test"))).unwrap();
         rows[0].counter.started_at = 0;
         assert!(validate_native_layout(&rows, (0, 0)).is_err());
+    }
+
+    #[test]
+    fn concurrent_readers_keep_fresh_counters_and_share_the_same_creation_identity() {
+        let pid = std::process::id();
+        let created = super::super::process_cpu::public_windows_counters(pid)
+            .expect("this process must expose public counters")
+            .0;
+        let barrier = std::sync::Barrier::new(2);
+        std::thread::scope(|scope| {
+            let readers = (0..2)
+                .map(|_| {
+                    let barrier = &barrier;
+                    scope.spawn(move || {
+                        let mut reader = ProcessSnapshotReader::default();
+                        barrier.wait();
+                        for _ in 0..4 {
+                            let rows = reader
+                                .read()
+                                .expect("concurrent snapshot must remain valid");
+                            let own = &rows
+                                .iter()
+                                .find(|row| row.counter.pid == pid)
+                                .unwrap()
+                                .counter;
+                            assert_eq!(own.started_at, created);
+                            assert!(own.cpu_time_ms.is_some());
+                            assert!(own.executable.is_some());
+                        }
+                    })
+                })
+                .collect::<Vec<_>>();
+            for reader in readers {
+                reader
+                    .join()
+                    .expect("native reader must finish without a deadlock");
+            }
+        });
     }
 
     #[test]

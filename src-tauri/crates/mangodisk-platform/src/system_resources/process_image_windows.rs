@@ -3,6 +3,7 @@ use super::process_cpu::{ProcessCpuCounter, ProcessLocationStatus};
 use std::{
     collections::HashMap,
     path::PathBuf,
+    sync::{Arc, Mutex, OnceLock, Weak},
     time::{Duration, Instant},
 };
 
@@ -14,6 +15,27 @@ struct Image {
 }
 #[derive(Default)]
 pub(super) struct ImageCache(HashMap<(u32, u64), Image>);
+
+// Sampling owners retain metadata, not the process-wide registry. Lazily acquiring
+// a strong reference allows dropping the last sampler to release the entire cache.
+#[derive(Default)]
+pub(super) struct ImageRegistry(Mutex<Weak<Mutex<ImageCache>>>);
+impl ImageRegistry {
+    pub(super) fn acquire(&self) -> Arc<Mutex<ImageCache>> {
+        let mut reference = self.0.lock().unwrap_or_else(|error| error.into_inner());
+        if let Some(cache) = reference.upgrade() {
+            return cache;
+        }
+        let cache = Arc::new(Mutex::new(ImageCache::default()));
+        *reference = Arc::downgrade(&cache);
+        cache
+    }
+}
+
+pub(super) fn shared_cache() -> Arc<Mutex<ImageCache>> {
+    static REGISTRY: OnceLock<ImageRegistry> = OnceLock::new();
+    REGISTRY.get_or_init(Default::default).acquire()
+}
 impl ImageCache {
     pub(super) fn attach<'a>(&mut self, rows: impl IntoIterator<Item = &'a mut ProcessCpuCounter>) {
         self.attach_at(rows, Instant::now(), lookup);
@@ -154,5 +176,27 @@ mod tests {
         });
         assert!(rows[0].executable.is_some());
         assert_eq!(rows[0].location_status, ProcessLocationStatus::Available);
+    }
+
+    #[test]
+    fn sampling_owners_share_paths_and_release_metadata_with_the_last_owner() {
+        let registry = ImageRegistry::default();
+        let cpu = registry.acquire();
+        let memory = registry.acquire();
+        assert!(Arc::ptr_eq(&cpu, &memory));
+        let now = Instant::now();
+        let mut rows = [row(1, 10)];
+        cpu.lock()
+            .unwrap()
+            .attach_at(&mut rows, now, |_, _| Ok("C:\\app.exe".into()));
+        memory.lock().unwrap().attach_at(&mut rows, now, |_, _| {
+            panic!("the other sampler must reuse the resolved path")
+        });
+        let weak = Arc::downgrade(&cpu);
+        drop(cpu);
+        assert!(weak.upgrade().is_some());
+        drop(memory);
+        assert!(weak.upgrade().is_none());
+        assert!(registry.acquire().lock().unwrap().0.is_empty());
     }
 }
