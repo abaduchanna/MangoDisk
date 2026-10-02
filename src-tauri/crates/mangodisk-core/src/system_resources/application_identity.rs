@@ -20,8 +20,20 @@ pub(super) fn identify(
                 .ancestors()
                 .any(|parent| parent.extension().is_some_and(|ext| ext == "xpc"))
     });
+    // Service hosts share one executable across unrelated Windows services.
+    // Keep their process identities separate and never offer application quit.
+    #[cfg(windows)]
+    let service_host = path.as_deref().is_some_and(|path| {
+        path.file_name()
+            .is_some_and(|name| name.to_string_lossy().eq_ignore_ascii_case("svchost.exe"))
+    });
+    #[cfg(not(windows))]
+    let service_host = false;
     ApplicationIdentity {
-        id: running_identity::id(path.as_deref().filter(|_| !shared_webkit), pid),
+        id: running_identity::id(
+            path.as_deref().filter(|_| !shared_webkit && !service_host),
+            pid,
+        ),
         name: path
             .as_deref()
             .filter(|_| is_bundle)
@@ -32,9 +44,10 @@ pub(super) fn identify(
             .as_ref()
             .map(|path| path.to_string_lossy().into_owned()),
         is_bundle,
-        can_quit: path
-            .as_deref()
-            .is_some_and(|path| running_identity::can_quit(path, own_path)),
+        can_quit: !service_host
+            && path
+                .as_deref()
+                .is_some_and(|path| running_identity::can_quit(path, own_path)),
         process_count: 0,
     }
 }
@@ -53,5 +66,21 @@ mod tests {
         assert_eq!(second.name, "Safari Web Content");
         assert_eq!(first.icon_path, second.icon_path);
         assert!(!first.can_quit);
+    }
+
+    #[test]
+    #[cfg(windows)]
+    fn windows_service_hosts_do_not_merge_unrelated_services() {
+        let image = Path::new(r"C:\Windows\System32\svchost.exe");
+        let first = identify(10, "svchost.exe".into(), Some(image), None);
+        let second = identify(20, "svchost.exe".into(), Some(image), None);
+        assert_ne!(first.id, second.id);
+        assert_eq!(first.icon_path, second.icon_path);
+        assert!(!first.can_quit);
+        let code = Path::new(r"C:\Apps\Code.exe");
+        assert_eq!(
+            identify(10, "Code.exe".into(), Some(code), None).id,
+            identify(20, "Code.exe".into(), Some(code), None).id
+        );
     }
 }
