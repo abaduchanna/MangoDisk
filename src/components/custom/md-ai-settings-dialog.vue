@@ -356,14 +356,10 @@ onBeforeUnmount(() => {
             </div>
             <div v-if="mode === 'custom'" class="grid min-w-0 gap-4 border-t border-border/70 p-4">
               <div class="grid gap-2">
-                <div class="flex flex-wrap items-baseline gap-x-2 gap-y-1">
-                  <label for="ai-endpoint" class="text-sm font-medium">{{ t('ai.endpoint') }}</label>
-                  <span id="ai-endpoint-hint" class="text-xs text-muted-foreground">{{ t('ai.endpointHint') }}</span>
-                </div>
+                <label for="ai-endpoint" class="text-sm font-medium">{{ t('ai.endpoint') }}</label>
                 <Input
                   id="ai-endpoint"
                   v-model="endpoint"
-                  aria-describedby="ai-endpoint-hint"
                   :disabled="busy"
                   placeholder="https://api.example.com/v1"
                   autocomplete="off"
