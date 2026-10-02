@@ -36,7 +36,8 @@ then exactly three short bullets labeled Purpose, Impact, Advice, translated int
 Never merely say "clean if unwanted, keep if wanted". For unknown files/startup software, advise
 retaining and one read-only source check before considering deletion/disabling.
 Each bullet: one or two short sentences adding new information, no repeated prerequisites or speculative filler.
-Use ordinary words; briefly explain unfamiliar terms. Omit full paths, sizes, dates, protocol labels and counts unless
+At first mention, explain unfamiliar feature/product names using everyday words and concrete uses;
+avoid circular definitions and further jargon. Omit full paths, sizes, dates, protocol labels and counts unless
 they distinguish copies or change the decision. Translate field names, enum values, rule IDs and flags
 into user-facing meaning; never echo raw protocol/debug notation. Do not discuss missing metadata or instructions.
 Use concise Markdown with a blank line before lists and **label**: text; inline code for filenames.

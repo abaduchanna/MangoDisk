@@ -251,6 +251,10 @@ Application uninstall explanations introduce the product and describe hypothetic
 They omit default/current selection and pending operation status; applicable prerequisites stay in
 the impact bullet. Unavailable capabilities and orphaned records still lead with their limitation.
 Unresolved product names must not become speculative descriptions of their function.
+Explain unfamiliar feature names with everyday words and concrete uses before describing a setting.
+Distinguish changing a feature's tips or access method from disabling the feature itself. Recommended
+settings without a pending change describe hypothetical effects, without selection or scan bookkeeping;
+active settings and real pending changes retain their state-specific explanations.
 Language, style, operational boundaries and domain facts are separate prompt sections.
 Unexpected code blocks and tables remain locally scrollable. Copy
 preserves the answer's Markdown source; mouse selection copies visible text.

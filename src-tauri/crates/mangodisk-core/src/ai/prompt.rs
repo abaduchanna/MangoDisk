@@ -510,7 +510,7 @@ mod tests {
             *status = SystemSettingStatus::Recommended;
             *pending_target = None;
         }
-        assert!(state_guidance(&item).contains("NOT selected"));
+        assert!(state_guidance(&item).contains("target differs from the scanned state"));
         if let AiSubject::SystemOptimization { pending_target, .. } = &mut item.subject {
             *pending_target = Some(SystemSettingTargetState::Default);
         }
