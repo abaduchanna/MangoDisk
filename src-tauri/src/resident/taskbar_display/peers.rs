@@ -10,7 +10,7 @@ use windows_sys::{
     },
 };
 
-#[derive(Default)]
+#[derive(Clone, Default, PartialEq, Eq)]
 pub struct Peers {
     pub present: bool,
     pub blocks_reservation: bool,
