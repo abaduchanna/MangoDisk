@@ -95,7 +95,15 @@
     "freeUseCustom": "カスタムサービスに切り替えて、ご自身の API Key を利用できます",
     "enableFeature": "AI 機能を有効にする",
     "featureLoadFailed": "この設定を読み込めませんでした。再試行してください",
-    "featureSaveFailed": "変更を保存できませんでした。以前の設定は保持されています。再試行してください"
+    "featureSaveFailed": "変更を保存できませんでした。以前の設定は保持されています。再試行してください",
+    "feedback": {
+      "label": "回答の評価",
+      "positive": "役に立った",
+      "negative": "役に立たなかった",
+      "failed": "送信できませんでした。もう一度押してください",
+      "expired": "この回答は期限切れのため評価できません",
+      "saved": "評価を送信しました"
+    }
   },
   "navigation": {
     "system-optimization": "システム最適化",

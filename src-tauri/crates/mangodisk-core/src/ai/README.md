@@ -324,3 +324,20 @@ overwritten, so completed evaluation evidence survives a later failure.
 Configuration-file tests use isolated temporary directories and synthetic keys.
 The frontend tests cover automatic generation, minimized streaming, cancellation,
 rapid selection changes, retries, and cache reuse.
+
+## Free-service reply feedback
+
+Completed official replies may include an optional `feedback` target (schema 1)
+in the usage result. The desktop only accepts the `x-mangodisk-ai-feedback: v1`
+capability with a valid server `X-Request-ID`; older servers and custom providers
+never expose rating controls. Feedback targets and confirmed ratings share the
+memory-only answer cache. Configuration changes discard their attribution.
+
+`ai_set_feedback` sends a separately signed `PUT` to
+`/api/v1/ai/explanations/{serverRequestId}/feedback` with
+`{"rating":"positive"}`, `{"rating":"negative"}`, or `{"rating":null}`
+to retract. Each operation uses a fresh request ID and nonce and a 15-second
+transport timeout. It sends no prompt, answer, paths, or provider credentials.
+Failed submissions retain the confirmed rating and can be retried. Expired
+or inaccessible replies disable further rating until another reply is generated.
+Feedback never changes AI usage, cooldowns, scan results, or cleanup selection.

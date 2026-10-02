@@ -9,6 +9,7 @@ import MdAiReasoning from '@/components/custom/md-ai-reasoning.vue';
 import MdSafeRichText from '@/components/custom/md-safe-rich-text.vue';
 import MdCopyButton from '@/components/custom/md-copy-button.vue';
 import MdSpinner from '@/components/custom/md-spinner.vue';
+import MdAiFeedback from '@/components/custom/md-ai-feedback.vue';
 import MdAiQuotaStatus from '@/components/custom/md-ai-quota-status.vue';
 import { aiQuotaCooldownSeconds, isAiServiceUnavailable } from '@/lib/utils/ai-quota';
 import MdIcon from '@/components/icons/md-icon.vue';
@@ -147,6 +148,12 @@ function scroll() {
         :content="store.text"
         variant="answer"
         :allow-links="false"
+      />
+      <MdAiFeedback
+        v-if="freeMode && store.status === 'completed' && store.text && store.feedback"
+        :feedback="store.feedback"
+        :disabled="store.loadingSettings || aiStore.changingConfiguration || aiStore.preferencesBusy"
+        @rate="aiStore.rate(module, $event)"
       />
       <div
         v-if="generating && !store.reasoning && !store.text"

@@ -95,7 +95,15 @@
     "freeUseCustom": "사용자 지정 서비스로 전환해 자신의 API Key를 사용하세요",
     "enableFeature": "AI 기능 사용",
     "featureLoadFailed": "이 설정을 불러오지 못했습니다. 다시 시도해 주세요",
-    "featureSaveFailed": "변경 사항을 저장하지 못했습니다. 기존 설정이 유지됩니다. 다시 시도해 주세요"
+    "featureSaveFailed": "변경 사항을 저장하지 못했습니다. 기존 설정이 유지됩니다. 다시 시도해 주세요",
+    "feedback": {
+      "label": "답변 평가",
+      "positive": "도움이 됨",
+      "negative": "도움이 안 됨",
+      "failed": "저장하지 못했습니다. 다시 눌러 주세요",
+      "expired": "이 답변은 만료되어 평가할 수 없습니다",
+      "saved": "평가가 저장되었습니다"
+    }
   },
   "navigation": {
     "system-optimization": "시스템 최적화",

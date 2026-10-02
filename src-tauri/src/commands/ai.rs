@@ -327,6 +327,28 @@ pub(crate) async fn ai_get_quota(
 }
 
 #[tauri::command]
+pub(crate) async fn ai_set_feedback(
+    request_id: String,
+    rating: Option<mangodisk_core::ai::AiFeedbackRating>,
+    metadata: mangodisk_core::ai::AiClientMetadata,
+    state: State<'_, AiRuntime>,
+) -> Result<mangodisk_core::ai::AiFeedback, AiError> {
+    let mut disabled = state.quota_permit()?;
+    let config = tauri::async_runtime::spawn_blocking(AiConfiguration::load)
+        .await
+        .map_err(|_| AiError::ConfigurationUnavailable)??
+        .unwrap_or_else(AiConfiguration::initial);
+    if config.mode != mangodisk_core::ai::AiServiceMode::Free {
+        return Err(AiError::InvalidConfiguration);
+    }
+    tokio::select! {
+        biased;
+        _ = disabled.changed() => Err(AiError::Cancelled),
+        result = mangodisk_core::ai::official_feedback(metadata, request_id, rating) => result,
+    }
+}
+
+#[tauri::command]
 pub(crate) async fn ai_list_local_models() -> super::error::CommandResult<Vec<InstalledLocalModel>>
 {
     super::error::run_blocking("ai_list_local_models", discover_local_models).await

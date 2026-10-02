@@ -64,6 +64,7 @@ export const AI_ERROR_LABELS = {
   freeSignatureInvalid: 'ai.errors.freeSignatureInvalid',
   freeRequestExists: 'ai.errors.freeRequestExists',
   freeArchiveUnavailable: 'ai.errors.freeArchiveUnavailable',
+  feedbackExpired: 'ai.feedback.expired',
   invalidConfiguration: 'ai.errors.invalidConfiguration',
   invalidContext: 'ai.errors.invalidContext',
   notConfigured: 'ai.errors.notConfigured',
@@ -250,7 +251,23 @@ export type AiSubject =
 /** Provider output channels remain distinct through streaming and caching. */
 export type AiDelta = { kind: 'text' | 'reasoning'; text: string };
 
+export type AiFeedbackRating = 'positive' | 'negative';
+export interface AiFeedbackTarget {
+  schemaVersion: 1;
+  requestId: string;
+}
+export interface AiFeedback extends AiFeedbackTarget {
+  rating: AiFeedbackRating | null;
+  updatedAt: number | null;
+}
+export interface AiFeedbackState extends AiFeedbackTarget {
+  rating: AiFeedbackRating | null;
+  busy: boolean;
+  error: 'failed' | 'expired' | null;
+}
+
 export interface AiUsage {
+  feedback?: AiFeedbackTarget;
   promptTokens: number | null;
   completionTokens: number | null;
 }
@@ -265,6 +282,7 @@ export const AI_ERROR_CODES = [
   'freeSignatureInvalid',
   'freeRequestExists',
   'freeArchiveUnavailable',
+  'feedbackExpired',
   'invalidConfiguration',
   'invalidContext',
   'notConfigured',

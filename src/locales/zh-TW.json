@@ -95,7 +95,15 @@
     "freeUseCustom": "可切換自訂服務，使用自己的 API Key",
     "enableFeature": "啟用 AI 功能",
     "featureLoadFailed": "無法讀取此設定，請重試",
-    "featureSaveFailed": "無法儲存變更，已保留原設定，請重試"
+    "featureSaveFailed": "無法儲存變更，已保留原設定，請重試",
+    "feedback": {
+      "label": "回覆評價",
+      "positive": "有幫助",
+      "negative": "沒幫助",
+      "failed": "提交失敗，請再點一次重試",
+      "expired": "這則回覆已過期，無法評價",
+      "saved": "意見已提交"
+    }
   },
   "navigation": {
     "system-optimization": "系統最佳化",

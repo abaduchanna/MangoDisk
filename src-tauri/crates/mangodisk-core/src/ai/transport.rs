@@ -33,6 +33,8 @@ pub enum AiDelta {
 pub struct AiUsage {
     pub prompt_tokens: Option<u64>,
     pub completion_tokens: Option<u64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub feedback: Option<super::AiFeedbackTarget>,
 }
 
 fn payload(config: &AiConfiguration, request: &AiRequest) -> Result<serde_json::Value, AiError> {
@@ -208,6 +210,9 @@ pub(super) async fn stream_request(
     let run = async {
         let mut response = builder.send().await.map_err(network_error)?;
         let status = response.status().as_u16();
+        let feedback = official
+            .then(|| super::feedback::target(response.headers()))
+            .flatten();
         if official {
             // Only a bounded UUID is accepted into logs. This joins desktop
             // operation diagnostics to the server ledger without logging context.
@@ -275,7 +280,9 @@ pub(super) async fn stream_request(
         }
         .await;
         result?;
-        stream.finish()
+        let mut usage = stream.finish()?;
+        usage.feedback = feedback;
+        Ok(usage)
     };
     let mut result = tokio::select! {
         result = run => result,

@@ -177,7 +177,7 @@ fn headers(
     Ok(result)
 }
 
-fn request(
+pub(super) fn request(
     metadata: &AiClientMetadata,
     id: &str,
     method: Method,
@@ -202,14 +202,14 @@ fn request(
         &timestamp,
         &nonce,
     )?;
-    let client = transport::client(if method == Method::GET { 15 } else { 220 })?;
+    let client = transport::client(if method == Method::POST { 220 } else { 15 })?;
     let mut builder = client
         .request(
             method.clone(),
             origin.join(path).map_err(|_| AiError::FreeUnavailable)?,
         )
         .headers(headers);
-    if method == Method::POST {
+    if method != Method::GET {
         builder = builder.body(body);
     }
     Ok(builder)
