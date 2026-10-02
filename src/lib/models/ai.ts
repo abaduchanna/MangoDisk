@@ -3,6 +3,8 @@ import type { ScanRuleResult } from './cleanup';
 import type { StartupArtifact } from './startup';
 import type { SystemSettingItem, SystemSettingTargetState } from './system-settings';
 import type { SystemMaintenanceItem } from './system-maintenance';
+import type { LargeFileEntry } from './large-file';
+import type { DuplicateEntryDeletePolicy, DuplicateGroupKind } from './duplicate-file';
 
 export type AiReasoningMode = 'default' | 'disabled';
 export type AiServiceMode = 'free' | 'custom';
@@ -150,8 +152,27 @@ export type AiStartupEntry = Pick<
   };
 };
 
+/** Only descriptive file metadata enters an explanation request. */
+export type AiFileMetadata = Pick<LargeFileEntry, 'name' | 'path' | 'bytes' | 'modifiedAtMs'>;
+
+export interface AiDuplicateEntry {
+  file: AiFileMetadata;
+  deletePolicy: DuplicateEntryDeletePolicy;
+}
+
+/** Include the requested entry and a bounded, explicitly partial set of other copies. */
+export const AI_DUPLICATE_COPY_LIMIT = 31;
+
 /** Each module exposes only facts relevant to its explanation, not its full domain object. */
 export type AiSubject =
+  | { module: 'largeFiles'; file: AiFileMetadata }
+  | {
+      module: 'duplicateFiles';
+      kind: DuplicateGroupKind;
+      target: AiDuplicateEntry;
+      otherCopies: AiDuplicateEntry[];
+      omittedCount: number;
+    }
   | {
       module: 'cleanup';
       impact: string;

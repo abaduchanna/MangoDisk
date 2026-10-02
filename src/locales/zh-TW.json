@@ -28,7 +28,7 @@
     "deleteConfiguration": "刪除設定",
     "saveAndTest": "儲存並測試",
     "explain": "AI 解讀",
-    "disclosure": "將向設定的 AI 服務傳送項目詳情，包括啟動項目的完整路徑；不傳送檔案內容",
+    "disclosure": "將向所設定的 AI 服務傳送項目名稱、用途資訊及相關完整路徑；不傳送檔案內容",
     "notConfigured": "請先設定 AI 服務，再開始解讀",
     "generating": "正在產生…",
     "waiting": "正在等待回覆…",

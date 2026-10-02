@@ -1,7 +1,8 @@
 # Optional AI explanations
 
 Explicit per-item requests explain built-in cleanup rules, privacy data kinds,
-startup registrations, system settings, and maintenance actions.
+startup registrations, system settings, maintenance actions, large files, and
+exact-content duplicate copies.
 It does not select items, change risk classifications, execute commands, or
 authorize cleanup. Existing native preflight and confirmation remain authoritative.
 
@@ -9,7 +10,7 @@ authorize cleanup. Existing native preflight and confirmation remain authoritati
 
 - The page maps its result to `AiContext`, an explicit metadata allowlist.
   Never add file contents, authentication secrets, process arguments, or arbitrary scan objects.
-  Startup locations are explicitly included for software attribution.
+  Startup and file locations are explicitly included for software attribution.
   Custom cleanup rules are not yet supported by this adapter.
 - Core validates configuration and context, builds prompts, enforces request
   limits, and decodes streaming responses. Model output is untrusted Markdown.
@@ -38,7 +39,7 @@ authorize cleanup. Existing native preflight and confirmation remain authoritati
   Each module owns one panel and IPC session. Navigation and minimize preserve
   its stream, answer, reasoning and minimized state. Close cancels only that
   module; selecting another item in the same module replaces its previous request.
-  The backend permits up to six independent reservations: five module streams
+  The backend permits up to eight independent reservations: seven module streams
   plus a connection test. Cancellation and completion release only their own IDs.
   State is memory-only and does not survive application exit. Configuration changes
   cancel active requests and clear the shared cache, but retain displayed answers;
@@ -58,6 +59,13 @@ authorize cleanup. Existing native preflight and confirmation remain authoritati
   These fields may identify users or installation locations and are
   sent only after an explicit explanation request to the configured provider.
   Startup groups are not silently truncated; malformed or oversized requests are rejected.
+  File explanations include only name, full path, scan-reported size and modification time.
+  Large-file sizes represent physical storage; duplicate sizes represent logical content length.
+  Duplicate explanations include the requested copy, its native protection policy, the group kind,
+  and up to 31 other copies, prioritizing protected copies. `omittedCount` explicitly marks
+  any unrepresented copies. Proof tokens, scan handles, contents and selection state are excluded.
+  Exact equality does not establish that different application paths are interchangeable.
+  Names and paths alone do not prove software ownership, malware or uninstall residue.
   Execution arguments, opaque operational IDs, privacy profiles and record details
   remain excluded. Model attribution is inference, not proof of ownership or safety.
   Custom-provider message text omits the IPC schema version and absent descriptive
@@ -77,14 +85,17 @@ authorize cleanup. Existing native preflight and confirmation remain authoritati
 
 ## Editing prompts
 
-Prompt text lives in six TOML resources in [`prompts/`](prompts/):
+Prompt text lives in eight TOML resources in [`prompts/`](prompts/):
 
 - [system.toml](prompts/system.toml): shared language and operation boundaries plus the response format;
 - [cleanup.toml](prompts/cleanup.toml), [privacy.toml](prompts/privacy.toml),
   [startup.toml](prompts/startup.toml),
   [system-optimization.toml](prompts/system-optimization.toml) and
   [system-maintenance.toml](prompts/system-maintenance.toml): each tool's general
-  guidance and conditional instructions.
+  guidance and conditional instructions;
+- [large-files.toml](prompts/large-files.toml) and
+  [duplicate-files.toml](prompts/duplicate-files.toml): file attribution, permanent-deletion
+  consequences, exact-equality boundaries, protected targets and partial copy listings.
 
 
 Use multiline literal strings (`'''`) to edit Markdown without escaping newlines
@@ -250,7 +261,7 @@ Official error mapping lives in `official_protocol`, without dependencies on
 request construction or network IO. The frontend collects typed client metadata;
 only the update adapter projects it into HTTP headers.
 
-`tests/fixtures/ai-context-v2.json` contains five synthetic module contexts shared
+`tests/fixtures/ai-context-v2.json` contains seven synthetic module contexts shared
 by frontend projection tests and Rust deserialization, prompt, and transport tests.
 It is test-only contract evidence, not persisted settings or a production request
 source. Keep the shared fixture so field/schema drift fails on both sides.

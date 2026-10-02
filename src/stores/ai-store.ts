@@ -42,6 +42,8 @@ export const useAiStore = defineStore('ai', {
       startup: createWorkspace(),
       systemOptimization: createWorkspace(),
       systemMaintenance: createWorkspace(),
+      largeFiles: createWorkspace(),
+      duplicateFiles: createWorkspace(),
     } satisfies Record<AiModule, ReturnType<typeof createWorkspace>>,
     changingConfiguration: false,
     quota: null as AiQuota | null,

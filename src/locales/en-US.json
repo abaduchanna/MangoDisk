@@ -28,7 +28,7 @@
     "deleteConfiguration": "Delete configuration",
     "saveAndTest": "Save and test",
     "explain": "AI explanation",
-    "disclosure": "Item details, including full startup paths, are sent to your configured AI provider. File contents are not sent",
+    "disclosure": "Item names, purpose metadata and relevant full paths are sent to your configured AI service; file contents are not sent",
     "notConfigured": "Configure an AI provider before requesting an explanation",
     "generating": "Generating…",
     "waiting": "Waiting for a response…",

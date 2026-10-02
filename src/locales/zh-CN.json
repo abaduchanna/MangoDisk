@@ -28,7 +28,7 @@
     "deleteConfiguration": "删除配置",
     "saveAndTest": "保存并测试",
     "explain": "AI 解读",
-    "disclosure": "将向所配置的 AI 服务发送条目详情，包括启动项的完整路径；不发送文件内容",
+    "disclosure": "将向所配置的 AI 服务发送条目名称、用途信息及相关完整路径；不发送文件内容",
     "notConfigured": "先配置 AI 服务，再开始解读",
     "generating": "正在生成…",
     "waiting": "正在等待回复…",

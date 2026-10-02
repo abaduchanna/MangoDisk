@@ -69,6 +69,20 @@ pub(super) struct StartupPrompts {
 
 #[derive(Deserialize)]
 #[serde(deny_unknown_fields)]
+pub(super) struct LargeFilesPrompts {
+    pub(super) general: PromptText,
+}
+
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+pub(super) struct DuplicateFilesPrompts {
+    pub(super) general: PromptText,
+    pub(super) protected_target: PromptText,
+    pub(super) partial_group: PromptText,
+}
+
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
 pub(super) struct SystemOptimizationPrompts {
     pub(super) general: PromptText,
     pub(super) active: PromptText,
@@ -96,6 +110,8 @@ pub(super) struct PromptCatalog {
     pub(super) cleanup: CleanupPrompts,
     pub(super) privacy: PrivacyPrompts,
     pub(super) startup: StartupPrompts,
+    pub(super) large_files: LargeFilesPrompts,
+    pub(super) duplicate_files: DuplicateFilesPrompts,
     pub(super) system_optimization: SystemOptimizationPrompts,
     pub(super) system_maintenance: SystemMaintenancePrompts,
 }
@@ -133,6 +149,16 @@ impl PromptCatalog {
             ("privacy.current_clipboard", &self.privacy.current_clipboard),
             ("privacy.recent_items", &self.privacy.recent_items),
             ("startup.general", &self.startup.general),
+            ("large-files.general", &self.large_files.general),
+            ("duplicate-files.general", &self.duplicate_files.general),
+            (
+                "duplicate-files.protected_target",
+                &self.duplicate_files.protected_target,
+            ),
+            (
+                "duplicate-files.partial_group",
+                &self.duplicate_files.partial_group,
+            ),
             (
                 "system-optimization.general",
                 &self.system_optimization.general,
@@ -228,6 +254,11 @@ pub(super) fn load() -> Result<PromptCatalog, String> {
         cleanup: parse_document("cleanup", include_str!("prompts/cleanup.toml"))?,
         privacy: parse_document("privacy", include_str!("prompts/privacy.toml"))?,
         startup: parse_document("startup", include_str!("prompts/startup.toml"))?,
+        large_files: parse_document("large-files", include_str!("prompts/large-files.toml"))?,
+        duplicate_files: parse_document(
+            "duplicate-files",
+            include_str!("prompts/duplicate-files.toml"),
+        )?,
         system_optimization: parse_document(
             "system-optimization",
             include_str!("prompts/system-optimization.toml"),

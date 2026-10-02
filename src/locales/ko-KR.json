@@ -28,7 +28,7 @@
     "deleteConfiguration": "설정 삭제",
     "saveAndTest": "저장하고 테스트",
     "explain": "AI 설명",
-    "disclosure": "전체 시작 경로를 포함한 항목 세부 정보가 설정한 AI 제공자에게 전송됩니다. 파일 내용은 전송되지 않습니다",
+    "disclosure": "항목 이름, 용도 정보 및 관련 전체 경로가 설정된 AI 서비스로 전송됩니다. 파일 내용은 전송하지 않습니다",
     "notConfigured": "설명을 요청하기 전에 AI 제공자를 설정하세요",
     "generating": "생성 중…",
     "waiting": "응답을 기다리는 중…",

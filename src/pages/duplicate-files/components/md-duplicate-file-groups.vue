@@ -13,6 +13,7 @@ import {
 } from 'vue';
 import { observeElementRect, useVirtualizer, type Range, type VirtualItem } from '@tanstack/vue-virtual';
 
+import MdAiAction from '@/layouts/components/md-ai-action.vue';
 import MdLoadMoreButton from '@/components/custom/md-load-more-button.vue';
 import MdFileEntryContextMenu from '@/components/custom/md-file-entry-context-menu.vue';
 import MdIconAction from '@/components/custom/md-icon-action.vue';
@@ -60,6 +61,7 @@ const emit = defineEmits<{
   openEntry: [entry: DuplicateFileEntry];
   reveal: [path: string];
   delete: [entry: DuplicateFileEntry];
+  explain: [group: DuplicateGroup, entry: DuplicateFileEntry];
   loadMore: [category: FileCategoryId];
   'update:selectedPaths': [paths: string[]];
 }>();
@@ -484,6 +486,11 @@ function loadMoreGroups() {
                   {{ t('duplicateFiles.protectedEntry') }}
                 </span>
                 <span class="member-actions">
+                  <MdAiAction
+                    :name="entry.name"
+                    :disabled="openDisabled || deleteDisabled"
+                    @explain="emit('explain', group, entry)"
+                  />
                   <MdIconAction
                     variant="ghost"
                     :label="t('common.showInFileManager')"
@@ -700,6 +707,7 @@ function loadMoreGroups() {
 }
 
 .member-primary {
+  --member-actions-space: 64px;
   position: relative;
   display: flex;
   min-width: 0;
@@ -743,8 +751,12 @@ function loadMoreGroups() {
   opacity: 0;
 }
 
+.member-primary:has(.md-ai-action) {
+  --member-actions-space: 96px;
+}
+
 .member-row:is(:hover, :has(:focus-visible)) .member-path {
-  padding-right: 64px;
+  padding-right: var(--member-actions-space);
 }
 
 .member-date {

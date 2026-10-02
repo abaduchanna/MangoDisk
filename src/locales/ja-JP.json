@@ -28,7 +28,7 @@
     "deleteConfiguration": "設定を削除",
     "saveAndTest": "保存してテスト",
     "explain": "AI 解説",
-    "disclosure": "起動項目の完全なパスを含む詳細を設定済みの AI サービスに送信します。ファイル内容は送信しません",
+    "disclosure": "項目名、用途に関する情報、関連する完全なパスを設定済みの AI サービスに送信します。ファイルの内容は送信しません",
     "notConfigured": "解説を始める前に AI サービスを設定してください",
     "generating": "生成中…",
     "waiting": "応答を待っています…",

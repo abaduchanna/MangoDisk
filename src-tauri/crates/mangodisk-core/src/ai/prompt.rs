@@ -1,5 +1,6 @@
 use super::context::{AiContext, AiPlatform, AiSubject};
 use crate::privacy::{PrivacyCapabilityState, PrivacyDataKind};
+use crate::storage::duplicates::DuplicateEntryDeletePolicy;
 use crate::system_maintenance::SystemMaintenanceStatus;
 use crate::system_settings::{SystemSettingStatus, SystemSettingTargetState};
 
@@ -36,6 +37,8 @@ fn module_guidance(subject: Option<&AiSubject>) -> &'static str {
     match subject {
         None => &PROMPTS.system.connection_test,
         Some(AiSubject::Cleanup { .. }) => &PROMPTS.cleanup.general,
+        Some(AiSubject::LargeFiles { .. }) => &PROMPTS.large_files.general,
+        Some(AiSubject::DuplicateFiles { .. }) => &PROMPTS.duplicate_files.general,
         Some(AiSubject::Privacy { .. }) => &PROMPTS.privacy.general,
         Some(AiSubject::Startup { .. }) => &PROMPTS.startup.general,
         Some(AiSubject::SystemOptimization { .. }) => &PROMPTS.system_optimization.general,
@@ -52,6 +55,11 @@ fn state_guidance(context: &AiContext) -> &'static str {
             status: SystemMaintenanceStatus::Available,
             ..
         } => &PROMPTS.system_maintenance.available,
+        AiSubject::DuplicateFiles { target, .. }
+            if target.delete_policy == DuplicateEntryDeletePolicy::Protected =>
+        {
+            &PROMPTS.duplicate_files.protected_target
+        }
         AiSubject::Privacy {
             capability: PrivacyCapabilityState::PermissionRequired,
             ..
@@ -100,6 +108,9 @@ fn state_guidance(context: &AiContext) -> &'static str {
 /// labels. Keep these distinctions close to the AI adapter and regression tests.
 fn scope_guidance(context: &AiContext) -> &'static str {
     match &context.subject {
+        AiSubject::DuplicateFiles { omitted_count, .. } if *omitted_count > 0 => {
+            &PROMPTS.duplicate_files.partial_group
+        }
         AiSubject::Cleanup { scan, .. } if scan.rule_id == "special.macos-universal-binaries" => {
             &PROMPTS.cleanup.remove_architecture
         }
@@ -199,7 +210,7 @@ mod tests {
                 }
             }
         };
-        for index in 0..5 {
+        for index in 0..7 {
             visit(&context(index));
         }
         let mut cleanup = context(0);
@@ -207,6 +218,18 @@ mod tests {
             scan.rule_id = "special.macos-universal-binaries".into();
         }
         visit(&cleanup);
+
+        let mut duplicate = context(6);
+        if let AiSubject::DuplicateFiles {
+            target,
+            omitted_count,
+            ..
+        } = &mut duplicate.subject
+        {
+            target.delete_policy = DuplicateEntryDeletePolicy::Protected;
+            *omitted_count = 1;
+        }
+        visit(&duplicate);
 
         let mut privacy = context(1);
         privacy.platform = AiPlatform::Windows;
@@ -294,7 +317,7 @@ mod tests {
         for tag in [
             "en-US", "zh-CN", "zh-TW", "ja-JP", "fr-FR", "pt-BR", "zh-Hant",
         ] {
-            for index in 0..5 {
+            for index in 0..7 {
                 let mut item = context(index);
                 item.title = "\u{6d4f}\u{89c8}\u{5668}\u{7f13}\u{5b58}".into();
                 let prompt = system_prompt(tag, Some(&item));
@@ -307,7 +330,7 @@ mod tests {
 
     #[test]
     fn every_module_requests_compact_markdown_without_action_authority() {
-        for index in 0..5 {
+        for index in 0..7 {
             let prompt = system_prompt("zh-CN", Some(&context(index)));
             assert!(prompt.contains("Use concise Markdown"));
             assert!(prompt.contains("blank line before lists"));

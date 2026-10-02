@@ -9,6 +9,7 @@ use crate::startup::{
     StartupConfiguredState, StartupControlCapability, StartupDiagnosticCode, StartupRuntimeState,
     StartupSourceKind, StartupTrigger, StartupTrustState,
 };
+use crate::storage::duplicates::{DuplicateEntryDeletePolicy, DuplicateGroupKind};
 use crate::system_maintenance::{SystemMaintenanceRiskLevel, SystemMaintenanceStatus};
 use crate::system_settings::{
     SystemSettingRiskLevel, SystemSettingSelectionKind, SystemSettingStatus,
@@ -49,6 +50,15 @@ pub struct AiContext {
     deny_unknown_fields
 )]
 pub enum AiSubject {
+    LargeFiles {
+        file: AiFileMetadata,
+    },
+    DuplicateFiles {
+        kind: DuplicateGroupKind,
+        target: AiDuplicateEntry,
+        other_copies: Vec<AiDuplicateEntry>,
+        omitted_count: u64,
+    },
     Cleanup {
         impact: String,
         bytes: u64,
@@ -90,6 +100,33 @@ pub enum AiSubject {
         estimated_duration_seconds: u64,
         diagnostic: Option<PlatformSystemMaintenanceDiagnosticCode>,
     },
+}
+
+/// Only descriptive metadata enters a provider request, never file contents,
+/// duplicate proof tokens, scan handles, or executable actions.
+#[derive(Clone, Deserialize, Serialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct AiFileMetadata {
+    pub name: String,
+    pub path: String,
+    pub bytes: u64,
+    pub modified_at_ms: Option<u64>,
+}
+
+impl AiFileMetadata {
+    fn valid(&self) -> bool {
+        !self.name.trim().is_empty()
+            && self.name.len() <= 32768
+            && !self.path.trim().is_empty()
+            && self.path.len() <= 32768
+    }
+}
+
+#[derive(Clone, Deserialize, Serialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct AiDuplicateEntry {
+    pub file: AiFileMetadata,
+    pub delete_policy: DuplicateEntryDeletePolicy,
 }
 
 #[derive(Clone, Deserialize, Serialize)]
@@ -154,6 +191,8 @@ impl AiStartupIdentity {
 impl AiSubject {
     pub fn module_name(&self) -> &'static str {
         match self {
+            Self::LargeFiles { .. } => "largeFiles",
+            Self::DuplicateFiles { .. } => "duplicateFiles",
             Self::Cleanup { .. } => "cleanup",
             Self::Privacy { .. } => "privacy",
             Self::Startup { .. } => "startup",
@@ -200,6 +239,23 @@ impl AiContext {
 
     pub(super) fn validate(&self) -> Result<(), AiError> {
         let invalid_subject = match &self.subject {
+            AiSubject::LargeFiles { file } => !file.valid(),
+            AiSubject::DuplicateFiles {
+                target,
+                other_copies,
+                ..
+            } => {
+                !target.file.valid()
+                    || other_copies.is_empty()
+                    || other_copies.len() > 31
+                    || other_copies.iter().any(|copy| !copy.file.valid())
+                    || {
+                        let mut paths = std::collections::HashSet::from([&target.file.path]);
+                        other_copies
+                            .iter()
+                            .any(|copy| !paths.insert(&copy.file.path))
+                    }
+            }
             AiSubject::Cleanup { impact, scan, .. } => {
                 impact.len() > 32768
                     || scan.rule_id.len() > 1024
@@ -272,6 +328,22 @@ mod tests {
         );
         assert_eq!(value["subject"]["scan"]["sourcesTruncated"], false);
 
+        let mut fixture = fixtures().remove(6);
+        fixture["subject"]["target"]["file"]["modifiedAtMs"] = serde_json::json!(123);
+        let context: AiContext = serde_json::from_value(fixture.clone()).unwrap();
+        let value: serde_json::Value =
+            serde_json::from_str(&context.provider_json().unwrap()).unwrap();
+        assert_eq!(value["subject"]["target"], fixture["subject"]["target"]);
+        assert_eq!(
+            value["subject"]["otherCopies"][0]["deletePolicy"],
+            "protected"
+        );
+        assert_eq!(
+            value["subject"]["otherCopies"][0]["file"]["path"],
+            fixture["subject"]["otherCopies"][0]["file"]["path"]
+        );
+        assert_eq!(value["subject"]["omittedCount"], 0);
+
         let fixture = fixtures().remove(2);
         let context: AiContext = serde_json::from_value(fixture.clone()).unwrap();
         let value: serde_json::Value =
@@ -304,6 +376,57 @@ mod tests {
             invalid["path"] = serde_json::json!("/private/path");
             assert!(serde_json::from_value::<AiContext>(invalid).is_err());
         }
+    }
+
+    #[test]
+    fn file_contexts_reject_private_payloads_invalid_targets_and_unbounded_copy_lists() {
+        let fixtures = fixtures();
+        for index in [5, 6] {
+            let mut invalid = fixtures[index].clone();
+            let file = if index == 5 {
+                &mut invalid["subject"]["file"]
+            } else {
+                &mut invalid["subject"]["target"]["file"]
+            };
+            file["content"] = serde_json::json!("private document content");
+            assert!(serde_json::from_value::<AiContext>(invalid).is_err());
+        }
+        let mut invalid = fixtures[5].clone();
+        invalid["subject"]["file"]["path"] = serde_json::json!("");
+        assert!(serde_json::from_value::<AiContext>(invalid)
+            .unwrap()
+            .validate()
+            .is_err());
+        let duplicate = &fixtures[6];
+        let mut invalid = duplicate.clone();
+        invalid["subject"]["otherCopies"] = serde_json::json!([]);
+        assert!(serde_json::from_value::<AiContext>(invalid)
+            .unwrap()
+            .validate()
+            .is_err());
+        let mut invalid = duplicate.clone();
+        invalid["subject"]["otherCopies"][0]["file"]["path"] =
+            invalid["subject"]["target"]["file"]["path"].clone();
+        assert!(serde_json::from_value::<AiContext>(invalid)
+            .unwrap()
+            .validate()
+            .is_err());
+        let mut invalid = duplicate.clone();
+        invalid["subject"]["target"]["deletePolicy"] = serde_json::json!("allowed-by-ai");
+        assert!(serde_json::from_value::<AiContext>(invalid).is_err());
+        let mut invalid = duplicate.clone();
+        let copy = &duplicate["subject"]["otherCopies"][0];
+        invalid["subject"]["otherCopies"] = serde_json::json!((0..32)
+            .map(|index| {
+                let mut copy = copy.clone();
+                copy["file"]["path"] = serde_json::json!(format!("/copy-{index}/report.pdf"));
+                copy
+            })
+            .collect::<Vec<_>>());
+        assert!(serde_json::from_value::<AiContext>(invalid)
+            .unwrap()
+            .validate()
+            .is_err());
     }
 
     #[test]

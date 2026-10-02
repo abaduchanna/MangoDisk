@@ -842,6 +842,8 @@ mod tests {
             "does not start or stop",
             "unapplied draft",
             "not that a fault was detected",
+            "not a verified cleanup candidate",
+            "different paths are interchangeable",
         ];
         assert_eq!(
             fixtures.len(),
