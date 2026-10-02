@@ -6,10 +6,12 @@ import { LanguageService } from '@/lib/services/language-service';
 import enUS from '@/locales/en-US.json';
 import jaJP from '@/locales/ja-JP.json';
 import koKR from '@/locales/ko-KR.json';
+import ptBR from '@/locales/pt-BR.json';
+import trTR from '@/locales/tr-TR.json';
 import zhCN from '@/locales/zh-CN.json';
 import zhTW from '@/locales/zh-TW.json';
 
-const localeResources = [zhCN, zhTW, jaJP, koKR, enUS];
+const localeResources = [zhCN, zhTW, jaJP, koKR, enUS, trTR, ptBR];
 
 function leafKeys(value: unknown, prefix = ''): string[] {
   if (!value || typeof value !== 'object' || Array.isArray(value)) return [prefix];
@@ -44,6 +46,20 @@ describe('i18n resources', () => {
 
       expect(missingKeys).toEqual([]);
       expect(unexpectedKeys).toEqual([]);
+    }
+  });
+
+  it('preserves interpolation arguments in the newly integrated translations', () => {
+    const englishEntries = new Map(leafEntries(enUS));
+    const argumentsIn = (value: unknown) =>
+      typeof value === 'string' ? [...new Set(value.match(/\{[a-zA-Z][a-zA-Z0-9_]*\}/gu) ?? [])].sort() : [];
+    for (const resource of [trTR, ptBR]) {
+      const mismatchedKeys = leafEntries(resource)
+        .filter(
+          ([key, value]) => JSON.stringify(argumentsIn(value)) !== JSON.stringify(argumentsIn(englishEntries.get(key)))
+        )
+        .map(([key]) => key);
+      expect(mismatchedKeys).toEqual([]);
     }
   });
 
@@ -104,6 +120,8 @@ describe('i18n resources', () => {
       [LANGUAGE_IDS.koKR]: '열기',
       [LANGUAGE_IDS.zhCN]: '打开',
       [LANGUAGE_IDS.zhTW]: '開啟',
+      [LANGUAGE_IDS.trTR]: 'Aç',
+      [LANGUAGE_IDS.ptBR]: 'Abrir',
     };
 
     for (const locale of i18n.global.availableLocales) {
@@ -119,6 +137,12 @@ describe('i18n resources', () => {
     expect(LanguageService.resolveSupportedLanguage(['ja-JP'])).toBe(LANGUAGE_IDS.jaJP);
     expect(LanguageService.resolveSupportedLanguage(['ko-KR', 'en-US'])).toBe(LANGUAGE_IDS.koKR);
     expect(LanguageService.resolveSupportedLanguage(['ko'])).toBe(LANGUAGE_IDS.koKR);
+    expect(LanguageService.resolveSupportedLanguage(['tr-TR', 'en-US'])).toBe(LANGUAGE_IDS.trTR);
+    expect(LanguageService.resolveSupportedLanguage([' TR '])).toBe(LANGUAGE_IDS.trTR);
+    expect(LanguageService.resolveSupportedLanguage(['pt-BR'])).toBe(LANGUAGE_IDS.ptBR);
+    expect(LanguageService.resolveSupportedLanguage(['pt-PT'])).toBe(LANGUAGE_IDS.ptBR);
+    expect(LanguageService.resolveSupportedLanguage(['pt'])).toBe(LANGUAGE_IDS.ptBR);
+    expect(LanguageService.resolveSupportedLanguage(['tricky', 'ptolemy'])).toBe(LANGUAGE_IDS.enUS);
   });
 
   it('applies interpolation and pluralization for the active locale', () => {
@@ -137,5 +161,17 @@ describe('i18n resources', () => {
 
     i18n.global.locale.value = LANGUAGE_IDS.koKR;
     expect(i18n.global.t('common.fileCount', { count: 2 }, 2)).toBe('2개 파일');
+
+    i18n.global.locale.value = LANGUAGE_IDS.trTR;
+    expect(i18n.global.t('common.fileCount', { count: 1 }, 1)).toBe('1 dosya');
+    expect(i18n.global.t('common.fileCount', { count: 2 }, 2)).toBe('2 dosya');
+
+    i18n.global.locale.value = LANGUAGE_IDS.ptBR;
+    expect(i18n.global.t('common.fileCount', { count: 1 }, 1)).toBe('1 arquivo');
+    expect(i18n.global.t('common.fileCount', { count: 2 }, 2)).toBe('2 arquivos');
+    expect(i18n.global.t('settings.scanExclusionsCount', { count: 1 })).toBe('1 regra');
+    expect(i18n.global.t('settings.scanExclusionsCount', { count: 2 })).toBe('2 regras');
+    expect(i18n.global.t('startup.summary.programs', { count: 1 })).toBe('1 app inicia automaticamente');
+    expect(i18n.global.t('startup.summary.programs', { count: 2 })).toBe('2 apps iniciam automaticamente');
   });
 });

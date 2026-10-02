@@ -4,6 +4,8 @@ import { LANGUAGE_IDS, type LanguageId } from '@/lib/models/settings';
 import enUS from '@/locales/modules/en-us';
 import jaJP from '@/locales/modules/ja-jp';
 import koKR from '@/locales/modules/ko-kr';
+import ptBR from '@/locales/modules/pt-br';
+import trTR from '@/locales/modules/tr-tr';
 import zhCN from '@/locales/modules/zh-cn';
 import zhTW from '@/locales/modules/zh-tw';
 
@@ -25,5 +27,7 @@ export const i18n = createI18n<[MessageSchema], SupportedLocale, false>({
     [LANGUAGE_IDS.jaJP]: jaJP,
     [LANGUAGE_IDS.koKR]: koKR,
     [LANGUAGE_IDS.enUS]: enUS,
+    [LANGUAGE_IDS.trTR]: trTR,
+    [LANGUAGE_IDS.ptBR]: ptBR,
   },
 });

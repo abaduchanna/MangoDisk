@@ -10,6 +10,8 @@ import { toast } from 'vue-sonner';
 import type { ApplicationUninstallBatchResult, ApplicationUninstallResult } from '@/lib/models/application';
 import en from '@/locales/en-US.json';
 import ja from '@/locales/ja-JP.json';
+import pt from '@/locales/pt-BR.json';
+import tr from '@/locales/tr-TR.json';
 import ko from '@/locales/ko-KR.json';
 import zh from '@/locales/zh-CN.json';
 import tw from '@/locales/zh-TW.json';
@@ -18,7 +20,7 @@ import ApplicationUninstallPage from './index.vue';
 vi.mock('@tauri-apps/plugin-os', () => ({ platform: () => 'windows' }));
 vi.mock('vue-sonner', () => ({ toast: { success: vi.fn(), warning: vi.fn(), error: vi.fn(), info: vi.fn() } }));
 afterEach(() => vi.clearAllMocks());
-const messages = { 'zh-CN': zh, 'zh-TW': tw, 'en-US': en, 'ja-JP': ja, 'ko-KR': ko };
+const messages = { 'zh-CN': zh, 'zh-TW': tw, 'en-US': en, 'ja-JP': ja, 'ko-KR': ko, 'tr-TR': tr, 'pt-BR': pt };
 
 type Outcome = 'completed' | 'failed' | 'cancelled' | 'continuing' | 'removedWithFailure';
 function result(outcomes: Outcome[], restartRequired = false): ApplicationUninstallBatchResult {
@@ -161,7 +163,10 @@ describe.each(Object.keys(messages) as (keyof typeof messages)[])('uninstall res
     expect(toast.info).toHaveBeenLastCalledWith(
       messages[locale].applicationUninstall.executionStoppedTitle,
       expect.objectContaining({
-        description: messages[locale].applicationUninstall.resultContinuing.replace('{count}', '1'),
+        description:
+          locale === 'pt-BR'
+            ? 'Confira a janela do desinstalador para 1 aplicativo restante'
+            : messages[locale].applicationUninstall.resultContinuing.replace('{count}', '1'),
       })
     );
     wrapper.unmount();

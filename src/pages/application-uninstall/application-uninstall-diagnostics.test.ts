@@ -14,6 +14,9 @@ import type { CommandError } from '@/lib/utils/error';
 import type { ApplicationUninstallCandidate } from '@/lib/models/application';
 import en from '@/locales/en-US.json';
 import ja from '@/locales/ja-JP.json';
+import ko from '@/locales/ko-KR.json';
+import pt from '@/locales/pt-BR.json';
+import tr from '@/locales/tr-TR.json';
 import zh from '@/locales/zh-CN.json';
 import tw from '@/locales/zh-TW.json';
 
@@ -51,7 +54,7 @@ const candidate: ApplicationUninstallCandidate = {
   components: [],
 };
 
-const messages = { 'en-US': en, 'ja-JP': ja, 'zh-CN': zh, 'zh-TW': tw };
+const messages = { 'en-US': en, 'ja-JP': ja, 'zh-CN': zh, 'zh-TW': tw, 'ko-KR': ko, 'tr-TR': tr, 'pt-BR': pt };
 
 function render(locale: keyof typeof messages, overrides: Partial<ApplicationUninstallCandidate> = {}) {
   return mount(MdApplicationUninstallRow, {

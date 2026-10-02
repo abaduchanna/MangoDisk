@@ -8,6 +8,8 @@
 <a href="README.md">English</a> · <a href="README.zh-CN.md">简体中文</a> · <a href="README.zh-TW.md">繁體中文</a> · 日本語 · <a href="README.ko.md">한국어</a>
 </p>
 
+アプリの表示言語は、英語、簡体字中国語、繁体字中国語、日本語、韓国語、トルコ語、ブラジルポルトガル語から選べます。
+
 <p align="center">
 <a href="https://github.com/harry0703/MangoDisk/releases/latest"><img alt="最新リリース" src="https://img.shields.io/github/v/release/harry0703/MangoDisk?display_name=tag&sort=semver"></a>
   <img alt="macOS 対応" src="https://img.shields.io/badge/macOS-supported-111827?logo=apple&logoColor=white">

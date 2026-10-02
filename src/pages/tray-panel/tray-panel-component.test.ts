@@ -20,6 +20,8 @@ import zhCN from '@/locales/zh-CN.json';
 import zhTW from '@/locales/zh-TW.json';
 import jaJP from '@/locales/ja-JP.json';
 import koKR from '@/locales/ko-KR.json';
+import ptBR from '@/locales/pt-BR.json';
+import trTR from '@/locales/tr-TR.json';
 
 import TrayPanelPage from './index.vue';
 import MemoryOverview from './components/md-memory-overview.vue';
@@ -140,7 +142,7 @@ describe('monitoring panel interactions', () => {
     vi.useRealTimers();
   });
 
-  it.each([enUS, zhCN, zhTW, jaJP, koKR])(
+  it.each([enUS, zhCN, zhTW, jaJP, koKR, trTR, ptBR])(
     'keeps memory history visible across tab changes and refresh failures',
     async messages => {
       const { wrapper, store } = render(TrayPanelPage, {}, false, messages);
@@ -171,7 +173,7 @@ describe('monitoring panel interactions', () => {
     }
   );
 
-  it.each([enUS, zhCN, zhTW, jaJP, koKR])(
+  it.each([enUS, zhCN, zhTW, jaJP, koKR, trTR, ptBR])(
     'shows live CPU rows with compact headers and stable expanded identity',
     async messages => {
       vi.mocked(ResidentService.panelMetric).mockResolvedValue('cpu');
@@ -231,38 +233,41 @@ describe('monitoring panel interactions', () => {
     }
   );
 
-  it.each([enUS, zhCN, zhTW, jaJP, koKR])('renders multicore CPU values and distinct processes', async messages => {
-    vi.mocked(ResidentService.panelMetric).mockResolvedValue('cpu');
-    const { wrapper, store } = render(TrayPanelPage, {}, false, messages);
-    await flushPromises();
-    const app = snapshot.memory.value!.processes!.applications[0]!;
-    store.accept({
-      ...snapshot,
-      revision: 2,
-      cpuProcesses: {
-        status: 'ready',
-        sampledAtMs: 2,
-        value: {
-          usageScale: 'singleCore',
-          applications: [
-            { ...app, id: 'cpu:123:1', name: 'Win11', pid: 123, canQuit: false, usedPercent: 255.7 },
-            { ...app, id: 'cpu:456:1', name: 'Ubuntu', pid: 456, canQuit: false, usedPercent: 10.0 },
-          ],
-          readableProcessCount: 2,
-          omittedProcessCount: 1,
+  it.each([enUS, zhCN, zhTW, jaJP, koKR, trTR, ptBR])(
+    'renders multicore CPU values and distinct processes',
+    async messages => {
+      vi.mocked(ResidentService.panelMetric).mockResolvedValue('cpu');
+      const { wrapper, store } = render(TrayPanelPage, {}, false, messages);
+      await flushPromises();
+      const app = snapshot.memory.value!.processes!.applications[0]!;
+      store.accept({
+        ...snapshot,
+        revision: 2,
+        cpuProcesses: {
+          status: 'ready',
+          sampledAtMs: 2,
+          value: {
+            usageScale: 'singleCore',
+            applications: [
+              { ...app, id: 'cpu:123:1', name: 'Win11', pid: 123, canQuit: false, usedPercent: 255.7 },
+              { ...app, id: 'cpu:456:1', name: 'Ubuntu', pid: 456, canQuit: false, usedPercent: 10.0 },
+            ],
+            readableProcessCount: 2,
+            omittedProcessCount: 1,
+          },
         },
-      },
-    });
-    await flushPromises();
-    expect(wrapper.find('.cpu-scope').exists()).toBe(false);
-    expect(wrapper.find('h2').exists()).toBe(false);
-    expect(wrapper.findAll('.sort-columns button')[0]!.text()).toContain(messages.monitoring.applicationName);
-    expect(wrapper.findAll('.application-row strong').map(row => row.text())).toEqual(['255.7%', '10.0%']);
-    expect(wrapper.findAll('.resource-share')[0]!.attributes('style')).toContain('width: 100%');
-    await wrapper.findAll('.application-row')[0]!.trigger('click');
-    expect(wrapper.get('.application-details').text()).toContain('123');
-    expect(wrapper.find('.quit-application-button').exists()).toBe(false);
-  });
+      });
+      await flushPromises();
+      expect(wrapper.find('.cpu-scope').exists()).toBe(false);
+      expect(wrapper.find('h2').exists()).toBe(false);
+      expect(wrapper.findAll('.sort-columns button')[0]!.text()).toContain(messages.monitoring.applicationName);
+      expect(wrapper.findAll('.application-row strong').map(row => row.text())).toEqual(['255.7%', '10.0%']);
+      expect(wrapper.findAll('.resource-share')[0]!.attributes('style')).toContain('width: 100%');
+      await wrapper.findAll('.application-row')[0]!.trigger('click');
+      expect(wrapper.get('.application-details').text()).toContain('123');
+      expect(wrapper.find('.quit-application-button').exists()).toBe(false);
+    }
+  );
 
   it('shows a cached CPU ranking immediately when returning from memory or reopening', async () => {
     vi.mocked(ResidentService.panelMetric).mockResolvedValue('cpu');
@@ -297,7 +302,7 @@ describe('monitoring panel interactions', () => {
     expect(wrapper.find('.list-empty').exists()).toBe(false);
   });
 
-  it.each([enUS, zhCN, zhTW, jaJP, koKR])(
+  it.each([enUS, zhCN, zhTW, jaJP, koKR, trTR, ptBR])(
     'keeps CPU history visible during recovery and tab changes',
     async messages => {
       vi.mocked(ResidentService.panelMetric).mockResolvedValue('cpu');
@@ -485,6 +490,8 @@ describe('monitoring panel interactions', () => {
     ['zh-TW', zhTW, '結束'],
     ['ja-JP', jaJP, '終了'],
     ['ko-KR', koKR, '종료'],
+    ['tr-TR', trTR, 'Çık'],
+    ['pt-BR', ptBR, 'Sair'],
   ] as const)('renders the localized quit action in %s', async (_locale, messages, expected) => {
     const { wrapper } = render(TrayPanelPage, {}, false, messages);
     await flushPromises();

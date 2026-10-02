@@ -3,7 +3,7 @@ import { fileURLToPath } from 'node:url';
 import { gzipSync } from 'node:zlib';
 
 const assetDirectory = fileURLToPath(new URL('../dist/assets/', import.meta.url));
-const expectedLocaleIds = new Set(['en-us', 'ja-jp', 'ko-kr', 'zh-cn', 'zh-tw']);
+const expectedLocaleIds = new Set(['en-us', 'ja-jp', 'ko-kr', 'pt-br', 'tr-tr', 'zh-cn', 'zh-tw']);
 const maximumApplicationChunkBytes = 300 * 1024;
 // Allow a small raw-size margin for localized AI and CPU monitoring help while
 // retaining the 60 KiB gzip limit on transferred locale assets.

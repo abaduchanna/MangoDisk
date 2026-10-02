@@ -30,6 +30,7 @@ Pages may present several domains together, but shared product orchestration mus
 ## Text, status, and logging
 
 - All user-facing strings belong in locale resources. Update every supported locale in the same change.
+- Register new locales in `lib/models/settings.ts`, `i18n.ts`, `locales/modules/`, the build and locale checks, and `../src-tauri/src/services/native_labels.rs`. Keep interpolation arguments and safety meanings aligned with the current English resources; use natural local phrasing.
 - Every catalog cleanup rule needs a non-empty name, description, and impact in each supported locale; `pnpm check:i18n` verifies coverage.
 - Constants are domain-owned. Do not move every unrelated constant into a new global constants file.
 - Render behavior from typed status, risk, capability, and reason codes. Free-form backend messages are diagnostics, not UI control flow.

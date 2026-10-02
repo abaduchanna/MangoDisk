@@ -2430,7 +2430,9 @@
       "enUS": "English",
       "zhTW": "繁體中文",
       "jaJP": "日本語",
-      "koKR": "한국어"
+      "koKR": "한국어",
+      "trTR": "Türkçe",
+      "ptBR": "Português (Brasil)"
     },
     "themeTitle": "顯示主題",
     "themeDescription": "選擇亮色、暗色或跟隨系統設定",

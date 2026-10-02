@@ -2430,7 +2430,9 @@
       "zhTW": "繁體中文",
       "jaJP": "日本語",
       "koKR": "한국어",
-      "enUS": "English"
+      "enUS": "English",
+      "trTR": "Türkçe",
+      "ptBR": "Português (Brasil)"
     },
     "themeTitle": "테마",
     "themeDescription": "라이트, 다크 또는 시스템 테마를 사용합니다",

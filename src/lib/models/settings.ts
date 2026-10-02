@@ -6,6 +6,8 @@ export const LANGUAGE_IDS = {
   jaJP: 'ja-JP',
   koKR: 'ko-KR',
   enUS: 'en-US',
+  trTR: 'tr-TR',
+  ptBR: 'pt-BR',
 } as const;
 
 export type LanguageId = (typeof LANGUAGE_IDS)[keyof typeof LANGUAGE_IDS];
@@ -38,6 +40,18 @@ export const LANGUAGE_OPTIONS = [
     id: LANGUAGE_IDS.koKR,
     labelKey: 'settings.languageNames.koKR',
     browserLanguagePrefixes: ['ko'],
+    websitePath: '',
+  },
+  {
+    id: LANGUAGE_IDS.trTR,
+    labelKey: 'settings.languageNames.trTR',
+    browserLanguagePrefixes: ['tr'],
+    websitePath: '',
+  },
+  {
+    id: LANGUAGE_IDS.ptBR,
+    labelKey: 'settings.languageNames.ptBR',
+    browserLanguagePrefixes: ['pt'],
     websitePath: '',
   },
   {
