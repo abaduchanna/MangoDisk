@@ -247,7 +247,7 @@ fn measure(
         source.file_count = source.file_count.saturating_add(result.file_count);
         source.modified_at_ms = latest_timestamp(source.modified_at_ms, result.modified_at_ms);
         skipped_count = skipped_count.saturating_add(result.skipped_count);
-        read_failures.merge(result.read_failures);
+        read_failures.merge(&result.read_failures);
         unsupported_entry_count =
             unsupported_entry_count.saturating_add(result.unsupported_entry_count);
         if first_unsupported_entry.is_none() {

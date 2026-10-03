@@ -44,7 +44,10 @@ pub use disk_cleanup::{
 pub use error::{
     PlatformError, PlatformErrorCode, PlatformFailureReason, PlatformMutationState, PlatformResult,
 };
-pub use file_read::{FileReadFailures, FileReadStage};
+pub use file_read::{
+    FileReadFailureDetail, FileReadFailureReason, FileReadFailures, FileReadStage,
+    MAX_FILE_READ_FAILURE_DETAILS,
+};
 pub use platform::Platform;
 pub use privacy::{
     PlatformPrivacyApplication, PlatformPrivacyApplicationNativeTraceKind,

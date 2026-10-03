@@ -51,7 +51,7 @@ const MAX_CLEANUP_SOURCE_DETAILS: usize = 256;
 // unbounded in-memory filesystem index. Overflow fails closed and marks the
 // rule limited instead of authorizing directories that were not retained.
 const MAX_EMPTY_DIRECTORY_AUTHORIZATIONS_PER_RULE: usize = 4_096;
-const CLEANUP_SCAN_SCHEMA_VERSION: &str = "1.10";
+const CLEANUP_SCAN_SCHEMA_VERSION: &str = "1.12";
 
 pub struct CleanupScanService;
 
@@ -505,8 +505,8 @@ impl CleanupScanService {
             measured.skipped_count = measured
                 .skipped_count
                 .saturating_add(rule.discovery_read_failures.count);
-            measured.read_failures.merge(rule.discovery_read_failures);
-            read_failures.merge(measured.read_failures);
+            measured.read_failures.merge(&rule.discovery_read_failures);
+            read_failures.merge(&measured.read_failures);
             if measured.read_failures.count > 0 {
                 log::warn!(
                     "cleanup_rule_read_failures operation_id={} rule_id={} discovery_failure_count={} read_failure_count={} permission_denied_count={} privacy_restriction_possible_count={} other_io_failure_count={} outcome=partial_scan",
@@ -690,6 +690,8 @@ impl CleanupScanService {
             warning_count,
             access_limited,
             read_failure_count,
+            read_failure_details: read_failures.details,
+            permission_denied_read_failure_count: read_failures.permission_denied_count,
             safe_bytes,
             reclaimable_bytes,
             applicability_elapsed_ms,
@@ -1391,7 +1393,7 @@ fn merge_measure_result(target: &mut MeasureResult, source: MeasureResult) {
     target.bytes = target.bytes.saturating_add(source.bytes);
     target.file_count = target.file_count.saturating_add(source.file_count);
     target.skipped_count = target.skipped_count.saturating_add(source.skipped_count);
-    target.read_failures.merge(source.read_failures);
+    target.read_failures.merge(&source.read_failures);
 }
 
 fn resolve_process_snapshot(

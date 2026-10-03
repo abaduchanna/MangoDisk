@@ -333,6 +333,10 @@ mangodisk clean --apply --selection all --dry-run
 mangodisk clean --format json --no-progress
 ```
 
+Cleanup scan schema `1.11` adds `readFailureDetails` (at most 50 records) alongside the complete `readFailureCount`. Readers of earlier snapshots should treat an absent details field as unavailable evidence, not as a successful read.
+
+Schema `1.12` adds the complete `permissionDeniedReadFailureCount`, allowing readers to distinguish permission-only failures even when the details are truncated. Earlier snapshots without this count may only be classified from details when the number of retained records equals the complete failure count.
+
 `mangodisk clean` only scans and never modifies files by default. To perform cleanup in a non-interactive environment, you must also pass `--yes` to confirm explicitly. Run the following command for all available options:
 
 ```sh

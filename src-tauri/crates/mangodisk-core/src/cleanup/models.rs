@@ -307,6 +307,10 @@ pub struct CleanupScanResult {
     pub access_limited: bool,
     /// Failed reads during root discovery and traversal, excluding intentional skips.
     pub read_failure_count: u64,
+    /// Schema 1.12 adds the complete denial count, independent of bounded details.
+    pub permission_denied_read_failure_count: u64,
+    /// Schema 1.11 adds at most 50 failure records; counts remain complete.
+    pub read_failure_details: Vec<mangodisk_platform::FileReadFailureDetail>,
     pub safe_bytes: u64,
     /// Aggregate logical/estimated bytes from selectable cleanup results, not a physical-volume
     /// allocation measurement. Actual free-space change can differ after cleanup.

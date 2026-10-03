@@ -502,6 +502,8 @@ mod tests {
             warning_count: 1,
             access_limited: false,
             read_failure_count: 0,
+            permission_denied_read_failure_count: 0,
+            read_failure_details: Vec::new(),
             safe_bytes: 1_048_576,
             reclaimable_bytes: 2_097_152,
             applicability_elapsed_ms: 1,

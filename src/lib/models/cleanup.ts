@@ -149,6 +149,15 @@ export interface CleanupRulePresentation {
 
 export type PresentedScanRuleResult = ScanRuleResult & CleanupRulePresentation;
 
+export interface CleanupReadFailureDetail {
+  path: string;
+  stage: 'openDirectory' | 'readDirectory' | 'readMetadata';
+  reason: 'permissionDenied' | 'ioError';
+  osError: number | null;
+  error: string;
+  privacyRestrictionPossible: boolean;
+}
+
 export interface CleanupScanResult {
   schemaVersion: string;
   customScanId: number | null;
@@ -163,6 +172,10 @@ export interface CleanupScanResult {
   accessLimited: boolean;
   /** Failed reads during root discovery and traversal, excluding intentional skips. */
   readFailureCount: number;
+  /** Schema 1.12 adds the complete denial count, independent of the bounded details. */
+  permissionDeniedReadFailureCount?: number;
+  /** Added in schema 1.11; older snapshots can only show the failure count. */
+  readFailureDetails?: CleanupReadFailureDetail[];
   safeBytes: number;
   reclaimableBytes: number;
   applicabilityElapsedMs: number;
