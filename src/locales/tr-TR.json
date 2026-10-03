@@ -119,9 +119,9 @@
     "settings": "Ayarlar"
   },
   "fullDiskAccessGuidance": {
-    "summary": "Daha eksiksiz sonuçlar için Tam Disk Erişimi'ni etkinleştirin",
-    "title": "Tam Disk Erişimi'ni etkinleştir",
-    "instructions": "Sistem Ayarları'nda MangoDisk için Tam Disk Erişimi'ni etkinleştirin, ardından geri dönüp yeniden tarayın",
+    "summary": "Disk erişimini kontrol edin",
+    "title": "Tam Disk Erişimini kontrol edin",
+    "instructions": "Sistem Ayarları’nda MangoDisk için Tam Disk Erişimini kontrol edin ve yeniden tarayın. Zaten etkinse diğer erişim kısıtlamaları için tarama günlüklerini inceleyin",
     "skip": "Şimdi değil",
     "openSettings": "Tam Disk Erişimi ayarlarını aç"
   },
@@ -1784,11 +1784,21 @@
     "selectAll": "Tümünü seç",
     "selectRule": "Temizlik öğesini seç: {name}",
     "permission": {
-      "description": "Daha fazla uygulama önbelleğini taramak için erişime izin verin",
-      "otherWarning": "Bazı klasörler tam taranamadı; sonuçlar eksik olabilir",
-      "otherTitle": "Bazı klasörler tam taranamadı",
-      "otherDescription": "Bu taramada {count} hedef okunamadı",
-      "otherInstructions": "Başarısız yol örneklerini ve sistem hatalarını görmek için günlük klasörünü açın; sorunları giderdikten sonra yeniden tarayın",
+      "description": "Bazı korumalı uygulama verileri okunamadı. macOS gizlilik izinleri erişimi kısıtlıyor olabilir",
+      "otherWarning": "Bazı öğeler okunamadı",
+      "otherTitle": "Bazı öğeler okunamadı",
+      "otherDescription": "{count} okuma işlemi başarısız oldu",
+      "otherInstructions": "Okunamayan öğeler atlandı. Diğer tarama sonuçlarını görüntüleyebilirsiniz",
+      "detailsShown": "{total} okuma hatasının {count} kaydı gösteriliyor",
+      "detailsUnavailable": "Ayrıntılar kaydedilmedi. Yeniden tarayın veya günlükleri inceleyin",
+      "copyPath": "Yolu kopyala: {path}",
+      "ignoreWarnings": "Bir daha gösterme",
+      "ignoreWarningsSetting": "Okuma hatası bildirimlerini gizle",
+      "ignoreWarningsHint": "Derin Temizlik okuma hatası bildirimlerini gizler. Hata kayıtları tutulmaya devam eder",
+      "reasons": {
+        "permissionDenied": "Erişim reddedildi",
+        "ioError": "Okuma hatası"
+      },
       "protectedScanHint": "macOS erişim isterse İzin Ver veya İzin Verme'yi seçin; yanıtınızdan sonra tarama devam eder"
     },
     "privilegedScan": {

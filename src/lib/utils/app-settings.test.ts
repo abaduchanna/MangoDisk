@@ -33,4 +33,28 @@ describe('AppSettingsUtils', () => {
   it('rejects incomplete persisted settings', () => {
     expect(() => AppSettingsUtils.parse({})).toThrow('Invalid app settings document');
   });
+
+  it('shows read-failure alerts by default and accepts the hide choice', () => {
+    const settings = AppSettingsUtils.defaults(LANGUAGE_IDS.zhCN);
+    expect(settings.hideCleanupReadFailureAlerts).toBe(false);
+    expect(AppSettingsUtils.parse(settings)).toEqual(settings);
+    expect(
+      AppSettingsUtils.parse({ ...settings, hideCleanupReadFailureAlerts: true }).hideCleanupReadFailureAlerts
+    ).toBe(true);
+  });
+
+  it('rejects incomplete settings and the obsolete permission alert key', () => {
+    const { hideCleanupReadFailureAlerts, ...legacy } = AppSettingsUtils.defaults(LANGUAGE_IDS.zhCN);
+    expect(hideCleanupReadFailureAlerts).toBe(false);
+    expect(() => AppSettingsUtils.parse(legacy)).toThrow('Invalid app settings document');
+    expect(() => AppSettingsUtils.parse({ ...legacy, ignoreCleanupPermissionWarnings: true })).toThrow(
+      'Invalid app settings document'
+    );
+  });
+
+  it('rejects non-boolean read-failure alert preferences', () => {
+    expect(() =>
+      AppSettingsUtils.parse({ ...AppSettingsUtils.defaults(), hideCleanupReadFailureAlerts: 'true' })
+    ).toThrow('Invalid app settings value');
+  });
 });

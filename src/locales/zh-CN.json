@@ -119,9 +119,9 @@
     "settings": "设置"
   },
   "fullDiskAccessGuidance": {
-    "summary": "开启完全磁盘访问，获取更完整结果",
-    "title": "开启完全磁盘访问",
-    "instructions": "在系统设置中为 MangoDisk 开启“完全磁盘访问”，返回后重新扫描",
+    "summary": "检查磁盘访问权限",
+    "title": "检查完全磁盘访问权限",
+    "instructions": "在系统设置中检查 MangoDisk 的“完全磁盘访问”权限，然后重新扫描。若已开启，可查看扫描日志排查其他访问限制",
     "skip": "暂时跳过",
     "openSettings": "打开完全磁盘访问设置"
   },
@@ -1784,11 +1784,21 @@
     "selectAll": "全选",
     "selectRule": "选择清理项目：{name}",
     "permission": {
-      "description": "开启后可扫描更多应用缓存",
-      "otherWarning": "部分目录未能完整扫描，结果可能不完整",
-      "otherTitle": "部分目录未能完整扫描",
-      "otherDescription": "本次有 {count} 处扫描范围未能读取",
-      "otherInstructions": "可打开日志文件夹查看部分失败路径和系统错误，处理后重新扫描",
+      "description": "部分受保护的应用数据无法读取，可能与 macOS 隐私权限有关",
+      "otherWarning": "部分项目无法读取",
+      "otherTitle": "部分项目无法读取",
+      "otherDescription": "本次发生 {count} 次读取失败",
+      "otherInstructions": "无法读取的项目已跳过，其余扫描结果可正常查看",
+      "detailsShown": "显示 {count} 条记录，共 {total} 次读取失败",
+      "detailsUnavailable": "未保存失败明细，可重新扫描或查看日志",
+      "copyPath": "复制路径：{path}",
+      "ignoreWarnings": "不再显示此提示",
+      "ignoreWarningsSetting": "隐藏读取失败提示",
+      "ignoreWarningsHint": "隐藏深度清理的读取失败提醒，失败记录仍会保留",
+      "reasons": {
+        "permissionDenied": "访问被拒绝",
+        "ioError": "读取错误"
+      },
       "protectedScanHint": "若 macOS 弹出授权请求，请选择“允许”或“不允许”；扫描会在你回应后继续"
     },
     "privilegedScan": {

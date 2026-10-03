@@ -119,9 +119,9 @@
     "settings": "Configurações"
   },
   "fullDiskAccessGuidance": {
-    "summary": "Ative o Acesso Total ao Disco para obter resultados mais completos",
-    "title": "Ativar Acesso Total ao Disco",
-    "instructions": "Ative o Acesso Total ao Disco para o MangoDisk nos Ajustes do Sistema, volte ao aplicativo e verifique novamente",
+    "summary": "Verificar acesso ao disco",
+    "title": "Verificar Acesso Total ao Disco",
+    "instructions": "Verifique o Acesso Total ao Disco do MangoDisk nos Ajustes do Sistema e faça uma nova verificação. Se já estiver ativado, consulte os logs da verificação para identificar outras restrições de acesso",
     "skip": "Agora não",
     "openSettings": "Abrir ajustes de Acesso Total ao Disco"
   },
@@ -1784,11 +1784,21 @@
     "selectAll": "Selecionar tudo",
     "selectRule": "Selecionar item de limpeza: {name}",
     "permission": {
-      "description": "Conceda acesso para verificar mais caches de aplicativos",
-      "otherWarning": "Algumas pastas não puderam ser verificadas por completo; os resultados podem estar incompletos",
-      "otherTitle": "Algumas pastas não puderam ser verificadas por completo",
-      "otherDescription": "Não foi possível ler {count} local nesta verificação | Não foi possível ler {count} locais nesta verificação",
-      "otherInstructions": "Abra a pasta de logs para ver exemplos dos caminhos com falha e os erros do sistema; resolva-os e verifique novamente",
+      "description": "Não foi possível ler alguns dados protegidos de apps. As permissões de privacidade do macOS podem estar limitando o acesso",
+      "otherWarning": "Alguns itens não puderam ser lidos",
+      "otherTitle": "Alguns itens não puderam ser lidos",
+      "otherDescription": "{count} operação de leitura falhou | {count} operações de leitura falharam",
+      "otherInstructions": "Os itens ilegíveis foram ignorados. Os demais resultados da verificação continuam disponíveis",
+      "detailsShown": "Exibindo {count} registros de {total} falhas de leitura",
+      "detailsUnavailable": "Os detalhes não foram salvos. Verifique novamente ou consulte os logs",
+      "copyPath": "Copiar caminho: {path}",
+      "ignoreWarnings": "Não mostrar novamente",
+      "ignoreWarningsSetting": "Ocultar avisos de leitura",
+      "ignoreWarningsHint": "Oculta avisos de leitura da Limpeza Profunda. Os detalhes das falhas são mantidos",
+      "reasons": {
+        "permissionDenied": "Acesso negado",
+        "ioError": "Erro de leitura"
+      },
       "protectedScanHint": "Se o macOS solicitar acesso, escolha Permitir ou Não Permitir; a verificação continuará após sua resposta"
     },
     "privilegedScan": {
@@ -1856,8 +1866,8 @@
     "cancelled": "Limpeza cancelada",
     "processedItems": "Itens processados",
     "failedItems": "Ignorados ou com falha",
-    "summaryCount": "Encontrado {count} item que pode ser limpo | Encontrados {count} itens que podem ser limpos",
-    "summarySpace": "Dados estimados que podem ser limpos",
+    "summaryCount": "{count} item para limpar | {count} itens para limpar",
+    "summarySpace": "Limpeza estimada",
     "emptyCleanTitle": "Seu computador está limpo",
     "emptyCleanDescription": "Nenhum item que possa ser limpo foi encontrado — continue assim",
     "selectedItemCount": "{count} item selecionado | {count} itens selecionados",

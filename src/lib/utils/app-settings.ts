@@ -18,6 +18,7 @@ export function defaults(
   unitBase: ByteUnitBase = BYTE_UNIT_BASES.binary
 ): AppSettings {
   return {
+    hideCleanupReadFailureAlerts: false,
     language,
     theme: THEME_IDS.system,
     largeFileMinimumBytes: ByteSizePresetUtils.bytes(DEFAULT_LARGE_FILE_MINIMUM_PRESET, unitBase),
@@ -28,6 +29,7 @@ export function defaults(
 export function parse(value: unknown, unitBase: ByteUnitBase = BYTE_UNIT_BASES.binary): AppSettings {
   if (
     !hasExactKeys(value, [
+      'hideCleanupReadFailureAlerts',
       'language',
       'theme',
       'largeFileMinimumBytes',
@@ -38,6 +40,7 @@ export function parse(value: unknown, unitBase: ByteUnitBase = BYTE_UNIT_BASES.b
     throw new Error('Invalid app settings document');
   }
   const settings = value;
+  const hideCleanupReadFailureAlerts = settings.hideCleanupReadFailureAlerts;
   const largeFileMinimumBytes = normalizePresetBytes(
     settings.largeFileMinimumBytes,
     LARGE_FILE_MINIMUM_PRESETS,
@@ -49,6 +52,7 @@ export function parse(value: unknown, unitBase: ByteUnitBase = BYTE_UNIT_BASES.b
     unitBase
   );
   if (
+    typeof hideCleanupReadFailureAlerts !== 'boolean' ||
     !isLanguageId(settings.language) ||
     !includes(Object.values(THEME_IDS), settings.theme) ||
     largeFileMinimumBytes === null ||
@@ -58,6 +62,7 @@ export function parse(value: unknown, unitBase: ByteUnitBase = BYTE_UNIT_BASES.b
     throw new Error('Invalid app settings value');
   }
   return {
+    hideCleanupReadFailureAlerts,
     language: settings.language,
     theme: settings.theme,
     largeFileMinimumBytes,

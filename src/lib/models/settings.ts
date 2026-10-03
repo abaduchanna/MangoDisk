@@ -84,6 +84,7 @@ export function isThemeId(value: unknown): value is ThemeId {
 }
 
 export interface AppSettings {
+  hideCleanupReadFailureAlerts: boolean;
   language: LanguageId;
   theme: ThemeId;
   largeFileMinimumBytes: number;

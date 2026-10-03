@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { PreferenceStorageService } from '@/lib/services/preference-storage-service';
+import * as AppSettingsUtils from '@/lib/utils/app-settings';
 
 const { delayedFirstWrite, loadMock, saveMock, values } = vi.hoisted(() => {
   const storedValues = new Map<string, unknown>();
@@ -65,6 +66,13 @@ describe('PreferenceStorageService', () => {
 
     expect(await PreferenceStorageService.loadStorageScopePreferences()).toEqual(preferences);
     expect(await PreferenceStorageService.loadSettings()).toBeNull();
+  });
+
+  it('persists the read-failure alert choice with the app settings', async () => {
+    const settings = { ...AppSettingsUtils.defaults(), hideCleanupReadFailureAlerts: true };
+    await PreferenceStorageService.saveSettings(settings);
+    expect(await PreferenceStorageService.loadSettings()).toEqual(settings);
+    expect(saveMock).toHaveBeenCalledOnce();
   });
 
   it('persists shared scan exclusions without changing other preference domains', async () => {

@@ -119,9 +119,9 @@
     "settings": "설정"
   },
   "fullDiskAccessGuidance": {
-    "summary": "전체 디스크 접근 권한을 켜서 더 완전한 결과 보기",
-    "title": "전체 디스크 접근 권한 켜기",
-    "instructions": "시스템 설정에서 MangoDisk의 전체 디스크 접근 권한을 켠 다음 돌아와서 다시 스캔하세요",
+    "summary": "디스크 접근 권한 확인",
+    "title": "전체 디스크 접근 권한 확인",
+    "instructions": "시스템 설정에서 MangoDisk의 전체 디스크 접근 권한을 확인한 후 다시 스캔하세요. 이미 활성화되어 있다면 스캔 로그에서 다른 접근 제한을 확인하세요",
     "skip": "나중에",
     "openSettings": "전체 디스크 접근 권한 설정 열기"
   },
@@ -1784,11 +1784,21 @@
     "selectAll": "모두 선택",
     "selectRule": "정리 항목 선택: {name}",
     "permission": {
-      "description": "권한을 켜면 더 많은 앱 캐시를 스캔할 수 있습니다",
-      "otherWarning": "일부 폴더를 완전히 검사하지 못해 결과가 불완전할 수 있습니다",
-      "otherTitle": "일부 폴더를 완전히 검사하지 못했습니다",
-      "otherDescription": "이번 검사에서 {count}개 검사 대상을 읽지 못했습니다",
-      "otherInstructions": "로그 폴더에서 읽기에 실패한 경로의 예와 시스템 오류를 확인하고 해결한 뒤 다시 검사하세요",
+      "description": "보호된 일부 앱 데이터를 읽을 수 없습니다. macOS 개인정보 보호 권한으로 접근이 제한되었을 수 있습니다",
+      "otherWarning": "일부 항목을 읽지 못했습니다",
+      "otherTitle": "일부 항목을 읽지 못했습니다",
+      "otherDescription": "읽기 작업이 {count}회 실패했습니다",
+      "otherInstructions": "읽을 수 없는 항목은 건너뛰었습니다. 나머지 스캔 결과는 계속 확인할 수 있습니다",
+      "detailsShown": "읽기 실패 {total}회 중 {count}개 기록 표시",
+      "detailsUnavailable": "상세 기록이 없습니다. 다시 스캔하거나 로그를 확인하세요",
+      "copyPath": "경로 복사: {path}",
+      "ignoreWarnings": "다시 표시하지 않기",
+      "ignoreWarningsSetting": "읽기 오류 알림 숨기기",
+      "ignoreWarningsHint": "정밀 정리의 읽기 오류 알림을 숨깁니다. 오류 기록은 계속 보관됩니다",
+      "reasons": {
+        "permissionDenied": "접근 거부",
+        "ioError": "읽기 오류"
+      },
       "protectedScanHint": "macOS에서 접근을 요청하면 허용 또는 허용 안 함을 선택하세요. 응답한 뒤 검사가 계속됩니다"
     },
     "privilegedScan": {

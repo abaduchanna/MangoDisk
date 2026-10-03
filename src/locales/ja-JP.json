@@ -119,9 +119,9 @@
     "settings": "設定"
   },
   "fullDiskAccessGuidance": {
-    "summary": "フルディスクアクセスを有効にして結果を充実させる",
-    "title": "フルディスクアクセスを有効にする",
-    "instructions": "システム設定で MangoDisk のフルディスクアクセスを有効にし、戻って再スキャンしてください",
+    "summary": "アクセス権限を確認",
+    "title": "フルディスクアクセスを確認",
+    "instructions": "システム設定で MangoDisk のフルディスクアクセスを確認し、再スキャンしてください。有効な場合はログで原因を確認できます",
     "skip": "今はしない",
     "openSettings": "フルディスクアクセス設定を開く"
   },
@@ -1784,11 +1784,21 @@
     "selectAll": "すべて選択",
     "selectRule": "{name} のクリーンアップ項目を選択",
     "permission": {
-      "description": "有効にすると、より多くのアプリキャッシュをスキャンできます",
-      "otherWarning": "一部のフォルダを完全にスキャンできず、結果が不完全な可能性があります",
-      "otherTitle": "一部のフォルダを完全にスキャンできませんでした",
-      "otherDescription": "今回のスキャンでは {count} 件の対象を読み取れませんでした",
-      "otherInstructions": "ログフォルダーで読み取りに失敗したパスの例とシステムエラーを確認し、対処後に再スキャンしてください",
+      "description": "一部のアプリデータを読み取れませんでした",
+      "otherWarning": "一部の項目を読み取れませんでした",
+      "otherTitle": "一部の項目を読み取れませんでした",
+      "otherDescription": "読み取りに {count} 回失敗",
+      "otherInstructions": "読み取れない項目はスキップしました。他のスキャン結果は引き続き確認できます",
+      "detailsShown": "{total} 回の失敗のうち {count} 件を表示",
+      "detailsUnavailable": "明細は未保存です。再スキャンかログで確認できます",
+      "copyPath": "コピー：{path}",
+      "ignoreWarnings": "今後表示しない",
+      "ignoreWarningsSetting": "読み取りエラーの通知を非表示",
+      "ignoreWarningsHint": "ディープクリーンの読み取りエラー通知を非表示にします。エラーの記録は残ります",
+      "reasons": {
+        "permissionDenied": "アクセス拒否",
+        "ioError": "読み取りエラー"
+      },
       "protectedScanHint": "macOS がアクセス許可を求めた場合は、許可または拒否を選んでください。応答後にスキャンが続行します"
     },
     "privilegedScan": {

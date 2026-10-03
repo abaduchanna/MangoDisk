@@ -48,6 +48,10 @@ Find cleanable content scattered across the system, applications, developer tool
 
 Smart recommendations help you make safe choices quickly. You can also review items individually and see the estimated reclaimable space upfront, keeping every cleanup predictable and under your control.
 
+If a scan cannot read some locations, its details show up to 50 failed read operations with paths and native errors. The failure total counts read attempts, not unique folders. A read failure alone does not indicate missing Full Disk Access.
+
+The details dialog can remember a choice to hide all Deep Cleanup read-failure alerts, including automatic macOS privacy guidance. This changes presentation only: unreadable items are still skipped and diagnostics remain available. Cleanup execution errors and other operation failures are still reported. Restore read-failure alerts from Settings → Scanning & analysis. These alerts are shown by default.
+
 ### 2. Large File Cleanup
 
 Quickly find the largest files and reclaim space used by old installers, videos, archives, and other bulky content without digging through folders one by one.

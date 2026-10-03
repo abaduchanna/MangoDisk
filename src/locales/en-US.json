@@ -119,9 +119,9 @@
     "settings": "Settings"
   },
   "fullDiskAccessGuidance": {
-    "summary": "Enable Full Disk Access for more complete results",
-    "title": "Enable Full Disk Access",
-    "instructions": "Enable Full Disk Access for MangoDisk in System Settings, then return and scan again",
+    "summary": "Check disk access",
+    "title": "Check Full Disk Access",
+    "instructions": "Check Full Disk Access for MangoDisk in System Settings, then scan again. If it is already enabled, check the scan logs for other access restrictions",
     "skip": "Not now",
     "openSettings": "Open Full Disk Access settings"
   },
@@ -1784,11 +1784,21 @@
     "selectAll": "Select all",
     "selectRule": "Select cleanup item: {name}",
     "permission": {
-      "description": "Enable it to scan more app caches",
-      "otherWarning": "Some folders could not be fully scanned; results may be incomplete",
-      "otherTitle": "Some folders could not be fully scanned",
-      "otherDescription": "This scan could not read {count} scan targets",
-      "otherInstructions": "Open the log folder to see sample failed paths and system errors, then scan again after resolving them",
+      "description": "Some protected app data could not be read. macOS privacy permissions may be limiting access",
+      "otherWarning": "Some items couldn't be read",
+      "otherTitle": "Some items couldn't be read",
+      "otherDescription": "{count} read operation failed | {count} read operations failed",
+      "otherInstructions": "Unreadable items were skipped. You can still view the remaining scan results",
+      "detailsShown": "Showing {count} records out of {total} failed reads",
+      "detailsUnavailable": "Details were not saved. Scan again or check the logs",
+      "copyPath": "Copy path: {path}",
+      "ignoreWarnings": "Don't show again",
+      "ignoreWarningsSetting": "Hide read failure alerts",
+      "ignoreWarningsHint": "Hide Deep Cleanup read failure alerts. Failure details are still recorded",
+      "reasons": {
+        "permissionDenied": "Access denied",
+        "ioError": "Read error"
+      },
       "protectedScanHint": "If macOS asks for access, choose Allow or Don't Allow; the scan will continue after you respond"
     },
     "privilegedScan": {
