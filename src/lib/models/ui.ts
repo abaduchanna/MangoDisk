@@ -77,6 +77,7 @@ export const ICON_NAMES = {
   cleanupSystemCache: 'cleanupSystemCache',
   cleanupUserCache: 'cleanupUserCache',
   cleanupApplicationCache: 'cleanupApplicationCache',
+  cleanupApplicationLeftovers: 'cleanupApplicationLeftovers',
   cleanupBrowserData: 'cleanupBrowserData',
   cleanupApplicationOptimization: 'cleanupApplicationOptimization',
   cleanupAiModelCache: 'cleanupAiModelCache',

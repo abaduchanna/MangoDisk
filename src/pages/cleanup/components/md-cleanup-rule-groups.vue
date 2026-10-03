@@ -345,7 +345,7 @@ watch(
           :active="showingLeftovers"
           :title="t('applicationLeftovers.categoryTitle')"
           :description="`${ByteSizeService.bytes(leftovers.totalBytes)} · ${categoryItemCount(leftoverGroups.length)}`"
-          :icon-name="ICON_NAMES.application"
+          :icon-name="ICON_NAMES.cleanupApplicationLeftovers"
           :selected-summary="leftoverSelection === 'none' ? undefined : ByteSizeService.bytes(selectedLeftoverBytes)"
           :selected-aria-label="t(`cleanup.selectionState.${leftoverSelection}`)"
           @select="activeViewId = LEFTOVER_VIEW_ID"

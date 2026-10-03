@@ -6,13 +6,13 @@ const CLEANUP_GROUP_ICONS: Readonly<Record<CleanupResultGroup, IconName>> = {
   system: ICON_NAMES.cleanupSystemCache,
   userCache: ICON_NAMES.cleanupUserCache,
   application: ICON_NAMES.cleanupApplicationCache,
-  browser: ICON_NAMES.globe,
+  browser: ICON_NAMES.cleanupBrowserData,
   development: ICON_NAMES.cleanupDeveloperTools,
   project: ICON_NAMES.cleanupProjectArtifacts,
   xcode: ICON_NAMES.brandXcode,
   applicationOptimization: ICON_NAMES.cleanupApplicationOptimization,
   ai: ICON_NAMES.cleanupAiModelCache,
-  container: ICON_NAMES.cleanupContainerCache,
+  container: ICON_NAMES.brandDocker,
 };
 
 // Rule IDs are stable protocol values, so brand selection remains independent
