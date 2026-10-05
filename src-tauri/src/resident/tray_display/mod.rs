@@ -6,6 +6,8 @@ mod macos;
 mod macos_interaction;
 #[cfg(any(target_os = "macos", test))]
 mod macos_presentation;
+#[cfg(target_os = "macos")]
+pub(super) mod macos_thread;
 pub mod usage_color;
 #[cfg(windows)]
 pub mod windows_bitmap;
@@ -78,7 +80,44 @@ impl DisplayState {
 
 pub fn install(app: &tauri::AppHandle) -> tauri::Result<()> {
     app.manage(Mutex::new(DisplayState::default()));
+    #[cfg(target_os = "macos")]
+    {
+        macos_interaction::install(app);
+        macos_thread::call(app, |app, _mtm| {
+            ensure(app, DisplayId::App, &labels::Labels::load(app))
+        })
+    }
+    #[cfg(not(target_os = "macos"))]
     ensure(app, DisplayId::App, &labels::Labels::load(app))
+}
+
+pub fn log_summary(app: &tauri::AppHandle, loop_max_ms: u128) {
+    #[cfg(target_os = "macos")]
+    {
+        let target = app.clone();
+        // Diagnostics must not make the sampling loop wait for native menu
+        // tracking. Only the queued callback acquires native tray handles.
+        if let Err(error) = app.run_on_main_thread(move || summary(&target, loop_max_ms)) {
+            super::diagnostics::Failure::record("display_summary_dispatch", &error);
+        }
+    }
+    #[cfg(not(target_os = "macos"))]
+    summary(app, loop_max_ms);
+}
+
+fn summary(app: &tauri::AppHandle, loop_max_ms: u128) {
+    #[cfg(target_os = "macos")]
+    let _mtm = objc2::MainThreadMarker::new().expect("tray diagnostics run on the main thread");
+    let renders = app
+        .state::<Mutex<DisplayState>>()
+        .try_lock()
+        .ok()
+        .map(|state| state.renders);
+    let handles = DisplayId::ALL
+        .iter()
+        .filter(|id| app.tray_by_id(id.tray_id()).is_some())
+        .count();
+    log::info!("resident_runtime_summary tray_renders={renders:?} tray_handles={handles} loop_max_ms={loop_max_ms}");
 }
 
 fn menu(app: &tauri::AppHandle, labels: &labels::Labels) -> tauri::Result<Menu<tauri::Wry>> {
@@ -132,6 +171,8 @@ pub fn brand_icon() -> tauri::image::Image<'static> {
 }
 
 fn ensure(app: &tauri::AppHandle, id: DisplayId, labels: &labels::Labels) -> tauri::Result<()> {
+    #[cfg(target_os = "macos")]
+    let _mtm = objc2::MainThreadMarker::new().expect("tray handles stay on the main thread");
     if app.tray_by_id(id.tray_id()).is_some() {
         return Ok(());
     }
@@ -235,9 +276,17 @@ pub fn apply_preferences(
     preferences: &ResidentPreferences,
     reading: &ResidentReading,
 ) -> tauri::Result<()> {
+    let request = DisplayRequest::new(app, preferences, reading);
+    #[cfg(target_os = "macos")]
+    return macos_thread::call(app, move |app, _mtm| apply_request(app, request));
+    #[cfg(not(target_os = "macos"))]
+    apply_request(app, request)
+}
+
+fn apply_request(app: &tauri::AppHandle, request: DisplayRequest) -> tauri::Result<()> {
     let state = app.state::<Mutex<DisplayState>>();
     let mut state = state.lock().unwrap_or_else(|error| error.into_inner());
-    render(app, preferences, reading, &mut state)
+    render(app, request, &mut state)
 }
 
 pub fn refresh(
@@ -245,9 +294,20 @@ pub fn refresh(
     preferences: &ResidentPreferences,
     reading: &ResidentReading,
 ) {
+    let request = DisplayRequest::new(app, preferences, reading);
+    #[cfg(target_os = "macos")]
+    let result = macos_thread::call(app, move |app, _mtm| refresh_request(app, request));
+    #[cfg(not(target_os = "macos"))]
+    let result = refresh_request(app, request);
+    if let Err(error) = result {
+        super::diagnostics::Failure::record("display_dispatch", &error);
+    }
+}
+
+fn refresh_request(app: &tauri::AppHandle, request: DisplayRequest) -> tauri::Result<()> {
     let state = app.state::<Mutex<DisplayState>>();
     let mut state = state.lock().unwrap_or_else(|error| error.into_inner());
-    match render(app, preferences, reading, &mut state) {
+    match render(app, request, &mut state) {
         Ok(()) => {
             if state.failed {
                 log::info!("resident_display_recovered");
@@ -261,33 +321,63 @@ pub fn refresh(
             state.failed = true;
         }
     }
+    Ok(())
+}
+
+// Prepare only the data native rendering needs. Detailed process lists and
+// resource histories stay on the presentation worker rather than being cloned
+// again for main-thread dispatch.
+struct DisplayRequest {
+    preferences: ResidentPreferences,
+    labels: labels::Labels,
+    entries: Vec<DisplayEntry>,
+    disk_volume: Option<String>,
+}
+
+impl DisplayRequest {
+    fn new(
+        app: &tauri::AppHandle,
+        preferences: &ResidentPreferences,
+        reading: &ResidentReading,
+    ) -> Self {
+        let labels = labels::Labels::load(app);
+        let entries = format::entries(
+            preferences,
+            &reading.resources,
+            &labels,
+            if cfg!(windows) { 1024.0 } else { 1000.0 },
+        );
+        Self {
+            preferences: preferences.clone(),
+            labels,
+            entries,
+            disk_volume: reading
+                .resources
+                .disk
+                .value
+                .as_ref()
+                .map(|disk| disk.volume.id.clone()),
+        }
+    }
 }
 
 fn render(
     app: &tauri::AppHandle,
-    preferences: &ResidentPreferences,
-    reading: &ResidentReading,
+    request: DisplayRequest,
     state: &mut DisplayState,
 ) -> tauri::Result<()> {
-    let labels = labels::Labels::load(app);
+    #[cfg(target_os = "macos")]
+    let _mtm = objc2::MainThreadMarker::new().expect("tray rendering runs on the main thread");
+    let DisplayRequest {
+        preferences,
+        labels,
+        mut entries,
+        disk_volume,
+    } = request;
+    let preferences = &preferences;
     #[cfg(not(target_os = "macos"))]
     let changed_locale = state.locale != labels.locale;
-    let mut entries = format::entries(
-        preferences,
-        &reading.resources,
-        &labels,
-        if cfg!(windows) { 1024.0 } else { 1000.0 },
-    );
-    state.apply_colors(
-        &mut entries,
-        preferences,
-        reading
-            .resources
-            .disk
-            .value
-            .as_ref()
-            .map(|disk| disk.volume.id.as_str()),
-    );
+    state.apply_colors(&mut entries, preferences, disk_volume.as_deref());
     #[cfg(not(windows))]
     let all_desired = format::desired(preferences);
     #[cfg(windows)]

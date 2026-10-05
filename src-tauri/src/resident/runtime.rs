@@ -622,16 +622,7 @@ pub fn start(app: &tauri::AppHandle, preferences: ResidentPreferences) -> Arc<Re
             }
             if summary_at.elapsed() >= Duration::from_secs(300) {
                 diagnostics.log_and_reset(summary_at.elapsed().as_millis());
-                let renders = app
-                    .state::<Mutex<super::tray_display::DisplayState>>()
-                    .try_lock()
-                    .ok()
-                    .map(|state| state.renders);
-                let handles = super::tray_display::format::DisplayId::ALL
-                    .iter()
-                    .filter(|id| app.tray_by_id(id.tray_id()).is_some())
-                    .count();
-                log::info!("resident_runtime_summary tray_renders={renders:?} tray_handles={handles} loop_max_ms={loop_max_ms}");
+                super::tray_display::log_summary(&app, loop_max_ms);
                 loop_max_ms = 0;
                 summary_at = Instant::now();
             }

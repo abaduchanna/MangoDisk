@@ -160,6 +160,15 @@ primary clicks while `NSStatusItem.menu` is non-null. Apple documents this
 The adapter leaves Tauri's event-listener callback before entering native menu
 tracking and holds no display-state or tray-icon borrow across that nested event
 loop. Primary presses toggle the panel once; releases do not toggle it again.
+The complete tray-handle lifetime stays on the main thread, including lookup,
+cloning, and destruction. Tauri's `Send` wrapper contains tray-icon's non-atomic
+`Rc`; dispatching only its native methods does not make background ownership
+safe. Workers pass application handles, entry IDs, and prepared display data,
+without cloning detailed process lists for native rendering. The existing
+bounded presentation queue preserves snapshot order across preference commits;
+display locks are acquired only after main-thread dispatch. Diagnostic handle
+counts are queued without blocking sampling. A scoped tracking guard rejects
+secondary-menu reentry and resets after dismissal, failure, or cancellation.
 Blur during a primary press over the entry is deferred to the toggle; keyboard
 switching and outside clicks still dismiss it. Preference and locale refreshes
 never reattach a macOS menu. The panel explicitly uses AppKit's

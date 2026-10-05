@@ -283,9 +283,9 @@ fn tray_owns_focus(app: &tauri::AppHandle) -> bool {
     let Ok(cursor) = window.cursor_position() else {
         return false;
     };
-    let over_entry = app
-        .tray_by_id(super::TRAY_ID)
-        .and_then(|tray| tray.rect().ok().flatten())
+    let over_entry = super::tray_display::macos_thread::rect(app, super::TRAY_ID)
+        .ok()
+        .flatten()
         .is_some_and(|rect| {
             let position = rect.position.to_physical::<f64>(1.0);
             let size = rect.size.to_physical::<f64>(1.0);
@@ -385,6 +385,9 @@ fn show_window(app: &tauri::AppHandle) -> tauri::Result<()> {
         .lock()
         .unwrap_or_else(|error| error.into_inner())
         .clone();
+    #[cfg(target_os = "macos")]
+    let anchor = super::tray_display::macos_thread::rect(app, &source)?;
+    #[cfg(not(target_os = "macos"))]
     let anchor = app
         .tray_by_id(&source)
         .and_then(|tray| tray.rect().ok().flatten());
