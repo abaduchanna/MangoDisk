@@ -84,9 +84,25 @@ pub(super) fn attach(
             };
             reading.details = Some(GpuDetails {
                 activities,
-                telemetry: GpuTelemetry {
-                    temperature_celsius: adapter.temperature.read(physical, &id),
-                    ..Default::default()
+                telemetry: {
+                    // Only a unique standard 3D node identifies a graphics clock domain.
+                    // Never substitute a copy/video/custom engine or an advertised maximum.
+                    let mut graphics = adapter
+                        .nodes
+                        .iter()
+                        .filter(|((unit, _), node)| {
+                            *unit == physical
+                                && node.native_kind
+                                    == windows_sys::Wdk::Graphics::Direct3D::DXGK_ENGINE_TYPE_3D
+                        })
+                        .map(|((_, node), _)| *node);
+                    let first = graphics.next();
+                    let node = if graphics.next().is_none() {
+                        first
+                    } else {
+                        None
+                    };
+                    adapter.telemetry.read(physical, &id, node)
                 },
                 memory_architecture: if adapter.dedicated_bytes > 0 {
                     GpuMemoryArchitecture::Dedicated

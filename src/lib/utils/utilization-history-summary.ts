@@ -1,7 +1,7 @@
 import type { TrendPoint } from '@/lib/models/system-resources';
 
 /** Summarize actual observations in the last minute; gaps never count as idle. */
-export function summarizeGpuHistory(history: TrendPoint[], observedAtMs: number) {
+export function summarizeUtilizationHistory(history: TrendPoint[], observedAtMs: number) {
   const values = history
     .filter(point => point.sampledAtMs >= observedAtMs - 60_000 && point.sampledAtMs <= observedAtMs)
     .map(point => point.primary)

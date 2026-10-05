@@ -65,6 +65,23 @@ describe('resource details', () => {
     }
   );
 
+  it.each(['loading', 'unsupported', 'failed', 'stale'] as const)(
+    'keeps the %s CPU status visible alongside its known model',
+    status => {
+      const reading = emptyReadings();
+      reading.cpuIdentity = { model: 'Intel Core i9 CPU @ 3.70GHz', nominalFrequencyMhz: 3700 };
+      reading.cpu = { status, sampledAtMs: 1000, value: { usedPercent: 45 } };
+      const wrapper = mount(Overview, {
+        props: { metric: 'cpu', reading },
+        global: { plugins: [createI18n({ legacy: false, locale: 'en', messages: { en } })] },
+      });
+      expect(wrapper.get('.resource-value').text()).toBe('—');
+      expect(wrapper.get('.gpu-source').text()).toBe(reading.cpuIdentity.model);
+      expect(wrapper.find('[role="status"]').exists()).toBe(true);
+      wrapper.unmount();
+    }
+  );
+
   it.each(['macos', 'linux', 'windows'] as const)('limits the reclaimable-space hint to macOS on %s', platform => {
     vi.spyOn(OperatingSystemService, 'currentPlatform').mockReturnValue(platform);
     const reading = emptyReadings();

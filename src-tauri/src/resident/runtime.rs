@@ -109,7 +109,9 @@ impl ResidentState {
             detailed: preferences.enabled
                 && ((metric == MetricId::Memory
                     && ((panel_open && selected == metric) || warm_icons))
-                    || (metric == MetricId::Gpu && panel_open && selected == MetricId::Gpu)),
+                    || (matches!(metric, MetricId::Cpu | MetricId::Gpu)
+                        && panel_open
+                        && selected == metric)),
             catalogue_only: metric == MetricId::Gpu
                 && !(preferences.enabled && (preferences.shows(metric) || panel_open)),
             selection: match metric {
@@ -377,35 +379,57 @@ pub fn start(app: &tauri::AppHandle, preferences: ResidentPreferences) -> Arc<Re
                         diagnostics.discard(completion.metric.into());
                     } else {
                         match completion.result {
-                            Ok(Observation::Cpu(counters)) => {
-                                if let Some(reason) = cache.cpu(
-                                    counters,
-                                    completion.monotonic_ms,
-                                    completion.timestamp_ms,
-                                ) {
-                                    if cpu_baseline != Some(reason) {
-                                        log::info!(
-                                            "resident_cpu_baseline reason={:?} query_ms={}",
-                                            reason,
-                                            completion.duration_ms
+                            Ok(Observation::Cpu { sample, details }) => {
+                                cache.cpu_details(details, completion.timestamp_ms);
+                                if let Err(error) = &sample {
+                                    let status = if error.code()
+                                        == mangodisk_platform::PlatformErrorCode::Unsupported
+                                    {
+                                        MetricStatus::Unsupported
+                                    } else {
+                                        MetricStatus::Failed
+                                    };
+                                    if previous_status[index] != status {
+                                        log::warn!(
+                                            "resident_sample_failed metric=Cpu code={:?} error={}",
+                                            error.code(),
+                                            mangodisk_platform::diagnostics::text(error)
                                         );
                                     }
-                                    cpu_baseline = Some(reason);
-                                    // At most two quick retries per recovery episode. Native
-                                    // jobs remain serialized and persistent failures return to
-                                    // normal cadence rather than creating a tight polling loop.
-                                    if cpu_retries < 2 {
-                                        cpu_retries += 1;
-                                        slots[index]
-                                            .retry_after(origin.elapsed().as_millis() as u64, 250);
-                                    }
-                                } else {
-                                    if cpu_baseline.take().is_some() {
-                                        log::info!(
+                                    cache.fail(MetricId::Cpu, status);
+                                }
+                                if let Ok(counters) = sample {
+                                    if let Some(reason) = cache.cpu(
+                                        counters,
+                                        completion.monotonic_ms,
+                                        completion.timestamp_ms,
+                                    ) {
+                                        if cpu_baseline != Some(reason) {
+                                            log::info!(
+                                                "resident_cpu_baseline reason={:?} query_ms={}",
+                                                reason,
+                                                completion.duration_ms
+                                            );
+                                        }
+                                        cpu_baseline = Some(reason);
+                                        // At most two quick retries per recovery episode. Native
+                                        // jobs remain serialized and persistent failures return to
+                                        // normal cadence rather than creating a tight polling loop.
+                                        if cpu_retries < 2 {
+                                            cpu_retries += 1;
+                                            slots[index].retry_after(
+                                                origin.elapsed().as_millis() as u64,
+                                                250,
+                                            );
+                                        }
+                                    } else {
+                                        if cpu_baseline.take().is_some() {
+                                            log::info!(
                                             "resident_cpu_recovered quick_retries={cpu_retries}"
                                         );
+                                        }
+                                        cpu_retries = 0;
                                     }
-                                    cpu_retries = 0;
                                 }
                             }
                             Ok(Observation::GpuCatalogue(adapters)) => {
@@ -491,6 +515,7 @@ pub fn start(app: &tauri::AppHandle, preferences: ResidentPreferences) -> Arc<Re
                                 }
                                 worker.catalogue.fetch_and(!2, Ordering::Relaxed);
                             }
+                            #[cfg(test)]
                             Ok(Observation::Unsupported) => {
                                 cache.fail(completion.metric, MetricStatus::Unsupported);
                             }
@@ -687,8 +712,8 @@ mod overview_tests {
                 assert!(demand.active);
                 assert_eq!(
                     demand.detailed,
-                    (metric == MetricId::Memory && selected == MetricId::Memory)
-                        || (metric == MetricId::Gpu && selected == MetricId::Gpu)
+                    matches!(metric, MetricId::Cpu | MetricId::Memory | MetricId::Gpu)
+                        && metric == selected
                 );
             }
             assert_eq!(state.cpu_processes_visible(), selected == MetricId::Cpu);

@@ -4120,6 +4120,16 @@
     "temperature": "Sıcaklık",
     "coreClock": "Çekirdek frekansı",
     "memoryClock": "Bellek frekansı",
-    "fanSpeed": "Fan hızı"
+    "fanSpeed": "Fan hızı",
+    "engineClock": "Grafik frekansı"
+  },
+  "cpuDetails": {
+    "summary": "CPU ayrıntıları",
+    "minuteAverage": "1 dk ortalama",
+    "minutePeak": "1 dk en yüksek",
+    "average": "Ortalama frekans",
+    "efficiency": "Verimlilik çekirdekleri",
+    "performance": "Performans çekirdekleri",
+    "cached": "Önbellek"
   }
 }

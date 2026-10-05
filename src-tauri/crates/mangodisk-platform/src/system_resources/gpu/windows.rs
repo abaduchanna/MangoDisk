@@ -195,7 +195,7 @@ impl GpuReader {
                         metadata.log_inventory(identity);
                     }
                     if let Some(previous) = self.names.get_mut(&identity) {
-                        metadata.retain_temperature_state(previous);
+                        metadata.retain_telemetry_state(previous);
                     }
                     if self.adapter_failures.remove(&identity).is_some() {
                         log::info!(
@@ -390,7 +390,7 @@ mod tests {
             engines: engines.iter().copied().collect(),
             nodes: HashMap::new(),
             dedicated_bytes: 0,
-            temperature: Default::default(),
+            telemetry: Default::default(),
         }
     }
     #[test]

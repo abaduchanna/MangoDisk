@@ -1,6 +1,7 @@
 <script setup lang="ts">
-import { summarizeGpuHistory } from '@/lib/utils/gpu-history-summary';
+import { summarizeUtilizationHistory } from '@/lib/utils/utilization-history-summary';
 import MdGpuEngineHistory from './md-gpu-engine-history.vue';
+import MdResourceFacts from './md-resource-facts.vue';
 import { customGpuActivities, summarizeGpuActivities } from '@/lib/utils/gpu-activity';
 import { computed, onMounted, ref, watch } from 'vue';
 import { useI18n } from 'vue-i18n';
@@ -57,7 +58,7 @@ const cached = computed(
 const history = computed(() =>
   value.value?.adapterId === props.reading.gpuDetailAdapterId ? props.reading.gpuDetailHistory : []
 );
-const historySummary = computed(() => summarizeGpuHistory(history.value, props.reading.observedAtMs));
+const historySummary = computed(() => summarizeUtilizationHistory(history.value, props.reading.observedAtMs));
 const deviceTooltip = computed(() => {
   if (!value.value) return '';
   const device = selectedId.value ? selectedLabel.value : `${selectedLabel.value} · ${value.value.adapterName}`;
@@ -65,17 +66,27 @@ const deviceTooltip = computed(() => {
 });
 const facts = computed(() => {
   const telemetry = details.value?.telemetry;
-  return [
+  const temperature = telemetry?.temperatureCelsius;
+  const hasTemperature = temperature != null && Number.isFinite(temperature);
+  // Prefer live clock measurements and reserve the last slot for temperature.
+  const selected = [
+    { key: 'engineClock', value: telemetry?.engineClockMhz, unit: 'MHz' },
+    { key: 'coreClock', value: telemetry?.coreClockMhz, unit: 'MHz' },
+    { key: 'memoryClock', value: telemetry?.memoryClockMhz, unit: 'MHz' },
     { key: 'coreCount', value: telemetry?.coreCount, unit: '' },
     { key: 'average', value: historySummary.value?.average, unit: '%' },
     { key: 'peak', value: historySummary.value?.peak, unit: '%' },
-    { key: 'temperature', value: telemetry?.temperatureCelsius, unit: '°C' },
-    { key: 'coreClock', value: telemetry?.coreClockMhz, unit: 'MHz' },
-    { key: 'memoryClock', value: telemetry?.memoryClockMhz, unit: 'MHz' },
     { key: 'fanSpeed', value: telemetry?.fanPercent, unit: '%' },
   ]
-    .filter(fact => fact.value != null)
-    .map(fact => ({ ...fact, label: GPU_FACT_LABEL_KEYS[fact.key as keyof typeof GPU_FACT_LABEL_KEYS] }));
+    .filter(fact => fact.value != null && Number.isFinite(fact.value))
+    .slice(0, hasTemperature ? 2 : 3);
+  if (hasTemperature) selected.push({ key: 'temperature', value: temperature, unit: '°C' });
+  return selected.map(fact => ({
+    key: fact.key,
+    label: t(GPU_FACT_LABEL_KEYS[fact.key as keyof typeof GPU_FACT_LABEL_KEYS]),
+    value: fact.value!.toFixed(0),
+    unit: fact.unit,
+  }));
 });
 function engineHistory(kind: GpuActivity['kind']) {
   if (value.value?.adapterId !== props.reading.gpuDetailAdapterId) return [];
@@ -164,14 +175,7 @@ onMounted(() => {
       <div v-if="settings.error" class="detail-note" role="alert">
         {{ t('monitoring.unavailable') }} <button @click="settings.load()">{{ t('monitoring.refresh') }}</button>
       </div>
-      <dl v-if="value && facts.length" class="gpu-facts">
-        <div v-for="fact in facts" :key="fact.key">
-          <dt>{{ t(fact.label) }}</dt>
-          <dd>
-            {{ fact.value!.toFixed(0) }}<small v-if="fact.unit">{{ fact.unit }}</small>
-          </dd>
-        </div>
-      </dl>
+      <MdResourceFacts v-if="value" :facts="facts" class="gpu-facts" />
       <template v-if="details">
         <section v-if="memory?.dedicatedUsedBytes != null || details.memoryStatus === 'failed'" class="memory-section">
           <h3>{{ t('systemStatus.memory') }}</h3>
@@ -403,32 +407,11 @@ b {
   line-height: 16px;
   margin-top: 4px;
 }
-.gpu-facts {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(90px, 1fr));
-  gap: 8px;
-}
-.gpu-facts > div {
-  @apply rounded-lg bg-muted/30;
-  padding: 8px;
-}
-dt,
 .history-caption {
   @apply text-muted-foreground;
   font-size: 10px;
   line-height: 1.5;
   overflow-wrap: anywhere;
-}
-dd {
-  font-size: 16px;
-  font-weight: 600;
-  font-variant-numeric: tabular-nums;
-  margin-top: 4px;
-}
-dd small {
-  font-size: 9px;
-  font-weight: normal;
-  margin-left: 2px;
 }
 .history-caption {
   flex: none;

@@ -4120,6 +4120,16 @@
     "temperature": "温度",
     "coreClock": "コアクロック",
     "memoryClock": "メモリクロック",
-    "fanSpeed": "ファン速度"
+    "fanSpeed": "ファン速度",
+    "engineClock": "グラフィックスクロック"
+  },
+  "cpuDetails": {
+    "summary": "CPU の詳細",
+    "minuteAverage": "1分平均",
+    "minutePeak": "1分ピーク",
+    "average": "平均周波数",
+    "efficiency": "高効率コア",
+    "performance": "高性能コア",
+    "cached": "キャッシュ"
   }
 }

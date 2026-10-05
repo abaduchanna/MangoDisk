@@ -51,7 +51,7 @@ pub(super) struct Metadata {
     pub(super) engines: HashSet<(u32, u32)>,
     pub(super) nodes: HashMap<(u32, u32), Node>,
     pub(super) dedicated_bytes: u64,
-    pub(super) temperature: TemperatureReader,
+    pub(super) telemetry: TelemetryReader,
 }
 
 struct AdapterHandle(u32);
@@ -93,10 +93,12 @@ impl AdapterHandle {
 // The discovery cache owns this handle, so detailed sampling needs no additional
 // adapter opens. Unsupported drivers are retried at most once per 30 seconds.
 #[derive(Default)]
-pub(super) struct TemperatureReader {
+pub(super) struct TelemetryReader {
     handle: Option<AdapterHandle>,
     retry_at: Vec<Option<Instant>>,
-    observations: Vec<Option<Result<bool, Failure>>>,
+    observations: Vec<Option<Result<u8, Failure>>>,
+    node_retry_at: Vec<Option<Instant>>,
+    node_observations: Vec<Option<Result<bool, Failure>>>,
 }
 
 fn temperature_celsius(deci_celsius: u32) -> Option<f64> {
@@ -105,40 +107,80 @@ fn temperature_celsius(deci_celsius: u32) -> Option<f64> {
         .then_some(f64::from(deci_celsius) / 10.0)
 }
 
-impl TemperatureReader {
-    pub(super) fn read(&mut self, physical: u32, id: &str) -> Option<f64> {
-        let retry_at = self.retry_at.get_mut(physical as usize)?;
-        if retry_at.is_some_and(|at| Instant::now() < at) {
-            return None;
-        }
-        let mut value = D3DKMT_ADAPTER_PERFDATA {
-            PhysicalAdapterIndex: physical,
-            ..Default::default()
+impl TelemetryReader {
+    pub(super) fn read(
+        &mut self,
+        physical: u32,
+        id: &str,
+        node: Option<u32>,
+    ) -> super::details::GpuTelemetry {
+        let mut telemetry = super::details::GpuTelemetry::default();
+        let Some(handle) = self.handle.as_ref() else {
+            return telemetry;
         };
-        let result = self.handle.as_ref()?.query(
-            KMTQAITYPE_ADAPTERPERFDATA,
-            &mut value,
-            "adapter_temperature",
-        );
-        let observation = result.map(|()| temperature_celsius(value.Temperature).is_some());
-        if let Some(previous) = self.observations.get_mut(physical as usize) {
-            if *previous != Some(observation) {
-                match observation {
-                    Ok(available) => log::info!("gpu_temperature_capability adapter={} physical={} source=wddm_adapter_perfdata available={} native_deci_celsius={} retry_seconds=30", text(id), physical, available, value.Temperature),
-                    Err(error) => log::info!("gpu_temperature_unavailable adapter={} physical={} source=wddm_adapter_perfdata stage={} native_code={:#x} retry_seconds=30", text(id), physical, error.stage, error.code),
+        let index = physical as usize;
+        let Some(retry_at) = self.retry_at.get_mut(index) else {
+            return telemetry;
+        };
+        if !retry_at.is_some_and(|at| Instant::now() < at) {
+            let mut value = D3DKMT_ADAPTER_PERFDATA {
+                PhysicalAdapterIndex: physical,
+                ..Default::default()
+            };
+            let result = handle.query(KMTQAITYPE_ADAPTERPERFDATA, &mut value, "adapter_telemetry");
+            if result.is_ok() {
+                telemetry.temperature_celsius = temperature_celsius(value.Temperature);
+                telemetry.memory_clock_mhz = clock_mhz(value.MemoryFrequency);
+            }
+            let mask = u8::from(telemetry.temperature_celsius.is_some())
+                | (u8::from(telemetry.memory_clock_mhz.is_some()) << 1);
+            let observation = result.map(|()| mask);
+            if let Some(previous) = self.observations.get_mut(index) {
+                if *previous != Some(observation) {
+                    match observation {
+                        Ok(capabilities) => log::info!("gpu_telemetry_capability adapter={} physical={physical} source=wddm_adapter_perfdata temperature={} memory_clock={} native_deci_celsius={} native_memory_hz={} retry_seconds=30",text(id),capabilities & 1 != 0,capabilities & 2 != 0,value.Temperature,value.MemoryFrequency),
+                        Err(error) => log::info!("gpu_telemetry_unavailable adapter={} physical={physical} source=wddm_adapter_perfdata stage={} native_code={:#x} retry_seconds=30",text(id),error.stage,error.code),
+                    }
+                    *previous = Some(observation);
                 }
-                *previous = Some(observation);
+            }
+            *retry_at = (mask == 0).then(|| Instant::now() + Duration::from_secs(30));
+        }
+        if let (Some(node), Some(retry_at)) = (node, self.node_retry_at.get_mut(index)) {
+            if !retry_at.is_some_and(|at| Instant::now() < at) {
+                let mut value = D3DKMT_NODE_PERFDATA {
+                    NodeOrdinal: node,
+                    PhysicalAdapterIndex: physical,
+                    ..Default::default()
+                };
+                let result =
+                    handle.query(KMTQAITYPE_NODEPERFDATA, &mut value, "graphics_frequency");
+                if result.is_ok() {
+                    telemetry.engine_clock_mhz = clock_mhz(value.Frequency);
+                }
+                let observation = result.map(|()| telemetry.engine_clock_mhz.is_some());
+                if let Some(previous) = self.node_observations.get_mut(index) {
+                    if *previous != Some(observation) {
+                        match observation {
+                            Ok(available)=>log::info!("gpu_graphics_frequency_capability adapter={} physical={physical} node={node} source=wddm_node_perfdata available={available} native_hz={} retry_seconds=30",text(id),value.Frequency),
+                            Err(error)=>log::info!("gpu_graphics_frequency_unavailable adapter={} physical={physical} node={node} stage={} native_code={:#x} retry_seconds=30",text(id),error.stage,error.code),
+                        }
+                        *previous = Some(observation);
+                    }
+                }
+                *retry_at = telemetry
+                    .engine_clock_mhz
+                    .is_none()
+                    .then(|| Instant::now() + Duration::from_secs(30));
             }
         }
-        let temperature = match result {
-            Ok(()) => temperature_celsius(value.Temperature),
-            Err(_) => None,
-        };
-        *retry_at = temperature
-            .is_none()
-            .then(|| Instant::now() + Duration::from_secs(30));
-        temperature
+        telemetry
     }
+}
+fn clock_mhz(hz: u64) -> Option<f64> {
+    (1_000_000..=20_000_000_000)
+        .contains(&hz)
+        .then_some(hz as f64 / 1_000_000.0)
 }
 
 impl Metadata {
@@ -168,10 +210,16 @@ impl Metadata {
         }
     }
     // Preserve retry and diagnostic state across the regular metadata refresh.
-    pub(super) fn retain_temperature_state(&mut self, previous: &mut Self) {
+    pub(super) fn retain_telemetry_state(&mut self, previous: &mut Self) {
         if self.id == previous.id && self.physical_count == previous.physical_count {
-            self.temperature.retry_at = std::mem::take(&mut previous.temperature.retry_at);
-            self.temperature.observations = std::mem::take(&mut previous.temperature.observations);
+            self.telemetry.retry_at = std::mem::take(&mut previous.telemetry.retry_at);
+            self.telemetry.observations = std::mem::take(&mut previous.telemetry.observations);
+            if self.nodes == previous.nodes {
+                self.telemetry.node_retry_at =
+                    std::mem::take(&mut previous.telemetry.node_retry_at);
+                self.telemetry.node_observations =
+                    std::mem::take(&mut previous.telemetry.node_observations);
+            }
         }
     }
 
@@ -282,10 +330,12 @@ impl Metadata {
             engines,
             nodes,
             dedicated_bytes: description.DedicatedVideoMemory as u64,
-            temperature: TemperatureReader {
+            telemetry: TelemetryReader {
                 handle: Some(handle),
                 retry_at: vec![None; count.Count as usize],
                 observations: vec![None; count.Count as usize],
+                node_retry_at: vec![None; count.Count as usize],
+                node_observations: vec![None; count.Count as usize],
             },
         })
     }
@@ -295,6 +345,14 @@ impl Metadata {
 mod tests {
     use super::*;
 
+    #[test]
+    fn native_clock_is_hertz_and_zero_never_becomes_a_frequency() {
+        assert_eq!(clock_mhz(210_000_000), Some(210.0));
+        assert_eq!(clock_mhz(405_000_000), Some(405.0));
+        assert_eq!(clock_mhz(0), None);
+        assert_eq!(clock_mhz(u64::MAX), None);
+        assert_eq!(clock_mhz(999_999), None);
+    }
     #[test]
     fn temperature_converts_deci_celsius_and_rejects_unavailable_values() {
         assert_eq!(temperature_celsius(420), Some(42.0));
@@ -316,7 +374,7 @@ mod tests {
                 engines: HashSet::new(),
                 nodes: HashMap::new(),
                 dedicated_bytes: 0,
-                temperature: TemperatureReader {
+                telemetry: TelemetryReader {
                     retry_at: vec![None],
                     observations: vec![None],
                     ..Default::default()
@@ -325,23 +383,32 @@ mod tests {
         }
         let retry_at = Instant::now() + Duration::from_secs(30);
         let mut previous = adapter("pci:1");
-        previous.temperature.retry_at[0] = Some(retry_at);
-        previous.temperature.observations[0] = Some(Ok(false));
+        previous.telemetry.retry_at[0] = Some(retry_at);
+        previous.telemetry.observations[0] = Some(Ok(0));
         let mut refreshed = adapter("pci:1");
-        refreshed.retain_temperature_state(&mut previous);
-        assert_eq!(refreshed.temperature.retry_at[0], Some(retry_at));
-        assert_eq!(refreshed.temperature.observations[0], Some(Ok(false)));
+        refreshed.retain_telemetry_state(&mut previous);
+        assert_eq!(refreshed.telemetry.retry_at[0], Some(retry_at));
+        assert_eq!(refreshed.telemetry.observations[0], Some(Ok(0)));
         let mut different = adapter("pci:2");
-        different.retain_temperature_state(&mut refreshed);
-        assert_eq!(different.temperature.retry_at[0], None);
-        assert_eq!(different.temperature.observations[0], None);
+        different.retain_telemetry_state(&mut refreshed);
+        assert_eq!(different.telemetry.retry_at[0], None);
+        assert_eq!(different.telemetry.observations[0], None);
     }
     #[test]
     fn absent_adapter_and_invalid_physical_index_have_no_temperature() {
-        let mut reader = TemperatureReader::default();
-        assert_eq!(reader.read(0, "unavailable"), None);
+        let mut reader = TelemetryReader::default();
+        assert_eq!(
+            reader.read(0, "unavailable", None).temperature_celsius,
+            None
+        );
         reader.retry_at = vec![None];
-        assert_eq!(reader.read(0, "unavailable"), None);
-        assert_eq!(reader.read(1, "unavailable"), None);
+        assert_eq!(
+            reader.read(0, "unavailable", None).temperature_celsius,
+            None
+        );
+        assert_eq!(
+            reader.read(1, "unavailable", None).temperature_celsius,
+            None
+        );
     }
 }

@@ -4120,6 +4120,16 @@
     "temperature": "Temperature",
     "coreClock": "Core clock",
     "memoryClock": "Memory clock",
-    "fanSpeed": "Fan speed"
+    "fanSpeed": "Fan speed",
+    "engineClock": "Graphics clock"
+  },
+  "cpuDetails": {
+    "summary": "CPU details",
+    "minuteAverage": "1 min average",
+    "minutePeak": "1 min peak",
+    "average": "Average frequency",
+    "efficiency": "Efficiency cores",
+    "performance": "Performance cores",
+    "cached": "Cached"
   }
 }

@@ -54,6 +54,7 @@ pub enum GpuMemoryStatus {
 pub struct GpuTelemetry {
     pub core_count: Option<u32>,
     pub temperature_celsius: Option<f64>,
+    pub engine_clock_mhz: Option<f64>,
     pub core_clock_mhz: Option<f64>,
     pub memory_clock_mhz: Option<f64>,
     pub fan_percent: Option<f64>,

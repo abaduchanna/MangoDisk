@@ -69,6 +69,16 @@ export interface SystemResourceSnapshot {
 export interface CpuUsage {
   usedPercent: number;
 }
+export interface CpuIdentity {
+  model: string | null;
+  nominalFrequencyMhz: number | null;
+}
+export interface CpuFrequency {
+  averageMhz: number | null;
+  efficiencyMhz: number | null;
+  performanceMhz: number | null;
+  source: 'windowsPerformance' | 'applePerformanceStates';
+}
 export interface GpuUsage {
   usedPercent: number;
   adapterId: string;
@@ -111,9 +121,11 @@ export interface DiskIoRate {
   writtenBytesPerSecond: number;
 }
 export interface ResourceReadings {
-  schemaVersion: 11;
+  schemaVersion: 12;
   observedAtMs: number;
   cpu: MetricReading<CpuUsage>;
+  cpuIdentity: CpuIdentity | null;
+  cpuFrequency: MetricReading<CpuFrequency>;
   gpu: MetricReading<GpuUsage>;
   gpuDetails: MetricReading<GpuUsage>;
   gpuDetailHistory: TrendPoint[];

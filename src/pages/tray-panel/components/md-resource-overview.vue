@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { cpuIdentityLabel } from '@/lib/utils/cpu-identity-label';
 import MdTooltip from '@/components/custom/md-tooltip.vue';
 import MdIcon from '@/components/icons/md-icon.vue';
 import { ICON_NAMES } from '@/lib/models/ui';
@@ -24,6 +25,7 @@ const props = withDefaults(
 defineEmits<{ cleanup: []; memory: []; cpu: []; gpu: [] }>();
 const { t } = useI18n({ useScope: 'global' });
 const isMacOs = OperatingSystemService.isMacOs();
+const cpuLabel = computed(() => cpuIdentityLabel(props.reading.cpuIdentity));
 const current = computed(() => props.reading[props.metric]);
 const ready = computed(() => current.value.status === 'ready' && current.value.value !== null);
 const memory = computed(() => props.reading.memory.value?.memory);
@@ -147,7 +149,13 @@ const rates = computed(() =>
 
     <div class="resource-meta">
       <template v-if="metric === 'cpu' || metric === 'gpu'">
-        <span v-if="!ready" role="status">{{ t(METRIC_STATUS_KEYS[current.status]) }}</span>
+        <template v-if="metric === 'cpu' && cpuLabel">
+          <MdTooltip :text="cpuLabel">
+            <span class="gpu-source">{{ cpuLabel }}</span>
+          </MdTooltip>
+          <span v-if="!ready" class="resource-status" role="status">{{ t(METRIC_STATUS_KEYS[current.status]) }}</span>
+        </template>
+        <span v-else-if="!ready" role="status">{{ t(METRIC_STATUS_KEYS[current.status]) }}</span>
         <MdTooltip v-else-if="metric === 'gpu'" :text="t('systemStatus.gpuUsageHint')">
           <span class="gpu-source">{{ reading.gpu.value?.adapterName }}</span>
         </MdTooltip>
@@ -255,6 +263,9 @@ small {
 }
 .resource-meta > span {
   min-width: 0;
+}
+.resource-meta > .resource-status {
+  flex: none;
 }
 .resource-meta button {
   @apply text-primary;

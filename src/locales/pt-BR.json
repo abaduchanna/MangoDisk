@@ -4120,6 +4120,16 @@
     "temperature": "Temperatura",
     "coreClock": "Clock do núcleo",
     "memoryClock": "Clock da memória",
-    "fanSpeed": "Velocidade da ventoinha"
+    "fanSpeed": "Velocidade da ventoinha",
+    "engineClock": "Clock gráfico"
+  },
+  "cpuDetails": {
+    "summary": "Detalhes da CPU",
+    "minuteAverage": "Média de 1 min",
+    "minutePeak": "Pico de 1 min",
+    "average": "Frequência média",
+    "efficiency": "Núcleos de eficiência",
+    "performance": "Núcleos de desempenho",
+    "cached": "Em cache"
   }
 }

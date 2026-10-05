@@ -4120,6 +4120,16 @@
     "temperature": "溫度",
     "coreClock": "核心頻率",
     "memoryClock": "顯存頻率",
-    "fanSpeed": "風扇速度"
+    "fanSpeed": "風扇速度",
+    "engineClock": "圖形頻率"
+  },
+  "cpuDetails": {
+    "summary": "CPU 詳細資訊",
+    "minuteAverage": "1 分鐘平均",
+    "minutePeak": "1 分鐘峰值",
+    "average": "平均頻率",
+    "efficiency": "節能核心",
+    "performance": "效能核心",
+    "cached": "快取"
   }
 }

@@ -6,7 +6,10 @@ use mangodisk_core::{
     CoreResult,
 };
 use mangodisk_platform::system_resources::{
-    cpu::{CpuReader, CpuSample},
+    cpu::{
+        details::{CpuDetails, CpuDetailsReader},
+        CpuReader, CpuSample,
+    },
     disk::{ResourceVolume, VolumeCapacity},
     gpu::{GpuAdapter, GpuReader, GpuSample},
     network::{InterfaceSample, NetworkReader},
@@ -19,8 +22,12 @@ use std::{
 use super::sampling_schedule::Demand;
 
 pub enum Observation {
+    #[cfg(test)]
     Unsupported,
-    Cpu(CpuSample),
+    Cpu {
+        sample: mangodisk_platform::PlatformResult<CpuSample>,
+        details: CpuDetails,
+    },
     GpuCatalogue(Vec<GpuAdapter>),
     Gpu {
         sample: mangodisk_platform::PlatformResult<GpuSample>,
@@ -123,7 +130,10 @@ fn run_worker(
 }
 
 enum Sensor {
-    Cpu(CpuReader),
+    Cpu {
+        reader: CpuReader,
+        details: Box<CpuDetailsReader>,
+    },
     Gpu(Box<GpuReader>),
     Memory(Box<SystemResourceService>),
     Network(NetworkReader),
@@ -135,9 +145,15 @@ impl Sensor {
     fn new(metric: MetricId) -> Self {
         match metric {
             #[cfg(windows)]
-            MetricId::Cpu => Self::Cpu(CpuReader::default()),
+            MetricId::Cpu => Self::Cpu {
+                reader: CpuReader::default(),
+                details: Box::default(),
+            },
             #[cfg(not(windows))]
-            MetricId::Cpu => Self::Cpu(CpuReader),
+            MetricId::Cpu => Self::Cpu {
+                reader: CpuReader,
+                details: Box::default(),
+            },
             MetricId::Gpu => Self::Gpu(Box::default()),
             MetricId::Memory => Self::Memory(Box::default()),
             MetricId::Network => Self::Network(NetworkReader::default()),
@@ -145,7 +161,8 @@ impl Sensor {
         }
     }
     fn reset_baselines(&mut self) {
-        if let Self::Cpu(reader) = self {
+        if let Self::Cpu { reader, details } = self {
+            details.reset();
             // Re-enabling must prime a fresh interval, including short pauses.
             reader.reset();
         }
@@ -156,14 +173,9 @@ impl Sensor {
     fn sample(&mut self, demand: &Demand, timestamp_ms: u64) -> CoreResult<Observation> {
         use mangodisk_platform::system_resources::disk;
         Ok(match self {
-            Self::Cpu(reader) => match reader.read() {
-                Ok(counters) => Observation::Cpu(counters),
-                Err(error)
-                    if error.code() == mangodisk_platform::PlatformErrorCode::Unsupported =>
-                {
-                    Observation::Unsupported
-                }
-                Err(error) => return Err(error.into()),
+            Self::Cpu { reader, details } => Observation::Cpu {
+                sample: reader.read(),
+                details: details.read(demand.detailed),
             },
             Self::Gpu(reader) if demand.catalogue_only => {
                 Observation::GpuCatalogue(reader.catalogue()?)

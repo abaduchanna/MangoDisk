@@ -4120,6 +4120,16 @@
     "temperature": "Температура",
     "coreClock": "Частота ядра",
     "memoryClock": "Частота памяти",
-    "fanSpeed": "Скорость вентилятора"
+    "fanSpeed": "Скорость вентилятора",
+    "engineClock": "Частота графического движка"
+  },
+  "cpuDetails": {
+    "summary": "Данные CPU",
+    "minuteAverage": "Среднее за 1 мин",
+    "minutePeak": "Пик за 1 мин",
+    "average": "Средняя частота",
+    "efficiency": "Энергоэффективные ядра",
+    "performance": "Производительные ядра",
+    "cached": "Кэш"
   }
 }

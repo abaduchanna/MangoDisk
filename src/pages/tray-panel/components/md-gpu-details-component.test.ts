@@ -56,6 +56,7 @@ function reading(): ResourceReadings {
           telemetry: {
             coreCount: null,
             temperatureCelsius: null,
+            engineClockMhz: null,
             coreClockMhz: null,
             memoryClockMhz: null,
             fanPercent: null,
@@ -136,6 +137,7 @@ describe('GPU detail capabilities and selection', () => {
       telemetry: {
         coreCount: 40,
         temperatureCelsius: null,
+        engineClockMhz: null,
         coreClockMhz: null,
         memoryClockMhz: null,
         fanPercent: null,
@@ -152,6 +154,42 @@ describe('GPU detail capabilities and selection', () => {
     expect(wrapper.get('.gpu-facts').text()).toContain('40');
     expect(wrapper.findAll('.memory-row')).toHaveLength(0);
     expect(wrapper.find('.custom-activities').exists()).toBe(false);
+  });
+  it('prioritizes clock measurements and reserves the third card for temperature', async () => {
+    const value = reading();
+    const telemetry = value.gpuDetails.value!.details!.telemetry;
+    telemetry.engineClockMhz = 210;
+    telemetry.memoryClockMhz = 405;
+    telemetry.temperatureCelsius = 41;
+    telemetry.fanPercent = 30;
+    const { wrapper } = render(value);
+    await flushPromises();
+    const labels = () => wrapper.findAll('.gpu-facts dt').map(row => row.text());
+    expect(labels()).toEqual([enUS.gpuDetails.engineClock, enUS.gpuDetails.memoryClock, enUS.gpuDetails.temperature]);
+    expect(wrapper.findAll('.gpu-facts dd').map(row => row.text())).toEqual(['210MHz', '405MHz', '41°C']);
+    const next = structuredClone(value);
+    next.gpuDetails.value!.details!.telemetry.coreClockMhz = 180;
+    await wrapper.setProps({ reading: next });
+    expect(labels()).toEqual([enUS.gpuDetails.engineClock, enUS.gpuDetails.coreClock, enUS.gpuDetails.temperature]);
+  });
+  it('uses available history as a fallback without inventing unavailable telemetry', async () => {
+    const value = reading();
+    const telemetry = value.gpuDetails.value!.details!.telemetry;
+    telemetry.engineClockMhz = 210;
+    telemetry.memoryClockMhz = NaN;
+    telemetry.temperatureCelsius = NaN;
+    const { wrapper } = render(value);
+    await flushPromises();
+    expect(wrapper.findAll('.gpu-facts dt').map(row => row.text())).toEqual([
+      enUS.gpuDetails.engineClock,
+      enUS.gpuDetails.average,
+      enUS.gpuDetails.peak,
+    ]);
+    expect(wrapper.findAll('.gpu-facts dd').map(row => row.text())).toEqual(['210MHz', '3%', '3%']);
+    const next = structuredClone(value);
+    next.gpuDetailHistory = [];
+    await wrapper.setProps({ reading: next });
+    expect(wrapper.findAll('.gpu-facts .resource-fact')).toHaveLength(1);
   });
   it('hides old device measurements immediately while a new selection is pending', async () => {
     const { wrapper, settings } = render();

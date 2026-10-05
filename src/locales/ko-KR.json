@@ -4120,6 +4120,16 @@
     "temperature": "온도",
     "coreClock": "코어 클럭",
     "memoryClock": "메모리 클럭",
-    "fanSpeed": "팬 속도"
+    "fanSpeed": "팬 속도",
+    "engineClock": "그래픽 클럭"
+  },
+  "cpuDetails": {
+    "summary": "CPU 세부 정보",
+    "minuteAverage": "1분 평균",
+    "minutePeak": "1분 최고",
+    "average": "평균 주파수",
+    "efficiency": "효율 코어",
+    "performance": "성능 코어",
+    "cached": "캐시"
   }
 }

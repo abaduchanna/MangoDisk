@@ -1,6 +1,8 @@
 //! Whole-machine CPU sampling: native Windows percentages or cumulative Mach ticks.
 //! Core validates observations and never publishes an unprimed interval as idle.
 
+pub mod details;
+
 use crate::PlatformResult;
 #[cfg(not(target_os = "linux"))]
 use crate::{PlatformError, PlatformErrorCode};

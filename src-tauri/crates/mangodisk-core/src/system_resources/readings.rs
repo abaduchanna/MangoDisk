@@ -1,6 +1,9 @@
 //! Independent cached results and interval calculations; no clocks, threads, or desktop APIs.
 use mangodisk_platform::system_resources::{
-    cpu::CpuSample,
+    cpu::{
+        details::{CpuDetails, CpuFrequency, CpuIdentity},
+        CpuSample,
+    },
     disk::{ResourceVolume, VolumeCapacity},
     network::{InterfaceSample, NetworkInterface},
 };
@@ -23,6 +26,8 @@ pub struct ResourceReadings {
     pub schema_version: u32,
     pub observed_at_ms: u64,
     pub cpu: MetricReading<CpuUsage>,
+    pub cpu_identity: Option<CpuIdentity>,
+    pub cpu_frequency: MetricReading<CpuFrequency>,
     pub gpu: MetricReading<GpuUsage>,
     pub gpu_details: MetricReading<GpuUsage>,
     pub gpu_detail_history: Vec<TrendPoint>,
@@ -48,9 +53,11 @@ pub struct ResourceReadings {
 impl Default for ResourceReadings {
     fn default() -> Self {
         Self {
-            schema_version: 11,
+            schema_version: 12,
             observed_at_ms: 0,
             cpu: MetricReading::default(),
+            cpu_identity: None,
+            cpu_frequency: MetricReading::default(),
             gpu: MetricReading::default(),
             gpu_details: MetricReading::default(),
             gpu_detail_history: Vec::new(),
@@ -119,6 +126,29 @@ impl ResourceCache {
                     .expire(timestamp_ms, MetricId::Cpu.freshness_ms());
                 Some(reason)
             }
+        }
+    }
+
+    pub fn cpu_details(&mut self, details: CpuDetails, timestamp_ms: u64) {
+        self.readings.cpu_identity = Some(details.identity);
+        match details.frequency {
+            Some(Ok(Some(value))) => {
+                self.readings.cpu_frequency = MetricReading::ready(value, timestamp_ms)
+            }
+            Some(Err(error)) => {
+                self.readings.cpu_frequency.status =
+                    if error.code() == mangodisk_platform::PlatformErrorCode::Unsupported {
+                        MetricStatus::Unsupported
+                    } else {
+                        MetricStatus::Failed
+                    };
+                self.readings.cpu_frequency.value = None;
+                self.readings.cpu_frequency.sampled_at_ms = None;
+            }
+            _ => self
+                .readings
+                .cpu_frequency
+                .expire(timestamp_ms, MetricId::Cpu.freshness_ms()),
         }
     }
 
@@ -364,6 +394,7 @@ impl ResourceCache {
                 self.cpu_delta.reset();
                 self.cpu_history.clear();
                 self.readings.cpu = MetricReading::default();
+                self.readings.cpu_frequency = MetricReading::default();
             }
             MetricId::Memory => {
                 self.readings.memory = MetricReading::default();
@@ -408,6 +439,9 @@ impl ResourceCache {
             .expire(now_ms, MetricId::Gpu.freshness_ms());
         self.readings.disk_io.expire(now_ms, 5000);
         self.readings
+            .cpu_frequency
+            .expire(now_ms, MetricId::Cpu.freshness_ms());
+        self.readings
             .memory_processes
             .expire(now_ms, MetricId::Memory.freshness_ms());
         self.readings
@@ -419,9 +453,10 @@ impl ResourceCache {
         before != self.statuses()
     }
 
-    fn statuses(&self) -> [MetricStatus; 9] {
+    fn statuses(&self) -> [MetricStatus; 10] {
         [
             self.readings.cpu.status,
+            self.readings.cpu_frequency.status,
             self.readings.gpu.status,
             self.readings.gpu_details.status,
             self.readings.memory.status,
@@ -454,6 +489,62 @@ impl ResourceCache {
 mod tests {
     use super::*;
     use mangodisk_platform::system_resources::cpu::CpuCounters;
+
+    #[test]
+    fn frequency_baselines_preserve_sample_age_and_failures_never_show_a_clock() {
+        use mangodisk_platform::system_resources::cpu::details::CpuFrequencySource;
+        use mangodisk_platform::{PlatformError, PlatformErrorCode};
+        let mut cache = ResourceCache::default();
+        let detail = |frequency| CpuDetails {
+            identity: CpuIdentity {
+                model: Some("CPU model".into()),
+                nominal_frequency_mhz: Some(3700.0),
+            },
+            frequency,
+        };
+        cache.cpu_details(
+            detail(Some(Ok(Some(CpuFrequency {
+                average_mhz: Some(4773.0),
+                efficiency_mhz: None,
+                performance_mhz: None,
+                source: CpuFrequencySource::WindowsPerformance,
+            })))),
+            1000,
+        );
+        cache.cpu_details(detail(Some(Ok(None))), 2000);
+        let readings = cache.snapshot(2000);
+        assert_eq!(readings.cpu_frequency.sampled_at_ms, Some(1000));
+        assert_eq!(
+            readings.cpu_frequency.value.unwrap().average_mhz,
+            Some(4773.0)
+        );
+        let aged = 1000 + MetricId::Cpu.freshness_ms() + 1;
+        cache.cpu_details(detail(None), aged);
+        assert_eq!(
+            cache.snapshot(aged).cpu_frequency.status,
+            MetricStatus::Stale
+        );
+        cache.cpu_details(
+            detail(Some(Err(PlatformError::new(
+                PlatformErrorCode::Unsupported,
+                "no counter",
+            )))),
+            aged + 1,
+        );
+        let readings = cache.snapshot(aged + 1);
+        assert_eq!(readings.cpu_frequency.status, MetricStatus::Unsupported);
+        assert!(readings.cpu_frequency.value.is_none());
+        cache.reset(MetricId::Cpu);
+        assert_eq!(
+            cache
+                .snapshot(aged + 1)
+                .cpu_identity
+                .unwrap()
+                .model
+                .as_deref(),
+            Some("CPU model")
+        );
+    }
 
     #[test]
     fn disconnected_gpu_selection_preserves_catalogue_without_an_idle_sample() {
@@ -631,7 +722,7 @@ mod tests {
             second.cpu_processes.value.as_ref().unwrap()
         ));
         let wire = serde_json::to_value(&second).unwrap();
-        assert_eq!(wire["schemaVersion"], 11);
+        assert_eq!(wire["schemaVersion"], 12);
         assert_eq!(wire["cpuProcesses"]["value"]["readableProcessCount"], 12);
         assert!(!cache.expire(2000));
         assert!(cache.expire(6001));
@@ -752,7 +843,7 @@ mod tests {
             },
             1000,
         ));
-        assert_eq!(cache.snapshot(1000).schema_version, 11);
+        assert_eq!(cache.snapshot(1000).schema_version, 12);
         assert_eq!(
             cache.snapshot(6001).cpu_processes.status,
             MetricStatus::Stale

@@ -12,6 +12,7 @@ export interface GpuDetails {
   telemetry: {
     coreCount: number | null;
     temperatureCelsius: number | null;
+    engineClockMhz: number | null;
     coreClockMhz: number | null;
     memoryClockMhz: number | null;
     fanPercent: number | null;
@@ -41,6 +42,7 @@ export const GPU_FACT_LABEL_KEYS = {
   peak: 'gpuDetails.peak',
   temperature: 'gpuDetails.temperature',
   coreClock: 'gpuDetails.coreClock',
+  engineClock: 'gpuDetails.engineClock',
   memoryClock: 'gpuDetails.memoryClock',
   fanSpeed: 'gpuDetails.fanSpeed',
 } as const;

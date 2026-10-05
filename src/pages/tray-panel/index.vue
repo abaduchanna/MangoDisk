@@ -10,6 +10,7 @@ import MdMainShortcut from './components/md-main-shortcut.vue';
 import { OperatingSystemService } from '@/lib/services/operating-system-service';
 import { type MetricId } from '@/lib/models/system-resources';
 import MdResourceOverview from './components/md-resource-overview.vue';
+import MdCpuDetails from './components/md-cpu-details.vue';
 import MdGpuDetails from './components/md-gpu-details.vue';
 import MdMemoryOverview from './components/md-memory-overview.vue';
 import MdApplicationResourceList from './components/md-application-resource-list.vue';
@@ -290,6 +291,7 @@ onBeforeUnmount(() => {
         aria-labelledby="metric-tab-cpu"
       >
         <MdResourceOverview class="detail-summary" metric="cpu" :reading="store.reading" :active="panelVisible" />
+        <MdCpuDetails :reading="store.reading" />
         <MdApplicationResourceList
           class="monitor-processes"
           metric="cpu"
