@@ -19,8 +19,8 @@ pub(crate) struct MetadataFingerprintEntry {
 
 /// Reads no-follow metadata for initial discovery, never for destructive preflight.
 /// Windows directory records already contain file facts. Directories retain a live query before
-/// descent so a directory replaced by a junction after enumeration is still rejected. Unix
-/// enumeration does not cache these facts, so it retains the existing live no-follow query.
+/// descent so a directory replaced by a junction after enumeration is still rejected. Linux
+/// uses a live no-follow query relative to the open directory; other Unix targets retain lstat.
 pub(crate) fn scan_entry_metadata(
     entry: &fs::DirEntry,
     path: &Path,
@@ -34,7 +34,12 @@ pub(crate) fn scan_entry_metadata(
             Ok(metadata)
         }
     }
-    #[cfg(not(windows))]
+    #[cfg(target_os = "linux")]
+    {
+        let _ = path;
+        entry.metadata()
+    }
+    #[cfg(not(any(windows, target_os = "linux")))]
     {
         let _ = entry;
         fs::symlink_metadata(path)

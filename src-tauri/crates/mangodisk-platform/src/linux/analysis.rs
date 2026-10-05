@@ -475,9 +475,9 @@ fn read_directory(
             }
         };
         let path = entry.path();
-        // DirEntry::metadata follows links; inspect the directory entry itself so
-        // native traversal cannot count or descend into a symbolic-link target.
-        let metadata = match fs::symlink_metadata(&path) {
+        // On glibc Linux, DirEntry uses a live no-follow query relative to the open directory.
+        // This avoids resolving every ancestor again without following symbolic links.
+        let metadata = match entry.metadata() {
             Ok(metadata) => metadata,
             Err(_) => {
                 totals.skip_entry()?;
