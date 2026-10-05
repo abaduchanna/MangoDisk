@@ -2,6 +2,8 @@ pub mod format;
 pub mod labels;
 #[cfg(target_os = "macos")]
 mod macos;
+#[cfg(target_os = "macos")]
+mod macos_interaction;
 #[cfg(any(target_os = "macos", test))]
 mod macos_presentation;
 pub mod usage_color;
@@ -157,11 +159,10 @@ fn ensure(app: &tauri::AppHandle, id: DisplayId, labels: &labels::Labels) -> tau
     };
     #[cfg(not(windows))]
     let icon = brand_icon();
-    let tray = TrayIconBuilder::with_id(id.tray_id())
+    let builder = TrayIconBuilder::with_id(id.tray_id())
         .icon(icon)
         .icon_as_template(cfg!(target_os = "macos"))
         .tooltip("MangoDisk")
-        .menu(&menu(app, labels)?)
         .show_menu_on_left_click(false)
         .on_menu_event(|app, event| match event.id().as_ref() {
             #[cfg(target_os = "linux")]
@@ -185,6 +186,16 @@ fn ensure(app: &tauri::AppHandle, id: DisplayId, labels: &labels::Labels) -> tau
             _ => {}
         })
         .on_tray_icon_event(move |tray, event| {
+            #[cfg(target_os = "macos")]
+            if let TrayIconEvent::Click {
+                button,
+                button_state,
+                ..
+            } = event
+            {
+                macos_interaction::click(tray, button, button_state);
+                return;
+            }
             #[cfg(windows)]
             if matches!(event, TrayIconEvent::Leave { .. }) {
                 panel::tray_pointer_left(tray.app_handle());
@@ -205,8 +216,14 @@ fn ensure(app: &tauri::AppHandle, id: DisplayId, labels: &labels::Labels) -> tau
                     }
                 });
             }
-        })
-        .build(app)?;
+        });
+    // A resident NSMenu swallows left clicks on macOS 27 before tray-icon can
+    // route them. The macOS adapter attaches a menu only during presentation.
+    #[cfg(not(target_os = "macos"))]
+    let builder = builder.menu(&menu(app, labels)?);
+    #[cfg(target_os = "macos")]
+    let _ = labels;
+    let tray = builder.build(app)?;
     tray.set_visible(false)?;
     Ok(())
 }
@@ -253,6 +270,7 @@ fn render(
     state: &mut DisplayState,
 ) -> tauri::Result<()> {
     let labels = labels::Labels::load(app);
+    #[cfg(not(target_os = "macos"))]
     let changed_locale = state.locale != labels.locale;
     let mut entries = format::entries(
         preferences,
@@ -302,6 +320,7 @@ fn render(
                     state.entries.remove(&id);
                 }
             }
+            #[cfg(not(target_os = "macos"))]
             if changed_locale {
                 tray.set_menu(Some(menu(app, &labels)?))?;
             }

@@ -51,7 +51,7 @@ serde_json = "1"
 objc2 = "0.6.4"
 block2 = "0.6.2"
 objc2-foundation = { version = "0.3.2", default-features = false, features = ["std", "NSData", "NSDictionary", "NSString", "NSGeometry"] }
-objc2-app-kit = { version = "0.3.2", default-features = false, features = ["NSFont", "NSFontDescriptor", "NSStatusItem", "NSStatusBarButton", "NSWindow", "NSButton", "NSControl", "NSView", "NSRunningApplication", "NSImage", "NSColor", "NSAttributedString", "NSStringDrawing", "NSGraphics", "NSAppearance", "NSAccessibilityProtocols", "block2"] }
+objc2-app-kit = { version = "0.3.2", default-features = false, features = ["NSFont", "NSFontDescriptor", "NSStatusItem", "NSStatusBarButton", "NSWindow", "NSButton", "NSControl", "NSView", "NSEvent", "NSRunningApplication", "NSImage", "NSColor", "NSAttributedString", "NSStringDrawing", "NSGraphics", "NSAppearance", "NSAccessibilityProtocols", "block2"] }
 icns = "0.4"
 plist = "1.7"
 

@@ -151,7 +151,26 @@ from resizing the entry (220 pt for all metrics plus the brand). Native appearan
 and recreated buttons invalidate the image cache; accessibility retains the textual
 summary. The adapter
 uses Tauri 2.11 native tray access; its minor version is constrained so an upgrade
-receives native UI regression checks. Windows uses at most six retained tray handles and
+receives native UI regression checks. On macOS, no menu remains attached to the
+status item: a secondary press creates a menu using the current locale, presents
+it on the main thread, and removes it even if presentation fails. This follows
+[tray-icon #365](https://github.com/tauri-apps/tray-icon/pull/365): macOS 27 swallows
+primary clicks while `NSStatusItem.menu` is non-null. Apple documents this
+[menu/action precedence](https://developer.apple.com/documentation/appkit/nsstatusitem/menu).
+The adapter leaves Tauri's event-listener callback before entering native menu
+tracking and holds no display-state or tray-icon borrow across that nested event
+loop. Primary presses toggle the panel once; releases do not toggle it again.
+Blur during a primary press over the entry is deferred to the toggle; keyboard
+switching and outside clicks still dismiss it. Preference and locale refreshes
+never reattach a macOS menu. The panel explicitly uses AppKit's
+[stationary collection behavior](https://developer.apple.com/documentation/appkit/nswindow/collectionbehavior-swift.struct/stationary)
+so Show Desktop cannot sweep a newly opened panel offscreen. This replaces only
+the mutually exclusive Mission Control flags and preserves workspace/fullscreen
+policy. Check opening after clicking the wallpaper to reveal the desktop,
+primary open/close, secondary menu dismissal
+and actions, locale refresh, and entry recreation in a packaged app when changing
+this path; macOS 15 regression results do not establish macOS 27 compatibility.
+Windows uses at most six retained tray handles and
 bounded native-size bitmaps. Logical entry IDs are stable within MangoDisk; they
 are not Windows notification GUIDs and do not guarantee retained shell placement
 across restarts or changed selections. Windows controls icon order and overflow.
