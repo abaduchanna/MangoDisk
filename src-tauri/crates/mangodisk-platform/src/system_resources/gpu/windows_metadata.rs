@@ -8,6 +8,10 @@ use std::{
 };
 use windows_sys::{
     Wdk::Graphics::Direct3D::*,
+    Win32::Devices::Display::{
+        DisplayConfigGetDeviceInfo, DISPLAYCONFIG_ADAPTER_NAME,
+        DISPLAYCONFIG_DEVICE_INFO_GET_ADAPTER_NAME,
+    },
     Win32::Foundation::{LUID, STATUS_INVALID_PARAMETER},
     Win32::System::Performance::PDH_INVALID_DATA,
 };
@@ -33,6 +37,39 @@ pub(super) fn standard_engine(kind: DXGK_ENGINE_TYPE) -> bool {
 
 pub(super) fn physical_address_valid(address: &D3DKMT_ADAPTERADDRESS) -> bool {
     address.BusNumber != u32::MAX && address.DeviceNumber <= 31 && address.FunctionNumber <= 7
+}
+
+fn device_path_id(units: &[u16]) -> Option<String> {
+    let end = units.iter().position(|unit| *unit == 0)?;
+    let path = String::from_utf16(&units[..end]).ok()?;
+    if !path.starts_with(r"\\?\") || path.len() <= 4 || path.chars().any(char::is_control) {
+        return None;
+    }
+    Some(format!("device:{}", path.to_ascii_lowercase()))
+}
+
+fn indirect_display_adapter(flags: u32) -> bool {
+    // d3dkmthk.h defines IndirectDisplayDevice at bit 6. Paravirtualized GPUs
+    // remain eligible: only display endpoints without their own GPU are excluded.
+    flags & (1 << 6) != 0
+}
+
+fn adapter_device_id(luid: LUID) -> Result<String, Failure> {
+    let mut value = DISPLAYCONFIG_ADAPTER_NAME::default();
+    value.header.r#type = DISPLAYCONFIG_DEVICE_INFO_GET_ADAPTER_NAME;
+    value.header.size = mem::size_of::<DISPLAYCONFIG_ADAPTER_NAME>() as u32;
+    value.header.adapterId = luid;
+    let code = unsafe { DisplayConfigGetDeviceInfo(&mut value.header) };
+    if code != 0 {
+        return Err(Failure {
+            stage: "adapter_device_path",
+            code: code as u32,
+        });
+    }
+    device_path_id(&value.adapterDevicePath).ok_or(Failure {
+        stage: "adapter_device_path_invalid",
+        code: PDH_INVALID_DATA,
+    })
 }
 
 #[derive(Clone, PartialEq, Eq)]
@@ -194,7 +231,12 @@ impl Metadata {
     }
     pub(super) fn log_inventory(&self, luid: (u32, u32)) {
         const MAX_LOGGED_NODES: usize = 64;
-        log::info!("gpu_adapter_discovered source=dxgi_wddm adapter={} name={} adapter_luid={:08x}:{:08x} ordinal={} physical_count={} dedicated_capacity_bytes={} node_count={} standard_node_count={} summary_policy=peak_standard_engine custom_in_summary=false", text(&self.id), text(&self.name), luid.0, luid.1, self.ordinal, self.physical_count, self.dedicated_bytes, self.nodes.len(), self.engines.len());
+        let identity_source = if self.id.starts_with("device:") {
+            "device_path"
+        } else {
+            "pci_address"
+        };
+        log::info!("gpu_adapter_discovered source=dxgi_wddm identity_source={} adapter={} name={} adapter_luid={:08x}:{:08x} ordinal={} physical_count={} dedicated_capacity_bytes={} node_count={} standard_node_count={} summary_policy=peak_standard_engine custom_in_summary=false", identity_source, text(&self.id), text(&self.name), luid.0, luid.1, self.ordinal, self.physical_count, self.dedicated_bytes, self.nodes.len(), self.engines.len());
         let mut nodes: Vec<_> = self.nodes.iter().collect();
         nodes.sort_by_key(|(identity, _)| **identity);
         for ((physical, node), descriptor) in nodes.into_iter().take(MAX_LOGGED_NODES) {
@@ -226,29 +268,36 @@ impl Metadata {
     pub(super) fn read(
         description: &windows::Win32::Graphics::Dxgi::DXGI_ADAPTER_DESC1,
         ordinal: u32,
-    ) -> Result<Self, Failure> {
+    ) -> Result<Option<Self>, Failure> {
         let handle = AdapterHandle::open(LUID {
             HighPart: description.AdapterLuid.HighPart,
             LowPart: description.AdapterLuid.LowPart,
         })?;
         let mut address = D3DKMT_ADAPTERADDRESS::default();
-        handle.query(KMTQAITYPE_ADAPTERADDRESS, &mut address, "adapter_address")?;
-        // Session adapters can repeat a GPU name with an invalid PCI address.
-        // Persisting that address would alias several devices to one selection.
-        if !physical_address_valid(&address) {
-            return Err(Failure {
-                stage: "adapter_address_invalid",
-                code: PDH_INVALID_DATA,
-            });
-        }
-        let id = format!(
-            "pci:{:04x}:{:04x}:{}:{}:{}",
-            description.VendorId,
-            description.DeviceId,
-            address.BusNumber,
-            address.DeviceNumber,
-            address.FunctionNumber
-        );
+        let address_result =
+            handle.query(KMTQAITYPE_ADAPTERADDRESS, &mut address, "adapter_address");
+        let id = if address_result.is_ok() && physical_address_valid(&address) {
+            format!(
+                "pci:{:04x}:{:04x}:{}:{}:{}",
+                description.VendorId,
+                description.DeviceId,
+                address.BusNumber,
+                address.DeviceNumber,
+                address.FunctionNumber
+            )
+        } else {
+            let mut adapter_type = D3DKMT_ADAPTERTYPE::default();
+            handle.query(KMTQAITYPE_ADAPTERTYPE, &mut adapter_type, "adapter_type")?;
+            if indirect_display_adapter(unsafe { adapter_type.Anonymous.Value }) {
+                return Ok(None);
+            }
+            // Virtual adapters need not have a PCI location. Use their device interface
+            // path instead of a repeated name or a LUID that changes across reboots.
+            adapter_device_id(LUID {
+                HighPart: description.AdapterLuid.HighPart,
+                LowPart: description.AdapterLuid.LowPart,
+            })?
+        };
         let mut count = D3DKMT_PHYSICAL_ADAPTER_COUNT::default();
         handle.query(
             KMTQAITYPE_PHYSICALADAPTERCOUNT,
@@ -322,7 +371,7 @@ impl Metadata {
             .iter()
             .position(|unit| *unit == 0)
             .unwrap_or(description.Description.len());
-        Ok(Self {
+        Ok(Some(Self {
             id,
             name: String::from_utf16_lossy(&description.Description[..length]),
             ordinal,
@@ -337,13 +386,38 @@ impl Metadata {
                 node_retry_at: vec![None; count.Count as usize],
                 node_observations: vec![None; count.Count as usize],
             },
-        })
+        }))
     }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn indirect_display_endpoints_are_not_paravirtualized_gpus() {
+        assert!(indirect_display_adapter(0x242));
+        assert!(indirect_display_adapter(1 << 6));
+        assert!(!indirect_display_adapter(0xb));
+        assert!(!indirect_display_adapter((1 << 7) | 3));
+    }
+
+    #[test]
+    fn non_pci_device_paths_preserve_identity_without_adapter_names_or_luids() {
+        fn id(path: &str) -> Option<String> {
+            device_path_id(&path.encode_utf16().chain([0]).collect::<Vec<_>>())
+        }
+        let first = id(r"\\?\ACPI#PRL4005#0#{adapter}").unwrap();
+        assert_eq!(first, r"device:\\?\acpi#prl4005#0#{adapter}");
+        assert_eq!(Some(first.clone()), id(r"\\?\acpi#prl4005#0#{adapter}"));
+        assert_ne!(Some(first), id(r"\\?\ACPI#PRL4005#1#{adapter}"));
+        assert_eq!(id("Parallels Display Adapter"), None);
+        assert_eq!(id(r"\\?\"), None);
+        assert_eq!(id(""), None);
+        assert_eq!(id("\\\\?\\invalid\npath"), None);
+        assert_eq!(device_path_id(&[0xd800, 0]), None);
+        assert_eq!(device_path_id(&[1; 128]), None);
+    }
 
     #[test]
     fn native_clock_is_hertz_and_zero_never_becomes_a_frequency() {

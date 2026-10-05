@@ -103,12 +103,13 @@ pub struct GpuReader {
     names: HashMap<(u32, u32), Metadata>,
     named_at: Option<Instant>,
     software: HashSet<(u32, u32)>,
+    indirect_displays: HashSet<(u32, u32)>,
     metadata_failure: Option<i32>,
     adapter_failures: HashMap<(u32, u32), Failure>,
     memory_failure: Option<Failure>,
     memory_retry_at: Option<Instant>,
     diagnostics: ObservationDiagnostics,
-    inventory_counts: Option<(usize, usize, usize)>,
+    inventory_counts: Option<(usize, usize, usize, usize)>,
     enumeration_failure: Option<(u32, Failure)>,
 }
 impl GpuReader {
@@ -143,6 +144,7 @@ impl GpuReader {
             log::info!("gpu_metadata_recovered source=dxgi");
         }
         let mut software = HashSet::new();
+        let mut indirect_displays = HashSet::new();
         let mut names = HashMap::new();
         let mut present = HashSet::new();
         let mut enumeration_failure = None;
@@ -186,7 +188,14 @@ impl GpuReader {
                 continue;
             }
             match Metadata::read(&description, names.len() as u32) {
-                Ok(mut metadata) => {
+                Ok(None) => {
+                    if !self.indirect_displays.contains(&identity) {
+                        log::info!("gpu_adapter_excluded source=wddm_adapter_type adapter_luid={:08x}:{:08x} reason=indirect_display_device outcome=excluded", identity.0, identity.1);
+                    }
+                    self.adapter_failures.remove(&identity);
+                    indirect_displays.insert(identity);
+                }
+                Ok(Some(mut metadata)) => {
                     if self
                         .names
                         .get(&identity)
@@ -232,9 +241,14 @@ impl GpuReader {
         }
         self.adapter_failures
             .retain(|luid, _| present.contains(luid));
-        let counts = (names.len(), software.len(), self.adapter_failures.len());
+        let counts = (
+            names.len(),
+            software.len(),
+            self.adapter_failures.len(),
+            indirect_displays.len(),
+        );
         if self.inventory_counts != Some(counts) {
-            log::info!("gpu_inventory source=dxgi_wddm hardware_adapters={} excluded_software_adapters={} failed_metadata_adapters={}", counts.0, counts.1, counts.2);
+            log::info!("gpu_inventory source=dxgi_wddm hardware_adapters={} excluded_software_adapters={} failed_metadata_adapters={} excluded_indirect_display_adapters={}", counts.0, counts.1, counts.2, counts.3);
             self.inventory_counts = Some(counts);
         }
         self.diagnostics.retain(|id| {
@@ -245,6 +259,7 @@ impl GpuReader {
         });
         self.names = names;
         self.software = software;
+        self.indirect_displays = indirect_displays;
     }
 
     pub fn catalogue(&mut self) -> PlatformResult<Vec<GpuAdapter>> {
@@ -521,6 +536,43 @@ mod tests {
             engine("pid_invalid_luid_0x0_0x1_phys_0_eng_0_engtype_3D"),
             None
         );
+    }
+
+    #[test]
+    fn non_pci_adapters_with_identical_names_remain_separate_and_filter_software() {
+        let values = adapters(
+            &HashMap::from([
+                ((0, 1, 0, 0), 25.0),
+                ((0, 2, 0, 0), 75.0),
+                ((0, 3, 0, 0), 99.0),
+            ]),
+            &HashMap::from([
+                (
+                    (0, 1),
+                    test_metadata("device:path0", "Virtual GPU", &[(0, 0)]),
+                ),
+                (
+                    (0, 2),
+                    test_metadata("device:path1", "Virtual GPU", &[(0, 0)]),
+                ),
+                (
+                    (0, 3),
+                    test_metadata("device:path2", "Software GPU", &[(0, 0)]),
+                ),
+            ]),
+            &HashSet::from([(0, 3)]),
+        );
+        assert_eq!(values.len(), 2);
+        for (id, expected) in [("device:path0:0", 25.0), ("device:path1:0", 75.0)] {
+            assert_eq!(
+                values
+                    .iter()
+                    .find(|value| value.id == id)
+                    .unwrap()
+                    .used_percent,
+                expected
+            );
+        }
     }
 
     #[test]
