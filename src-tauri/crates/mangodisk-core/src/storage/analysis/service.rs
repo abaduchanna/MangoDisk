@@ -264,6 +264,7 @@ mod tests {
     use super::*;
 
     #[test]
+    #[cfg(windows)]
     fn scan_modes_keep_navigation_remainder_and_delete_in_one_metric() {
         use mangodisk_platform::Platform;
         let _operation_lock = crate::shared::operation::test_operation_lock();
@@ -284,11 +285,6 @@ mod tests {
                 output.status.success(),
                 "WOF fixture compression must succeed"
             );
-        }
-        #[cfg(unix)]
-        {
-            let file = fs::OpenOptions::new().write(true).open(&candidate).unwrap();
-            file.set_len(16 * 1024 * 1024).unwrap();
         }
         let logical = fs::metadata(&candidate).unwrap().len();
         let native = mangodisk_platform::current_platform()
@@ -357,6 +353,38 @@ mod tests {
         assert_eq!(empty.total_bytes, 0);
         assert!(!candidate.exists());
         cache::clear_all().unwrap();
+    }
+
+    #[test]
+    #[cfg(unix)]
+    fn unix_analysis_uses_allocation_even_when_fast_is_requested() {
+        use mangodisk_platform::Platform;
+        let _operation_lock = crate::shared::operation::test_operation_lock();
+        let fixture = AnalysisFixture::new();
+        let file = fixture.root.join("sparse.bin");
+        fs::write(&file, [1_u8; 4096]).unwrap();
+        fs::OpenOptions::new()
+            .write(true)
+            .open(&file)
+            .unwrap()
+            .set_len(16 * 1024 * 1024)
+            .unwrap();
+        let metadata = fs::symlink_metadata(&file).unwrap();
+        let allocated = mangodisk_platform::current_platform()
+            .file_space_usage(&file, &metadata)
+            .allocated_bytes;
+        assert!(allocated < metadata.len());
+        let result = AnalysisService::analyze_with_mode_progress(
+            Some(fixture.root.to_string_lossy().into_owned()),
+            true,
+            ScanExclusionOptions::default(),
+            AnalysisScanMode::Fast,
+            |_| {},
+        )
+        .unwrap();
+        assert_eq!(result.scan_mode, AnalysisScanMode::Standard);
+        assert_eq!(result.total_bytes, allocated);
+        assert_eq!(result.entries[0].bytes, allocated);
     }
 
     struct AnalysisFixture {

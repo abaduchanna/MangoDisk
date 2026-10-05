@@ -14,6 +14,7 @@ import type {
 import type { TraversalProgress } from '@/lib/models/progress';
 import { AnalysisService } from '@/lib/services/analysis-service';
 import { LoggerService } from '@/lib/services/logger-service';
+import { OperatingSystemService } from '@/lib/services/operating-system-service';
 import { PreferenceStorageService } from '@/lib/services/preference-storage-service';
 import * as AnalysisViewPreferenceUtils from '@/lib/utils/analysis-view-preference';
 import * as AnalysisCacheUtils from '@/lib/utils/analysis-cache';
@@ -140,7 +141,9 @@ export const useAnalysisStore = defineStore('analysis', {
     },
     async analyze(path?: string, refresh = false, setHome = false, requestedMode?: AnalysisScanMode) {
       if (this.pending || this.deleting) return;
-      const scanMode = requestedMode ?? this.scanMode;
+      const scanMode = OperatingSystemService.isWindows()
+        ? (requestedMode ?? this.scanMode)
+        : ANALYSIS_SCAN_MODES.standard;
       if (scanMode !== this.scanMode) {
         LoggerService.info(LOG_DOMAINS.analysis, LOG_EVENTS.analysisCacheConfigurationChanged, {
           previousMode: this.scanMode,
@@ -266,6 +269,11 @@ export const useAnalysisStore = defineStore('analysis', {
       }
     },
     async refreshAfterDelete(root: string, path: string, deleteFailed: boolean) {
+      if (!OperatingSystemService.isWindows() && this.scanMode !== ANALYSIS_SCAN_MODES.standard) {
+        this.scanMode = ANALYSIS_SCAN_MODES.standard;
+        this.cache = {};
+        this.cacheOrder = [];
+      }
       // Deletion or concurrent writes can invalidate every overlapping snapshot.
       // Expire overlapping snapshots before starting a cancellable recovery scan.
       this.cache = AnalysisCacheUtils.invalidateChangedPath(this.cache, path);

@@ -260,6 +260,10 @@ impl StorageTraversal {
         scan_mode: AnalysisScanMode,
         callback: impl Fn(TraversalProgress) + Send + Sync + 'static,
     ) -> CoreResult<AnalysisTraversalSnapshot> {
+        #[cfg(not(windows))]
+        let requested_scan_mode = scan_mode;
+        #[cfg(not(windows))]
+        let scan_mode = AnalysisScanMode::Standard;
         let excluded_paths = excluded_paths.into();
         let operation = OperationGuard::start(CoordinatedOperationKind::Analysis)?;
         let started = Instant::now();
@@ -272,6 +276,10 @@ impl StorageTraversal {
             return Err(CoreError::invalid_input(
                 "the analysis root must be a directory",
             ));
+        }
+        #[cfg(not(windows))]
+        if requested_scan_mode != scan_mode {
+            log::info!("analysis_scan_mode_normalized operation_id={} root={} requested_mode={} applied_mode=standard reason=windows_only", operation.id(), diagnostic_path(&root), requested_scan_mode.as_str());
         }
         let exclusions = StorageScanExclusions::resolve_options(&root, &excluded_paths)?;
         // Deletion must use the same resolved paths as traversal, including system aliases.

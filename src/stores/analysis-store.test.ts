@@ -5,6 +5,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { PAGE_IDS } from '@/lib/models/application-shell';
 import type { AnalysisResult, DirectoryEntryInfo } from '@/lib/models/analysis';
 import { AnalysisService } from '@/lib/services/analysis-service';
+import { OperatingSystemService } from '@/lib/services/operating-system-service';
 import * as AnalysisCacheUtils from '@/lib/utils/analysis-cache';
 
 import { useAnalysisStore } from './analysis-store';
@@ -35,8 +36,34 @@ describe('analysis store', () => {
   beforeEach(() => {
     setActivePinia(createPinia());
     vi.restoreAllMocks();
+    vi.spyOn(OperatingSystemService, 'isWindows').mockReturnValue(true);
     useStorageScanPreferencesStore().initialized = true;
     vi.spyOn(AnalysisService, 'listenProgress').mockResolvedValue(vi.fn());
+  });
+
+  it.each(['macos', 'linux'])('uses allocation and expires a stale fast cache on %s', async () => {
+    vi.mocked(OperatingSystemService.isWindows).mockReturnValue(false);
+    const store = useAnalysisStore();
+    store.scanMode = 'fast';
+    store.cache = { '/fixture': { ...result, scanMode: 'fast' } };
+    const analyze = vi.spyOn(AnalysisService, 'analyze').mockResolvedValue({ ...result, scanMode: 'standard' });
+    await store.analyze('/fixture', false, true, 'fast');
+    expect(analyze).toHaveBeenCalledWith('/fixture', true, [], [], 'standard');
+    expect(store.scanMode).toBe('standard');
+    await store.refreshAfterDelete('/fixture', entry.path, false);
+    expect(analyze).toHaveBeenLastCalledWith('/fixture', true, [], [], 'standard');
+  });
+
+  it('expires unrelated fast snapshots when Unix deletion recovery normalizes the mode', async () => {
+    vi.mocked(OperatingSystemService.isWindows).mockReturnValue(false);
+    const store = useAnalysisStore();
+    store.scanMode = 'fast';
+    store.cache = { '/other': { ...result, root: '/other', scanMode: 'fast' } };
+    store.cacheOrder = ['/other'];
+    vi.spyOn(AnalysisService, 'analyze').mockResolvedValue({ ...result, scanMode: 'standard' });
+    await store.refreshAfterDelete('/fixture', entry.path, false);
+    expect(store.cache['/other']).toBeUndefined();
+    expect(store.cacheOrder).not.toContain('/other');
   });
 
   it('preserves fast mode when a deletion requires a recovery scan', async () => {

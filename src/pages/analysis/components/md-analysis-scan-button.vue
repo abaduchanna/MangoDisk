@@ -6,6 +6,7 @@ import MdSplitActionButton from '@/components/custom/md-split-action-button.vue'
 import MdIcon from '@/components/icons/md-icon.vue';
 import { ANALYSIS_SCAN_MODES, type AnalysisScanMode } from '@/lib/models/analysis';
 import { ICON_NAMES } from '@/lib/models/ui';
+import { OperatingSystemService } from '@/lib/services/operating-system-service';
 
 const props = withDefaults(
   defineProps<{
@@ -19,25 +20,31 @@ const props = withDefaults(
 );
 const emit = defineEmits<{ scan: [mode: AnalysisScanMode] }>();
 const { t } = useI18n({ useScope: 'global' });
+const hasScanModes = OperatingSystemService.isWindows();
 const label = computed(() =>
   t(props.scanning ? 'loading.currentStage' : props.rescan ? 'analysis.rescan' : 'analysis.start')
 );
-const items = computed(() => [
-  {
-    value: ANALYSIS_SCAN_MODES.standard,
-    icon: ICON_NAMES.hardDrive,
-    label: t('analysis.scanMode.standard'),
-    description: t('analysis.scanMode.standardDescription'),
-  },
-  {
-    value: ANALYSIS_SCAN_MODES.fast,
-    icon: ICON_NAMES.search,
-    label: t('analysis.scanMode.fast'),
-    description: t('analysis.scanMode.fastDescription'),
-  },
-]);
+const items = computed(() =>
+  hasScanModes
+    ? [
+        {
+          value: ANALYSIS_SCAN_MODES.standard,
+          icon: ICON_NAMES.hardDrive,
+          label: t('analysis.scanMode.standard'),
+          description: t('analysis.scanMode.standardDescription'),
+        },
+        {
+          value: ANALYSIS_SCAN_MODES.fast,
+          icon: ICON_NAMES.search,
+          label: t('analysis.scanMode.fast'),
+          description: t('analysis.scanMode.fastDescription'),
+        },
+      ]
+    : []
+);
 function select(value: string) {
-  if (value === ANALYSIS_SCAN_MODES.standard || value === ANALYSIS_SCAN_MODES.fast) emit('scan', value);
+  if (hasScanModes && (value === ANALYSIS_SCAN_MODES.standard || value === ANALYSIS_SCAN_MODES.fast))
+    emit('scan', value);
 }
 </script>
 
@@ -51,7 +58,7 @@ function select(value: string) {
     :primary-label="label"
     :size="large ? 'lg' : 'default'"
     :variant="rescan ? 'outline' : 'default'"
-    @primary="emit('scan', mode)"
+    @primary="emit('scan', hasScanModes ? mode : ANALYSIS_SCAN_MODES.standard)"
     @select="select"
   >
     <template #primary>
