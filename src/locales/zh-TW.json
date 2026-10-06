@@ -4044,6 +4044,7 @@
     "displayEnabled": "在工作列或系統匣顯示",
     "menuBarHint": "查看 CPU、GPU、記憶體、網速與磁碟，快速釋放記憶體",
     "displayHint": "查看 CPU、GPU、記憶體、網速與磁碟，快速釋放記憶體",
+    "linuxDisplayHint": "查看 CPU、記憶體、網速與磁碟使用情況",
     "overview": "概覽",
     "memoryManagement": "記憶體",
     "memoryDetails": "查看應用程式",

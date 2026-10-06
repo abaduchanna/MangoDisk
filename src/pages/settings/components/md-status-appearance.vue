@@ -41,7 +41,7 @@ function changeCompact(enabled: boolean) {
 <template>
   <MdSettingsGroup plain :title="t('systemStatus.appearanceTitle')">
     <MdSettingsRow
-      v-if="!isMacOs && preferences.windowsDisplayMode === 'taskbar'"
+      v-if="!isMacOs && !isLinux && preferences.windowsDisplayMode === 'taskbar'"
       compact
       :title="t('systemStatus.taskbarBackground')"
       description=""

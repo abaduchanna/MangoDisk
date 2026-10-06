@@ -4044,6 +4044,7 @@
     "displayEnabled": "Görev çubuğunda veya sistem tepsisinde göster",
     "menuBarHint": "CPU, GPU, bellek, ağ hızı ve disk verilerini görüntüleyin; belleği boşaltın",
     "displayHint": "CPU, GPU, bellek, ağ hızı ve disk verilerini görüntüleyin; belleği boşaltın",
+    "linuxDisplayHint": "CPU, bellek, ağ hızı ve disk verilerini görüntüleyin",
     "overview": "Genel bakış",
     "memoryManagement": "Bellek",
     "memoryDetails": "Uygulamaları görüntüle",

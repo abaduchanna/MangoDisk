@@ -4044,6 +4044,7 @@
     "displayEnabled": "タスクバーまたはシステムトレイに表示",
     "menuBarHint": "CPU・GPU・メモリ・通信・ディスクを確認し、メモリを解放",
     "displayHint": "CPU・GPU・メモリ・通信・ディスクを確認し、メモリを解放",
+    "linuxDisplayHint": "CPU・メモリ・通信速度・ディスクの使用状況を確認",
     "overview": "概要",
     "memoryManagement": "メモリ",
     "memoryDetails": "アプリを表示",

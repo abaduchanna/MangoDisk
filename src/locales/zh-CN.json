@@ -4044,6 +4044,7 @@
     "displayEnabled": "在任务栏或托盘显示",
     "menuBarHint": "查看 CPU、GPU、内存、网速与磁盘，快速释放内存",
     "displayHint": "查看 CPU、GPU、内存、网速与磁盘，快速释放内存",
+    "linuxDisplayHint": "查看 CPU、内存、网速与磁盘使用情况",
     "overview": "概览",
     "memoryManagement": "内存",
     "memoryDetails": "查看应用",

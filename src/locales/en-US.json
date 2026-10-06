@@ -4044,6 +4044,7 @@
     "displayEnabled": "Show in the taskbar or system tray",
     "menuBarHint": "View CPU, GPU, memory, network speed and disk stats; free up memory",
     "displayHint": "View CPU, GPU, memory, network speed and disk stats; free up memory",
+    "linuxDisplayHint": "View CPU, memory, network speed and disk stats",
     "overview": "Overview",
     "memoryManagement": "Memory",
     "memoryDetails": "View apps",

@@ -53,10 +53,11 @@ const announcement = ref('');
 const metricRowsElement = ref<HTMLElement | null>(null);
 const canReorder = computed(() => props.isMacOs || props.isLinux || settings.draft?.windowsDisplayMode === 'taskbar');
 const rows = computed(() => dragRows.value ?? settings.draft?.metrics ?? []);
+const visibleRows = computed(() => rows.value.filter(row => !props.isLinux || row.id !== 'gpu'));
 // Older preferences may have every item cleared. Mirror the native Logo
 // fallback without writing on load, and retain it when the next metric is added.
-const showIcon = computed(() => (settings.draft?.showIcon ?? true) || !rows.value.some(row => row.enabled));
-const selectedCount = computed(() => Number(showIcon.value) + rows.value.filter(row => row.enabled).length);
+const showIcon = computed(() => (settings.draft?.showIcon ?? true) || !visibleRows.value.some(row => row.enabled));
+const selectedCount = computed(() => Number(showIcon.value) + visibleRows.value.filter(row => row.enabled).length);
 function selectionLocked(selected: boolean) {
   return !settings.draft || (selected && selectedCount.value <= 1);
 }
@@ -187,8 +188,8 @@ function restoreHandleFocus(id: MetricId) {
 function announce() {
   announcement.value = t('systemStatus.moveAnnouncement', {
     name: t(METRIC_LABEL_KEYS[dragging.value!]),
-    position: rows.value.findIndex(row => row.id === dragging.value) + 1,
-    count: rows.value.length,
+    position: visibleRows.value.findIndex(row => row.id === dragging.value) + 1,
+    count: visibleRows.value.length,
   });
 }
 let pointer: {
@@ -273,7 +274,7 @@ function pointerMove(event: PointerEvent) {
   const x = pointer.bounds.left + pointer.bounds.width / 2 + dx;
   const y = pointer.bounds.top + pointer.bounds.height / 2 + dy;
   const index = pointer.slots.findIndex(slot => x >= slot.left && x <= slot.right && y >= slot.top && y <= slot.bottom);
-  const target = rows.value[index];
+  const target = visibleRows.value[index];
   if (target) move(target.id);
 }
 function pointerUp(event: PointerEvent) {
@@ -316,9 +317,9 @@ function key(event: KeyboardEvent, id: MetricId) {
     else begin(id);
   } else if (dragging.value && ['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(event.key)) {
     event.preventDefault();
-    const index = rows.value.findIndex(row => row.id === dragging.value);
+    const index = visibleRows.value.findIndex(row => row.id === dragging.value);
     // Up/down follows the visible list; retain left/right as equivalent shortcuts.
-    const next = rows.value[index + (event.key === 'ArrowUp' || event.key === 'ArrowLeft' ? -1 : 1)];
+    const next = visibleRows.value[index + (event.key === 'ArrowUp' || event.key === 'ArrowLeft' ? -1 : 1)];
     if (next) move(next.id);
   }
 }
@@ -360,7 +361,9 @@ onBeforeUnmount(() => {
   <div class="status-settings">
     <MdSettingsRow
       :title="t(isMacOs ? 'systemStatus.menuBarEnabled' : 'systemStatus.displayEnabled')"
-      :description="t(isMacOs ? 'systemStatus.menuBarHint' : 'systemStatus.displayHint')"
+      :description="
+        t(isMacOs ? 'systemStatus.menuBarHint' : isLinux ? 'systemStatus.linuxDisplayHint' : 'systemStatus.displayHint')
+      "
       title-id="resident-enabled-label"
       description-id="resident-enabled-hint"
     >
@@ -460,7 +463,7 @@ onBeforeUnmount(() => {
                     </label>
                   </div>
                   <div
-                    v-for="row in rows"
+                    v-for="row in visibleRows"
                     :key="row.id"
                     class="status-item metric-row"
                     :class="{

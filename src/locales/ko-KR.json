@@ -4044,6 +4044,7 @@
     "displayEnabled": "작업 표시줄 또는 시스템 트레이에 표시",
     "menuBarHint": "CPU, GPU, 메모리, 네트워크, 디스크 확인 및 메모리 확보",
     "displayHint": "CPU, GPU, 메모리, 네트워크, 디스크 확인 및 메모리 확보",
+    "linuxDisplayHint": "CPU, 메모리, 네트워크 속도 및 디스크 사용 현황 확인",
     "overview": "개요",
     "memoryManagement": "메모리",
     "memoryDetails": "앱 보기",

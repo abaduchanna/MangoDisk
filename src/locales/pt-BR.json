@@ -4044,6 +4044,7 @@
     "displayEnabled": "Mostrar na barra de tarefas ou na bandeja do sistema",
     "menuBarHint": "Veja dados de CPU, GPU, memória, velocidade de rede e disco; libere memória",
     "displayHint": "Veja dados de CPU, GPU, memória, velocidade de rede e disco; libere memória",
+    "linuxDisplayHint": "Veja dados de CPU, memória, velocidade de rede e disco",
     "overview": "Visão geral",
     "memoryManagement": "Memória",
     "memoryDetails": "Ver aplicativos",

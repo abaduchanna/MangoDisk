@@ -147,7 +147,11 @@ describe('status display interactions', () => {
     expect(wrapper.find('#menu-bar-compact').exists()).toBe(false);
   });
 
-  it('uses the Linux tray compact setting without showing Windows display modes', async () => {
+  it('shows only Linux tray controls and reorders the visible metrics', async () => {
+    const saved = { ...preferencesFixture(), windowsDisplayMode: 'taskbar' as const };
+    const gpuIndex = saved.metrics.findIndex(row => row.id === 'gpu');
+    saved.metrics.splice(1, 0, ...saved.metrics.splice(gpuIndex, 1));
+    vi.mocked(ResidentService.preferences).mockResolvedValue(saved);
     const wrapper = mount(Settings, { props: { isMacOs: false, isLinux: true }, global: global() });
     wrappers.push(wrapper);
     await flushPromises();
@@ -156,12 +160,31 @@ describe('status display interactions', () => {
     expect(wrapper.findComponent(WindowsMode).exists()).toBe(false);
     expect(wrapper.findComponent(WindowsFeedback).exists()).toBe(false);
     expect(wrapper.find('#linux-tray-compact').exists()).toBe(true);
+    expect(wrapper.get('#resident-enabled-hint').text()).toBe('systemStatus.linuxDisplayHint');
+    expect(wrapper.find('#taskbar-background').exists()).toBe(false);
+    expect(wrapper.find('[data-metric="gpu"]').exists()).toBe(false);
+    expect(wrapper.findAll('.drag-handle')).toHaveLength(4);
 
     await wrapper.get('#linux-tray-compact').trigger('click');
     await flushPromises();
     expect(ResidentService.savePreferences).toHaveBeenLastCalledWith(
-      expect.objectContaining({ taskbarCompact: true, metrics: preferencesFixture().metrics })
+      expect.objectContaining({ taskbarCompact: true, metrics: saved.metrics })
     );
+
+    const memoryHandle = wrapper.get('[data-metric="memory"] .drag-handle');
+    await memoryHandle.trigger('keydown', { key: ' ' });
+    await memoryHandle.trigger('keydown', { key: 'ArrowUp' });
+    await memoryHandle.trigger('keydown', { key: 'Enter' });
+    await flushPromises();
+    expect(wrapper.findAll('.metric-row').map(row => row.attributes('data-metric'))).toEqual([
+      'memory',
+      'cpu',
+      'network',
+      'disk',
+    ]);
+    const preferences = vi.mocked(ResidentService.savePreferences).mock.calls.at(-1)![0];
+    expect(preferences.metrics[0]?.id).toBe('memory');
+    expect(preferences.metrics.find(row => row.id === 'gpu')?.enabled).toBe(false);
   });
 
   it('keeps the page compact and saves dialog edits without toggling residency', async () => {
