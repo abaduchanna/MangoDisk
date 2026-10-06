@@ -1990,7 +1990,7 @@
     "scanMode": {
       "label": "스캔 방식",
       "standard": "표준 스캔",
-      "standardDescription": "디스크 사용량 계산",
+      "standardDescription": "디스크 사용량을 측정해 공간 사용 현황을 더 정확하게 표시",
       "fast": "빠른 스캔",
       "fastDescription": "파일 크기를 계산해 더 빠르게 스캔",
       "fastHint": "압축 및 희소 파일의 크기는 디스크 사용량과 다를 수 있습니다"

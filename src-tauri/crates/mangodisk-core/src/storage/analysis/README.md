@@ -14,7 +14,8 @@ patched. Deletions from another metric invalidate the incompatible index.
 
 macOS and Linux expose one analysis action and always use `Standard`. Core normalizes
 legacy fast requests to standard on these platforms and records the applied mode.
-Windows defaults to standard on startup and discards navigation results when
-switching modes. Its labels describe standard bytes as disk usage and fast bytes
+Windows defaults to standard on first use, restores the last selected mode on
+startup, and discards navigation results when switching modes. Invalid saved
+modes fall back to standard. Its labels describe standard bytes as disk usage and fast bytes
 as file size. The standard CLI/Core convenience APIs retain their default behavior;
 call `AnalysisService::analyze_with_mode_progress` to select a metric explicitly.

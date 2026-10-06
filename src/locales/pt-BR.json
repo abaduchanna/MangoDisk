@@ -1990,7 +1990,7 @@
     "scanMode": {
       "label": "Modo de varredura",
       "standard": "Varredura padrão",
-      "standardDescription": "Calcula o uso do disco",
+      "standardDescription": "Mede o uso do disco para mostrar a distribuição do espaço com mais precisão",
       "fast": "Varredura rápida",
       "fastDescription": "Calcula o tamanho dos arquivos, mais rápido",
       "fastHint": "Arquivos compactados e esparsos podem ter tamanho diferente do uso do disco"

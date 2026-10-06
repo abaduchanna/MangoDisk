@@ -9,7 +9,7 @@ import MdEmptyState from '@/components/custom/md-empty-state.vue';
 import MdOperationProgress from '@/components/custom/md-operation-progress.vue';
 import MdPageShell from '@/components/custom/md-page-shell.vue';
 import MdDestructiveActionDialog from '@/components/custom/md-destructive-action-dialog.vue';
-import { ANALYSIS_VIEW_IDS } from '@/lib/models/analysis';
+import { ANALYSIS_SCAN_MODES, ANALYSIS_VIEW_IDS } from '@/lib/models/analysis';
 import { STORAGE_SCOPE_IDS } from '@/lib/models/storage-scope';
 import { ICON_NAMES } from '@/lib/models/ui';
 import type { AnalysisResult, AnalysisScanMode, AnalysisViewId, DirectoryEntryInfo } from '@/lib/models/analysis';
@@ -18,6 +18,7 @@ import type { TraversalProgress } from '@/lib/models/progress';
 import * as AnalysisBreadcrumbUtils from '@/lib/utils/analysis-breadcrumb';
 import * as DiskUtils from '@/lib/utils/disk';
 import { ByteSizeService } from '@/lib/services/byte-size-service';
+import { OperatingSystemService } from '@/lib/services/operating-system-service';
 import * as PathUtils from '@/lib/utils/path';
 import * as StorageScanPreferenceUtils from '@/lib/utils/storage-scan-preference';
 import { useStorageScanPreferencesStore } from '@/stores/storage-scan-preferences-store';
@@ -74,6 +75,14 @@ const primaryAnalysisPending = ref(false);
 const confirmOpen = ref(false);
 const pendingDelete = ref<DirectoryEntryInfo | null>(null);
 const analysisStore = useAnalysisStore();
+const scanHint = computed(() => {
+  const hint = t('loading.cancelHint');
+  if (!OperatingSystemService.isWindows()) return hint;
+  const mode = t(
+    analysisStore.scanMode === ANALYSIS_SCAN_MODES.fast ? 'analysis.scanMode.fast' : 'analysis.scanMode.standard'
+  );
+  return `${mode} · ${hint}`;
+});
 const viewMode = computed<AnalysisViewId>({
   get: () => analysisStore.viewPreferences.viewMode,
   set: value => analysisStore.setViewMode(value),
@@ -341,7 +350,7 @@ function navigateHistory(index: number) {
           :progress="progress"
           :path-label="t('loading.currentAnalysisDirectory')"
           :preparing-text="t('loading.preparingAnalysisDirectory')"
-          :hint="t('loading.cancelHint')"
+          :hint="scanHint"
           :cancelable="true"
           :cancel-disabled="cancelling"
           @cancel="emit('cancel')"

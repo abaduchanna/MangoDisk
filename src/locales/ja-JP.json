@@ -1990,7 +1990,7 @@
     "scanMode": {
       "label": "スキャン方式",
       "standard": "標準スキャン",
-      "standardDescription": "ディスク使用量を集計",
+      "standardDescription": "ディスク使用量を正確に集計",
       "fast": "高速スキャン",
       "fastDescription": "ファイルサイズを集計し、高速にスキャン",
       "fastHint": "圧縮・スパースファイルのサイズはディスク使用量と異なる場合があります"

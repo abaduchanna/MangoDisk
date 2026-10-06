@@ -21,6 +21,7 @@ async function startApplication() {
     useAppStore(pinia).loadSettings(),
     useAiStore(pinia).loadPreferences(),
     useAnalysisStore(pinia).initializeViewPreferences(),
+    useAnalysisStore(pinia).initializeScanMode(),
   ]);
   app.mount('#app');
 }

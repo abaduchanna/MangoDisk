@@ -1990,7 +1990,7 @@
     "scanMode": {
       "label": "Tarama modu",
       "standard": "Standart tarama",
-      "standardDescription": "Disk kullanımını hesaplar",
+      "standardDescription": "Alan kullanımını daha doğru göstermek için disk kullanımını ölçer",
       "fast": "Hızlı tarama",
       "fastDescription": "Dosya boyutunu daha hızlı hesaplar",
       "fastHint": "Sıkıştırılmış ve seyrek dosya boyutları disk kullanımından farklı olabilir"

@@ -5,12 +5,13 @@ import type { AppSettings } from '@/lib/models/settings';
 import type { StorageScopePreferences } from '@/lib/models/storage-scope';
 import type { CustomCleanupPreferences } from '@/lib/models/custom-cleanup';
 import type { ScanExclusionPreferences } from '@/lib/models/storage-scan';
-import type { AnalysisViewPreferences } from '@/lib/models/analysis';
+import type { AnalysisScanMode, AnalysisViewPreferences } from '@/lib/models/analysis';
 
 const SETTINGS_FILE_NAME = 'settings.json';
 const SETTINGS_KEYS = {
   settings: 'settings',
   analysisViewPreferences: 'analysisViewPreferences',
+  analysisScanMode: 'analysisScanMode',
   resourceSortPreferences: 'resourceSortPreferences',
   storageScopePreferences: 'storageScopePreferences',
   customCleanupPreferences: 'customCleanupPreferences',
@@ -33,6 +34,14 @@ export class PreferenceStorageService {
   private static mutationQueue: Promise<void> = Promise.resolve();
   private static analysisViewToSave: AnalysisViewPreferences | null = null;
   private static analysisViewSave: Promise<void> | null = null;
+
+  static loadAnalysisScanMode(): Promise<unknown | null> {
+    return this.read(SETTINGS_KEYS.analysisScanMode);
+  }
+
+  static saveAnalysisScanMode(mode: AnalysisScanMode): Promise<void> {
+    return this.write(SETTINGS_KEYS.analysisScanMode, mode);
+  }
 
   static loadAnalysisViewPreferences(): Promise<unknown | null> {
     return this.read(SETTINGS_KEYS.analysisViewPreferences);

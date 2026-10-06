@@ -1990,7 +1990,7 @@
     "scanMode": {
       "label": "掃描模式",
       "standard": "標準掃描",
-      "standardDescription": "統計磁碟佔用",
+      "standardDescription": "統計磁碟占用，更準確反映空間使用",
       "fast": "快速掃描",
       "fastDescription": "統計檔案大小，速度更快",
       "fastHint": "壓縮、稀疏檔案的大小可能與磁碟佔用不同"

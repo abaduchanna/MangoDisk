@@ -27,6 +27,7 @@ import { useStorageScanPreferencesStore } from './storage-scan-preferences-store
 
 interface AnalysisState {
   scanMode: AnalysisScanMode;
+  scanModeInitialized: boolean;
   viewPreferences: AnalysisViewPreferences;
   viewPreferencesInitialized: boolean;
   result: AnalysisResult | null;
@@ -45,10 +46,12 @@ interface AnalysisState {
 
 type ViewPreferenceKey = 'viewMode' | 'treemapDepth' | 'sunburstDepth';
 const viewPreferenceLoads = new WeakMap<object, { promise: Promise<void>; edited: Set<ViewPreferenceKey> }>();
+const scanModeLoads = new WeakMap<object, { promise: Promise<void>; selected: boolean }>();
 
 export const useAnalysisStore = defineStore('analysis', {
   state: (): AnalysisState => ({
     scanMode: ANALYSIS_SCAN_MODES.standard,
+    scanModeInitialized: false,
     viewPreferences: AnalysisViewPreferenceUtils.defaults(),
     viewPreferencesInitialized: false,
     result: null,
@@ -65,6 +68,51 @@ export const useAnalysisStore = defineStore('analysis', {
     deletingPath: null,
   }),
   actions: {
+    async initializeScanMode() {
+      if (this.scanModeInitialized) return;
+      if (!OperatingSystemService.isWindows()) {
+        this.scanMode = ANALYSIS_SCAN_MODES.standard;
+        this.scanModeInitialized = true;
+        return;
+      }
+      const pending = scanModeLoads.get(this);
+      if (pending) return pending.promise;
+      const load = { promise: Promise.resolve(), selected: false };
+      load.promise = (async () => {
+        try {
+          const saved = await PreferenceStorageService.loadAnalysisScanMode();
+          if (saved !== null && saved !== ANALYSIS_SCAN_MODES.standard && saved !== ANALYSIS_SCAN_MODES.fast) {
+            LoggerService.warn(LOG_DOMAINS.analysis, LOG_EVENTS.analysisScanModeInvalid, {
+              outcome: 'ignore_saved_mode',
+            });
+            return;
+          }
+          // A scan started during restoration owns its explicit selection.
+          if (!load.selected && saved !== null) {
+            this.scanMode = saved;
+            LoggerService.info(LOG_DOMAINS.analysis, LOG_EVENTS.analysisScanModeRestored, { scanMode: saved });
+          }
+        } catch (error) {
+          LoggerService.warn(LOG_DOMAINS.analysis, LOG_EVENTS.analysisScanModeLoadFailed, { error });
+        } finally {
+          this.scanModeInitialized = true;
+          scanModeLoads.delete(this);
+        }
+      })();
+      scanModeLoads.set(this, load);
+      return load.promise;
+    },
+    persistScanMode(scanMode: AnalysisScanMode) {
+      const pending = scanModeLoads.get(this);
+      if (pending) pending.selected = true;
+      void PreferenceStorageService.saveAnalysisScanMode(scanMode)
+        .then(() => {
+          LoggerService.info(LOG_DOMAINS.analysis, LOG_EVENTS.analysisScanModeSaved, { scanMode });
+        })
+        .catch(error => {
+          LoggerService.warn(LOG_DOMAINS.analysis, LOG_EVENTS.analysisScanModeSaveFailed, { scanMode, error });
+        });
+    },
     async initializeViewPreferences() {
       if (this.viewPreferencesInitialized) return;
       const pending = viewPreferenceLoads.get(this);
@@ -156,6 +204,7 @@ export const useAnalysisStore = defineStore('analysis', {
         this.cacheOrder = [];
         refresh = true;
       }
+      if (OperatingSystemService.isWindows() && requestedMode !== undefined) this.persistScanMode(scanMode);
       const appStore = useAppStore();
       const target = path?.trim() || appStore.disk?.mountPoint;
       const preferences = useStorageScanPreferencesStore();

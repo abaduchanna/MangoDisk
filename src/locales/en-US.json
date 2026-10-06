@@ -1990,7 +1990,7 @@
     "scanMode": {
       "label": "Scan mode",
       "standard": "Standard scan",
-      "standardDescription": "Measure disk usage",
+      "standardDescription": "Measure disk usage for a more accurate space breakdown",
       "fast": "Fast scan",
       "fastDescription": "Measure file size, scan faster",
       "fastHint": "Compressed and sparse file sizes may differ from disk usage"

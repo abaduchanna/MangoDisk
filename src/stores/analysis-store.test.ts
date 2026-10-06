@@ -11,6 +11,7 @@ import * as AnalysisCacheUtils from '@/lib/utils/analysis-cache';
 import { useAnalysisStore } from './analysis-store';
 import { useAppStore } from './app-store';
 import { useStorageScanPreferencesStore } from './storage-scan-preferences-store';
+import { PreferenceStorageService } from '@/lib/services/preference-storage-service';
 
 const result: AnalysisResult = {
   scanId: 7,
@@ -37,6 +38,7 @@ describe('analysis store', () => {
     setActivePinia(createPinia());
     vi.restoreAllMocks();
     vi.spyOn(OperatingSystemService, 'isWindows').mockReturnValue(true);
+    vi.spyOn(PreferenceStorageService, 'saveAnalysisScanMode').mockResolvedValue();
     useStorageScanPreferencesStore().initialized = true;
     vi.spyOn(AnalysisService, 'listenProgress').mockResolvedValue(vi.fn());
   });

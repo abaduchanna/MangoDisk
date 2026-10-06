@@ -10,6 +10,8 @@ import { createPinia, setActivePinia } from 'pinia';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import MdDelayedOperationWorkspace from '@/components/custom/md-delayed-operation-workspace.vue';
+import MdOperationProgress from '@/components/custom/md-operation-progress.vue';
+import { OperatingSystemService } from '@/lib/services/operating-system-service';
 import MdAnalysisBrowserToolbar from './components/md-analysis-browser-toolbar.vue';
 import MdAnalysisFolderPane from './components/md-analysis-folder-pane.vue';
 import MdAnalysisVisualPane from './components/md-analysis-visual-pane.vue';
@@ -41,6 +43,70 @@ beforeEach(() => {
 });
 
 describe('analysis page', () => {
+  it.each(['standard', 'fast'] as const)('prefixes Windows scan progress with the active %s mode', async mode => {
+    vi.spyOn(OperatingSystemService, 'isWindows').mockReturnValue(true);
+    useAnalysisStore().scanMode = mode;
+    const wrapper = shallowMount(AnalysisPage, {
+      props: {
+        result: null,
+        excludedFolders: [],
+        homePath: '/fixture',
+        disk: null,
+        disks: [],
+        progress: null,
+        busy: true,
+        cancelling: false,
+        deleting: false,
+      },
+      global: {
+        plugins: [i18n],
+        stubs: {
+          MdPageShell: { template: '<div><slot /></div>' },
+          MdDelayedOperationWorkspace: { template: '<div><slot /></div>' },
+        },
+      },
+    });
+    try {
+      expect(wrapper.getComponent(MdOperationProgress).props('hint')).toBe(
+        `${i18n.global.t(`analysis.scanMode.${mode}`)} · ${i18n.global.t('loading.cancelHint')}`
+      );
+      await wrapper.setProps({ cancelling: true });
+      expect(wrapper.getComponent(MdOperationProgress).props('hint')).toContain(
+        i18n.global.t(`analysis.scanMode.${mode}`)
+      );
+    } finally {
+      wrapper.unmount();
+    }
+  });
+
+  it('keeps the Unix progress hint unchanged', () => {
+    const wrapper = shallowMount(AnalysisPage, {
+      props: {
+        result: null,
+        excludedFolders: [],
+        homePath: '/fixture',
+        disk: null,
+        disks: [],
+        progress: null,
+        busy: true,
+        cancelling: false,
+        deleting: false,
+      },
+      global: {
+        plugins: [i18n],
+        stubs: {
+          MdPageShell: { template: '<div><slot /></div>' },
+          MdDelayedOperationWorkspace: { template: '<div><slot /></div>' },
+        },
+      },
+    });
+    try {
+      expect(wrapper.getComponent(MdOperationProgress).props('hint')).toBe(i18n.global.t('loading.cancelHint'));
+    } finally {
+      wrapper.unmount();
+    }
+  });
+
   it('restores mode and independent depths on page entry without waiting for saves', async () => {
     const store = useAnalysisStore();
     store.viewPreferences = { schemaVersion: 1, viewMode: 'sunburst', treemapDepth: 2, sunburstDepth: 5 };
