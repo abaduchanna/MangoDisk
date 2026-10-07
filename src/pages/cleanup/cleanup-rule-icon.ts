@@ -32,6 +32,8 @@ const CLEANUP_RULE_ICONS: Readonly<Record<string, IconName>> = {
   'system.thumbnail-cache': ICON_NAMES.fileImage,
   'system.apple-media-cache': ICON_NAMES.brandApple,
   'system.apple-intelligence-cache': ICON_NAMES.brandApple,
+  'system.aerial-video-downloads': ICON_NAMES.wallpaper,
+  'system.ios-firmware-downloads': ICON_NAMES.brandApple,
   'system.directx-shader-cache': ICON_NAMES.brandWindows,
   'system.dns-cache': ICON_NAMES.network,
   'system.font-cache': ICON_NAMES.fileText,

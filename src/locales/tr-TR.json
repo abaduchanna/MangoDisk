@@ -2689,6 +2689,16 @@
         "description": "macOS öneri servisi tarafından oluşturulan geçici indeksler.",
         "impact": "Kişisel dosyalar korunur. macOS gerektiğinde öneri indekslerini yeniden oluşturur."
       },
+      "system.aerial-video-downloads": {
+        "name": "İndirilen hava çekimi videoları",
+        "description": "Apple’ın özel indirme klasörlerindeki, indirilmesi tamamlanmış duvar kâğıdı ve ekran koruyucu hava çekimi videoları",
+        "impact": "Seçilen duvar kâğıtları ve ekran koruyucular için videoların yeniden indirilmesi gerekebilir"
+      },
+      "system.ios-firmware-downloads": {
+        "name": "Eski iPhone ve iPad firmware indirmeleri",
+        "description": "Aygıt güncellemelerine ayrılmış indirme klasörlerinde yedi günden eski firmware arşivleri; aygıt yedekleri hariç tutulur",
+        "impact": "Sonraki güncelleme veya geri yüklemelerde firmware yeniden indirilebilir. Aygıt güncellenirken veya geri yüklenirken temizlemeyin"
+      },
       "system.apple-intelligence-cache": {
         "name": "Apple Intelligence önbelleği",
         "description": "Yerel Apple Intelligence servisleri tarafından oluşturulan geçici veriler.",

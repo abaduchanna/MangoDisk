@@ -2689,6 +2689,16 @@
         "description": "macOS 제안 서비스가 생성한 임시 색인입니다.",
         "impact": "개인 파일은 유지됩니다. 필요하면 macOS가 제안 색인을 다시 생성합니다."
       },
+      "system.aerial-video-downloads": {
+        "name": "다운로드한 항공 영상",
+        "description": "Apple 전용 다운로드 폴더에 있는 다운로드가 완료된 배경화면 및 화면 보호기 항공 영상",
+        "impact": "선택한 배경화면과 화면 보호기의 영상을 다시 다운로드해야 할 수 있습니다"
+      },
+      "system.ios-firmware-downloads": {
+        "name": "오래된 iPhone 및 iPad 펌웨어",
+        "description": "기기 업데이트 전용 다운로드 폴더에 있는 7일이 지난 펌웨어 파일입니다. 기기 백업은 제외됩니다",
+        "impact": "이후 업데이트나 복원 시 펌웨어를 다시 다운로드해야 할 수 있습니다. 기기 업데이트나 복원 중에는 정리하지 마세요"
+      },
       "system.apple-intelligence-cache": {
         "name": "Apple Intelligence 캐시",
         "description": "로컬 Apple Intelligence 서비스가 생성한 임시 데이터입니다.",

@@ -2689,6 +2689,16 @@
         "description": "Índices temporários gerados pelo serviço de sugestões do macOS.",
         "impact": "Arquivos pessoais são mantidos. O macOS reconstrói os índices de sugestões conforme necessário."
       },
+      "system.aerial-video-downloads": {
+        "name": "Vídeos aéreos baixados",
+        "description": "Vídeos aéreos de papel de parede e protetor de tela com download concluído nas pastas dedicadas da Apple",
+        "impact": "Os vídeos dos papéis de parede e protetores de tela selecionados podem precisar ser baixados novamente"
+      },
+      "system.ios-firmware-downloads": {
+        "name": "Downloads antigos de firmware do iPhone e iPad",
+        "description": "Arquivos de firmware com mais de sete dias nas pastas dedicadas de atualização de dispositivos; backups não são incluídos",
+        "impact": "Atualizações ou restaurações futuras podem exigir um novo download. Não limpe durante uma atualização ou restauração do dispositivo"
+      },
       "system.apple-intelligence-cache": {
         "name": "Cache da Apple Intelligence",
         "description": "Dados temporários gerados pelos serviços locais da Apple Intelligence.",

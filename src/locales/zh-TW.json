@@ -2689,6 +2689,16 @@
         "description": "macOS 智慧建議服務產生的暫存索引快取",
         "impact": "不會刪除個人檔案；系統會根據使用情況重新產生索引。"
       },
+      "system.aerial-video-downloads": {
+        "name": "已下載的航拍影片",
+        "description": "Apple 專用下載目錄中已完成下載的航拍背景圖片與螢幕保護影片",
+        "impact": "已選擇的背景圖片與螢幕保護程式可能需要重新下載影片"
+      },
+      "system.ios-firmware-downloads": {
+        "name": "舊的 iPhone 與 iPad 韌體下載",
+        "description": "裝置更新專用下載目錄中超過七天的韌體檔案，不包含裝置備份",
+        "impact": "日後更新或回復裝置可能需要重新下載韌體。裝置更新或回復期間請勿清理"
+      },
       "system.apple-intelligence-cache": {
         "name": "Apple Intelligence 執行快取",
         "description": "本機 Apple Intelligence 服務產生的暫存資料",

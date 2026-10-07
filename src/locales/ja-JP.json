@@ -2689,6 +2689,16 @@
         "description": "macOSの提案サービスによって生成された一時インデックス。",
         "impact": "個人ファイルは保持されます。macOSは必要に応じて提案インデックスを再構築します。"
       },
+      "system.aerial-video-downloads": {
+        "name": "ダウンロード済みの空撮動画",
+        "description": "Apple の壁紙・スクリーンセーバ用動画",
+        "impact": "使用時に再ダウンロードが必要になる場合があります"
+      },
+      "system.ios-firmware-downloads": {
+        "name": "古い iPhone・iPad ファームウェア",
+        "description": "更新用フォルダの7日以上前のIPSW。バックアップは対象外",
+        "impact": "更新・復元中は削除しないでください。後で再ダウンロードが必要な場合があります"
+      },
       "system.apple-intelligence-cache": {
         "name": "Apple Intelligenceキャッシュ",
         "description": "ローカルのApple Intelligenceサービスによって生成された一時データ。",

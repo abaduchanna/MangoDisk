@@ -2689,6 +2689,16 @@
         "description": "macOS 智能建议服务生成的临时索引缓存",
         "impact": "不会删除个人文件；系统会根据使用情况重新生成索引。"
       },
+      "system.aerial-video-downloads": {
+        "name": "已下载的航拍视频",
+        "description": "Apple 专用下载目录中已完成下载的航拍壁纸和屏幕保护视频",
+        "impact": "已选择的壁纸和屏幕保护程序可能需要重新下载视频"
+      },
+      "system.ios-firmware-downloads": {
+        "name": "旧的 iPhone 和 iPad 固件下载",
+        "description": "设备更新专用下载目录中超过七天的固件包，不包含设备备份",
+        "impact": "以后更新或恢复设备可能需要重新下载固件。设备更新或恢复期间请勿清理"
+      },
       "system.apple-intelligence-cache": {
         "name": "Apple Intelligence 运行缓存",
         "description": "本地 Apple Intelligence 服务生成的临时数据",
