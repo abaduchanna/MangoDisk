@@ -415,6 +415,7 @@ function confirmDelete() {
           :path-label="t('loading.currentAnalysisDirectory')"
           :preparing-text="t('loading.preparingAnalysisDirectory')"
           :hint="scanHint"
+          :show-step-progress="false"
           :cancelable="true"
           :cancel-disabled="cancelling"
           @cancel="emit('cancel')"

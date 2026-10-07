@@ -289,7 +289,7 @@ defineEmits<{ cancel: [] }>();
   height: 100%;
   border-radius: inherit;
   @apply bg-primary;
-  animation: scan-activity 1.35s ease-in-out infinite;
+  animation: scan-activity 1.35s linear infinite;
 }
 .activity-track.determinate span {
   position: relative;
@@ -374,7 +374,6 @@ defineEmits<{ cancel: [] }>();
   0% {
     transform: translateX(-110%);
   }
-  55%,
   100% {
     transform: translateX(310%);
   }
