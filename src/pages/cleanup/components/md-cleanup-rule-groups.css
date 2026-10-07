@@ -20,7 +20,7 @@
 }
 
 .cleanup-empty-icon {
-  @apply text-primary;
+  @apply text-primary-text;
   display: inline-flex;
   width: 48px;
   height: 48px;

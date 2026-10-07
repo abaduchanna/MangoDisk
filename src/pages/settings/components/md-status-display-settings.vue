@@ -761,7 +761,7 @@ onBeforeUnmount(() => {
   }
 }
 .settings-feedback {
-  @apply text-destructive;
+  @apply text-destructive-text;
   padding-top: 8px;
   font-size: 11px;
   line-height: 1.5;

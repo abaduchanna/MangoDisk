@@ -1,24 +1,11 @@
-html[data-skin='mangodisk'] {
+/* Independent classic MangoDisk palette; also the fallback before preferences load. */
+
+:root:not([data-color-theme]),
+:root[data-color-theme='mango'] {
   color-scheme: light;
 
-  /*
-   * Brand colors come directly from the approved flat logo. UI primary is a
-   * darker shade of mango orange in light mode so primary text remains
-   * readable on warm-white surfaces; the logo keeps the original bright hue.
-   */
-  --brand-mango: oklch(0.7323 0.1825 54.1);
-  --brand-cream: oklch(0.9679 0.0226 78.22);
-  --brand-leaf: oklch(0.6504 0.1521 128.45);
-  --brand-stem: oklch(0.4334 0.0957 57.45);
   --brand-primary: oklch(0.58 0.165 52);
-  --brand-primary-foreground: oklch(0.985 0.014 78);
-
-  /*
-   * Desktop utilities need to fit dense scan results into constrained windows.
-   * An 8px base radius preserves the soft brand character without making
-   * nested shells, cards, and result rows feel bulky.
-   */
-  --radius: 0.5rem;
+  --brand-primary-foreground: oklch(1 0 0);
   --background: oklch(0.984 0.014 78);
   --workspace: oklch(0.997 0.004 78);
   --foreground: oklch(0.245 0.025 58);
@@ -35,9 +22,11 @@ html[data-skin='mangodisk'] {
   --accent: oklch(0.94 0.045 70);
   --accent-foreground: oklch(0.45 0.12 52);
   --destructive: oklch(0.59 0.21 25);
-  --destructive-foreground: oklch(0.985 0 0);
+  --destructive-foreground: oklch(1 0 0);
   --success: oklch(0.52 0.13 128);
   --success-foreground: oklch(0.4 0.1 128);
+  --usage-warning: #a64d00;
+  --usage-critical: #c2222a;
   --warning: oklch(0.58 0.13 72);
   --warning-foreground: oklch(0.44 0.1 62);
   --border: oklch(0.9 0.025 72);
@@ -48,8 +37,6 @@ html[data-skin='mangodisk'] {
   --sidebar-accent: oklch(0.925 0.06 67);
   --sidebar-accent-foreground: oklch(0.43 0.13 52);
   --sidebar-border: oklch(0.885 0.03 70);
-
-  /* Charts stay distinguishable while reserving orange and green for brand recognition. */
   --chart-1: var(--brand-mango);
   --chart-2: var(--brand-leaf);
   --chart-3: oklch(0.64 0.12 205);
@@ -61,18 +48,22 @@ html[data-skin='mangodisk'] {
   --file-data: var(--chart-3);
   --file-package: var(--chart-4);
   --file-binary: var(--muted-foreground);
+  --primary-text: oklch(0.54 0.165 52);
+  --primary-hover: oklch(0.55 0.165 52);
+  --destructive-text: oklch(0.54 0.19 25);
+  --destructive-hover: oklch(0.55 0.19 25);
 }
 
-html[data-skin='mangodisk'][data-theme='dark'] {
+:root:not([data-color-theme])[data-theme='dark'],
+:root[data-color-theme='mango'][data-theme='dark'] {
   color-scheme: dark;
 
-  /*
-   * Dark surfaces use warm brown-black neutrals derived from the logo stem.
-   * The original mango orange is bright enough here and becomes the primary
-   * interaction color without requiring a separate dark-mode logo.
-   */
   --brand-primary: var(--brand-mango);
   --brand-primary-foreground: oklch(0.233 0.023 57);
+  --primary-text: var(--brand-mango);
+  --primary-hover: oklch(0.78 0.16 54);
+  --destructive-text: var(--destructive);
+  --destructive-hover: oklch(0.72 0.17 25);
   --background: oklch(0.18 0.012 60);
   --workspace: transparent;
   --foreground: oklch(0.93 0.014 78);
@@ -89,9 +80,11 @@ html[data-skin='mangodisk'][data-theme='dark'] {
   --accent: oklch(0.28 0.055 55);
   --accent-foreground: oklch(0.84 0.1 70);
   --destructive: oklch(0.68 0.19 25);
-  --destructive-foreground: oklch(0.985 0 0);
+  --destructive-foreground: oklch(0.2 0.025 25);
   --success: oklch(0.72 0.145 128);
   --success-foreground: oklch(0.78 0.12 128);
+  --usage-warning: #ffbe5c;
+  --usage-critical: #ff7075;
   --warning: oklch(0.78 0.15 78);
   --warning-foreground: oklch(0.82 0.13 80);
   --border: oklch(0.3 0.022 60);

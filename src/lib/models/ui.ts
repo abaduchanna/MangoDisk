@@ -68,6 +68,7 @@ export const ICON_NAMES = {
   external: 'external',
   languages: 'languages',
   theme: 'theme',
+  palette: 'palette',
   close: 'close',
   database: 'database',
   code: 'code',

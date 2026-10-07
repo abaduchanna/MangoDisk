@@ -449,7 +449,7 @@ b {
   flex: none;
 }
 .activity-help:hover {
-  @apply text-primary;
+  @apply text-primary-text;
 }
 summary {
   width: fit-content;
@@ -475,7 +475,7 @@ button:focus-visible {
   margin-top: 10px;
 }
 .detail-note button {
-  @apply text-primary;
+  @apply text-primary-text;
   cursor: pointer;
   text-decoration: underline;
 }

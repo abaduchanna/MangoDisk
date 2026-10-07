@@ -791,7 +791,7 @@ watch(
 .change-item p {
   grid-column: 1 / -1;
   margin: 2px 0 0;
-  color: var(--destructive);
+  color: var(--destructive-text);
 }
 
 .change-item.skipped {
@@ -820,6 +820,6 @@ watch(
 .change-guidance :deep(svg) {
   flex: none;
   margin-top: 1px;
-  color: var(--primary);
+  color: var(--primary-text);
 }
 </style>

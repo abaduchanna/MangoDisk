@@ -2464,6 +2464,10 @@
       "trTR": "Türkçe",
       "ptBR": "Português (Brasil)"
     },
+    "colorThemeTitle": "Tema rengi",
+    "colorThemeDescription": "Açık veya koyu moddan bağımsız bir renk paleti seçin",
+    "colorThemeMango": "Klasik Mango",
+    "colorThemeWarmGray": "Sıcak Gri",
     "themeTitle": "Tema",
     "themeDescription": "Açık, koyu veya sistem temasını kullanın",
     "themeLight": "Açık",

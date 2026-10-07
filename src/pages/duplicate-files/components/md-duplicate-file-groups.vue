@@ -680,14 +680,14 @@ function loadMoreGroups() {
   border-width: 0;
   border-radius: 7px;
   padding: 0 7px;
-  @apply bg-transparent text-muted-foreground shadow-none hover:text-primary;
+  @apply bg-transparent text-muted-foreground shadow-none hover:text-primary-text;
   font-size: var(--font-content-secondary);
   font-weight: 500;
   white-space: nowrap;
 }
 
 .group-select-action[data-applied='true'] {
-  @apply bg-transparent text-primary hover:text-primary;
+  @apply bg-transparent text-primary-text hover:text-primary-text;
 }
 
 .group-select-action:hover {

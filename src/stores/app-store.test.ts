@@ -9,7 +9,7 @@ import { PreferenceStorageService } from '@/lib/services/preference-storage-serv
 import { LanguageService } from '@/lib/services/language-service';
 import { ThemeService } from '@/lib/services/theme-service';
 import { ByteSizeService } from '@/lib/services/byte-size-service';
-import { LANGUAGE_IDS, THEME_IDS } from '@/lib/models/settings';
+import { COLOR_THEME_IDS, LANGUAGE_IDS, THEME_IDS } from '@/lib/models/settings';
 import { DUPLICATE_KEEPER_RULE_IDS } from '@/lib/models/duplicate-file';
 import { BYTE_UNIT_BASES } from '@/lib/utils/format';
 import * as AppSettingsUtils from '@/lib/utils/app-settings';
@@ -22,6 +22,7 @@ describe('app store settings upgrade', () => {
     vi.restoreAllMocks();
     vi.spyOn(LanguageService, 'apply').mockImplementation(() => undefined);
     vi.spyOn(ThemeService, 'apply').mockImplementation(() => undefined);
+    vi.spyOn(ThemeService, 'applyColorTheme').mockImplementation(() => undefined);
     vi.spyOn(LoggerService, 'warn').mockImplementation(() => undefined);
   });
 
@@ -45,6 +46,7 @@ describe('app store settings upgrade', () => {
       expect(store.settings).toEqual({
         ...legacy,
         hideCleanupReadFailureAlerts: false,
+        colorTheme: COLOR_THEME_IDS.mango,
         largeFileMinimumBytes: 500 * unitBase ** 2,
         duplicateFileMinimumBytes: 10 * unitBase ** 2,
       });
@@ -52,14 +54,34 @@ describe('app store settings upgrade', () => {
       expect(LoggerService.warn).not.toHaveBeenCalled();
       expect(LanguageService.apply).toHaveBeenCalledWith(legacy.language);
       expect(ThemeService.apply).toHaveBeenCalledWith(legacy.theme);
+      expect(ThemeService.applyColorTheme).toHaveBeenCalledWith(COLOR_THEME_IDS.mango);
     }
   );
+
+  it('persists color choices without changing the brightness preference', async () => {
+    vi.spyOn(ByteSizeService, 'currentUnitBase').mockReturnValue(BYTE_UNIT_BASES.decimal);
+    const save = vi.spyOn(PreferenceStorageService, 'saveSettings').mockResolvedValue();
+    const store = useAppStore();
+    const settings = {
+      ...AppSettingsUtils.defaults(LANGUAGE_IDS.enUS, BYTE_UNIT_BASES.decimal),
+      theme: THEME_IDS.dark,
+      colorTheme: COLOR_THEME_IDS.warmGray,
+    };
+
+    store.saveSettings(settings);
+
+    expect(store.settings).toEqual(settings);
+    expect(save).toHaveBeenCalledWith(settings);
+    expect(ThemeService.apply).toHaveBeenCalledWith(THEME_IDS.dark);
+    expect(ThemeService.applyColorTheme).toHaveBeenCalledWith(COLOR_THEME_IDS.warmGray);
+  });
 
   it('preserves a saved alert choice in the current format', async () => {
     const settings = {
       ...AppSettingsUtils.defaults(LANGUAGE_IDS.jaJP, BYTE_UNIT_BASES.decimal),
       theme: THEME_IDS.light,
       hideCleanupReadFailureAlerts: true,
+      colorTheme: COLOR_THEME_IDS.warmGray,
     };
     vi.spyOn(ByteSizeService, 'currentUnitBase').mockReturnValue(BYTE_UNIT_BASES.decimal);
     vi.spyOn(PreferenceStorageService, 'loadSettings').mockResolvedValue(settings);
@@ -72,6 +94,28 @@ describe('app store settings upgrade', () => {
     expect(clear).not.toHaveBeenCalled();
     expect(LanguageService.apply).toHaveBeenCalledWith(settings.language);
     expect(ThemeService.apply).toHaveBeenCalledWith(settings.theme);
+    expect(ThemeService.applyColorTheme).toHaveBeenCalledWith(COLOR_THEME_IDS.warmGray);
+  });
+
+  it('preserves valid settings when a saved palette is unavailable', async () => {
+    const saved = {
+      ...AppSettingsUtils.defaults(LANGUAGE_IDS.zhTW, BYTE_UNIT_BASES.decimal),
+      theme: THEME_IDS.dark,
+      hideCleanupReadFailureAlerts: true,
+      colorTheme: 'unavailable',
+    };
+    vi.spyOn(ByteSizeService, 'currentUnitBase').mockReturnValue(BYTE_UNIT_BASES.decimal);
+    vi.spyOn(PreferenceStorageService, 'loadSettings').mockResolvedValue(saved);
+    const clear = vi.spyOn(PreferenceStorageService, 'clearSettings').mockResolvedValue();
+    const store = useAppStore();
+
+    await store.loadSettings();
+
+    expect(store.settings).toEqual({ ...saved, colorTheme: COLOR_THEME_IDS.mango });
+    expect(clear).not.toHaveBeenCalled();
+    expect(LanguageService.apply).toHaveBeenCalledWith(saved.language);
+    expect(ThemeService.apply).toHaveBeenCalledWith(saved.theme);
+    expect(ThemeService.applyColorTheme).toHaveBeenCalledWith(COLOR_THEME_IDS.mango);
   });
 
   it('clears a corrupt legacy document and applies safe defaults', async () => {

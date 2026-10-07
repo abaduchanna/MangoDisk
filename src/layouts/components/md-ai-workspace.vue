@@ -165,7 +165,7 @@ function scroll() {
       <p v-if="store.status === 'cancelled'" role="status" class="mt-3 text-sm text-muted-foreground">
         {{ t(freeMode ? 'ai.freeStopped' : 'ai.stopped') }}
       </p>
-      <p v-else-if="store.error && !freeUnavailable" role="alert" class="mt-3 text-sm text-destructive">
+      <p v-else-if="store.error && !freeUnavailable" role="alert" class="mt-3 text-sm text-destructive-text">
         {{ t(AI_ERROR_LABELS[store.error]) }}
       </p>
     </div>

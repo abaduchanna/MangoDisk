@@ -2464,6 +2464,10 @@
       "trTR": "Türkçe",
       "ptBR": "Português (Brasil)"
     },
+    "colorThemeTitle": "Theme color",
+    "colorThemeDescription": "Choose a color palette independently of light or dark mode",
+    "colorThemeMango": "Classic Mango",
+    "colorThemeWarmGray": "Warm Gray",
     "themeTitle": "Theme",
     "themeDescription": "Use a light, dark, or system theme",
     "themeLight": "Light",

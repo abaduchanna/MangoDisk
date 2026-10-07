@@ -2464,6 +2464,10 @@
       "trTR": "Türkçe",
       "ptBR": "Português (Brasil)"
     },
+    "colorThemeTitle": "테마 색상",
+    "colorThemeDescription": "라이트·다크 모드와 별도로 색상 테마를 선택합니다",
+    "colorThemeMango": "클래식 망고",
+    "colorThemeWarmGray": "웜 그레이",
     "themeTitle": "테마",
     "themeDescription": "라이트, 다크 또는 시스템 테마를 사용합니다",
     "themeLight": "라이트",

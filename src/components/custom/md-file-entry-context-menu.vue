@@ -74,7 +74,7 @@ watch(
         {{ t('common.showInFileManager') }}
       </ContextMenuItem>
       <ContextMenuItem
-        class="text-destructive focus:text-destructive"
+        class="text-destructive-text focus:text-destructive-text"
         :disabled="deleteDisabled"
         @select="emit('delete')"
       >

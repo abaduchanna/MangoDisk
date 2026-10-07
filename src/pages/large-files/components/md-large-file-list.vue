@@ -446,7 +446,7 @@ onBeforeUnmount(() => {
   border: 0;
   padding: 4px 0;
   background: transparent;
-  @apply text-muted-foreground hover:text-primary;
+  @apply text-muted-foreground hover:text-primary-text;
   font: inherit;
   font-size: var(--font-content-secondary);
   text-align: left;

@@ -2464,6 +2464,10 @@
       "trTR": "Türkçe",
       "ptBR": "Português (Brasil)"
     },
+    "colorThemeTitle": "主题颜色",
+    "colorThemeDescription": "选择界面配色，亮暗模式独立设置",
+    "colorThemeMango": "经典芒果",
+    "colorThemeWarmGray": "暖灰",
     "themeTitle": "显示主题",
     "themeDescription": "选择亮色、暗色或跟随系统设置",
     "themeLight": "亮色",

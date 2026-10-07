@@ -233,12 +233,12 @@ onBeforeUnmount(() => {
 }
 .privacy-operation-item.is-cleared .privacy-operation-item-status,
 .privacy-operation-item.is-unchanged .privacy-operation-item-status {
-  @apply border-primary/25 text-primary;
+  @apply border-primary/25 text-primary-text;
   background: var(--surface-primary-subtle);
 }
 .privacy-operation-item.is-failed .privacy-operation-item-status,
 .privacy-operation-item.is-cancelled .privacy-operation-item-status {
-  @apply border-destructive/25 text-destructive;
+  @apply border-destructive/25 text-destructive-text;
   background: var(--surface-destructive-subtle);
 }
 .privacy-operation-item-status i {

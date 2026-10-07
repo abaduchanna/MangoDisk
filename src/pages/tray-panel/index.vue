@@ -417,7 +417,7 @@ onBeforeUnmount(() => {
   background: transparent;
 }
 .resource-tabs button[aria-selected='true'] {
-  @apply text-primary;
+  @apply text-primary-text;
 }
 .resource-tabs button[aria-selected='true']::after {
   /* Overlay the divider so switching tabs never changes the content height. */
@@ -525,7 +525,7 @@ button:disabled {
   padding: 10px;
 }
 .monitor-notice button {
-  @apply text-primary;
+  @apply text-primary-text;
   text-decoration: underline;
 }
 footer {

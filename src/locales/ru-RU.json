@@ -2464,6 +2464,10 @@
       "trTR": "Türkçe",
       "ptBR": "Português (Brasil)"
     },
+    "colorThemeTitle": "Цветовая тема",
+    "colorThemeDescription": "Выберите палитру независимо от светлого или тёмного режима",
+    "colorThemeMango": "Классическое манго",
+    "colorThemeWarmGray": "Тёплый серый",
     "themeTitle": "Тема",
     "themeDescription": "Используйте светлую, темную или системную тему",
     "themeLight": "Светлая",

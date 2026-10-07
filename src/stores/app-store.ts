@@ -158,6 +158,7 @@ export const useAppStore = defineStore('app', {
       });
       LanguageService.apply(this.settings.language);
       ThemeService.apply(this.settings.theme);
+      ThemeService.applyColorTheme(this.settings.colorTheme);
     },
     async loadSettings() {
       const unitBase = ByteSizeService.currentUnitBase();
@@ -170,6 +171,7 @@ export const useAppStore = defineStore('app', {
         this.settings = defaults;
         LanguageService.apply(this.settings.language);
         ThemeService.apply(this.settings.theme);
+        ThemeService.applyColorTheme(this.settings.colorTheme);
         return;
       }
       try {
@@ -187,6 +189,7 @@ export const useAppStore = defineStore('app', {
       }
       LanguageService.apply(this.settings.language);
       ThemeService.apply(this.settings.theme);
+      ThemeService.applyColorTheme(this.settings.colorTheme);
     },
     clearError() {
       this.errorCode = null;

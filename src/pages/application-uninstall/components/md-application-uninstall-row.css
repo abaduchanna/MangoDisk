@@ -212,7 +212,7 @@
   width: 34px;
   height: 34px;
   place-items: center;
-  @apply text-primary;
+  @apply text-primary-text;
 }
 
 .component-main {
@@ -307,7 +307,7 @@
 }
 
 .application-settings-link {
-  @apply text-primary;
+  @apply text-primary-text;
   flex: none;
   font-size: 11px;
   white-space: nowrap;

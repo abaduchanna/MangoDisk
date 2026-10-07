@@ -371,7 +371,7 @@ onBeforeUnmount(() => {
   background: var(--surface-warning-subtle);
 }
 .cleanup-execution-item.is-active .cleanup-execution-item-status {
-  @apply text-primary;
+  @apply text-primary-text;
   background: var(--surface-primary-subtle);
 }
 .cleanup-execution-item-status i {

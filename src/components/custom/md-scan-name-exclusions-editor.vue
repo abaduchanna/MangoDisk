@@ -346,7 +346,7 @@ function setHelpOpen(item: ScanExcludedName, open: boolean) {
 }
 .name-error {
   margin-top: 8px;
-  color: var(--destructive);
+  color: var(--destructive-text);
   font-size: var(--font-content-meta);
 }
 .name-kind {

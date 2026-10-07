@@ -325,7 +325,7 @@ strong {
 }
 .reveal-button,
 .quit-application-button {
-  @apply text-primary;
+  @apply text-primary-text;
   display: inline-flex;
   align-items: center;
   gap: 4px;
@@ -369,7 +369,7 @@ strong {
   cursor: default;
 }
 [role='alert'] {
-  @apply text-destructive;
+  @apply text-destructive-text;
 }
 </style>
 

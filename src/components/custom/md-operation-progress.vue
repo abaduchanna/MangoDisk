@@ -175,7 +175,8 @@ defineEmits<{ cancel: [] }>();
 .operation-progress-card {
   width: 100%;
   max-width: 610px;
-  @apply gap-0 border-border bg-card p-7 text-card-foreground shadow-2xl shadow-foreground/10;
+  @apply gap-0 border-border bg-card p-7 text-card-foreground;
+  box-shadow: 0 25px 50px -12px var(--shadow-dialog);
 }
 .progress-heading {
   display: flex;
@@ -199,7 +200,7 @@ defineEmits<{ cancel: [] }>();
 .current-stage {
   display: block;
   overflow: hidden;
-  @apply text-primary;
+  @apply text-primary-text;
   font-size: 12px;
   font-weight: 650;
   text-overflow: ellipsis;
@@ -213,7 +214,7 @@ defineEmits<{ cancel: [] }>();
   flex: none;
   place-items: center;
   border-radius: 50%;
-  @apply text-primary;
+  @apply text-primary-text;
   background: var(--surface-primary-subtle);
 }
 .spinner {
@@ -231,7 +232,8 @@ defineEmits<{ cancel: [] }>();
   align-items: center;
   gap: 13px;
   margin-top: 24px;
-  @apply border border-border bg-muted/55;
+  @apply border bg-muted/55;
+  border-color: var(--border-subtle);
   border-radius: 11px;
   padding: 13px 15px;
 }
@@ -241,7 +243,7 @@ defineEmits<{ cancel: [] }>();
   height: 34px;
   flex: none;
   place-items: center;
-  @apply text-primary;
+  @apply text-muted-foreground;
 }
 .path-content {
   display: flex;

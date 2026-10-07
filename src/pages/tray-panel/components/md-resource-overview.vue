@@ -268,7 +268,7 @@ small {
   flex: none;
 }
 .resource-meta button {
-  @apply text-primary;
+  @apply text-primary-text;
   flex: none;
   font-size: 10px;
   min-height: 20px;

@@ -94,7 +94,7 @@ defineEmits<{ cancel: [] }>();
   height: 40px;
   place-items: center;
   border-radius: 10px;
-  @apply text-primary;
+  @apply text-primary-text;
   background: var(--surface-primary-subtle);
 }
 .operation-dialog-body {

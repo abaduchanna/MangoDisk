@@ -530,7 +530,7 @@ onBeforeUnmount(() => {
             </div>
           </div>
         </fieldset>
-        <p v-if="error" role="alert" class="text-sm text-destructive">{{ t(AI_ERROR_LABELS[error]) }}</p>
+        <p v-if="error" role="alert" class="text-sm text-destructive-text">{{ t(AI_ERROR_LABELS[error]) }}</p>
       </div>
       <MdDialogFooter class="flex-wrap" align="between">
         <Button v-if="testing" variant="ghost" @click="cancelTest">{{ t('ai.stop') }}</Button>

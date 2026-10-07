@@ -373,7 +373,7 @@ function downloadUpdate() {
   cursor: pointer;
   text-decoration-color: transparent;
   text-underline-offset: 4px;
-  @apply text-primary transition-colors duration-200 hover:text-primary/75 hover:underline;
+  @apply text-primary-text transition-colors duration-200 hover:text-primary-text-hover hover:underline;
 }
 
 .update-state {
@@ -477,14 +477,14 @@ function downloadUpdate() {
 }
 
 .download-complete {
-  @apply text-primary;
+  @apply text-primary-text;
 }
 
 .update-action-error {
   align-items: flex-start;
   flex-direction: column;
   gap: 3px;
-  @apply text-destructive;
+  @apply text-destructive-text;
   background: var(--surface-destructive-subtle);
 }
 

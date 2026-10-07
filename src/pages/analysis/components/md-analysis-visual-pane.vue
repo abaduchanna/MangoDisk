@@ -312,7 +312,7 @@ function updateDepth(value: unknown) {
 
 .view-switcher button.active {
   background: var(--surface-primary-subtle);
-  @apply text-primary;
+  @apply text-primary-text;
 }
 
 .view-switcher button:focus-visible {

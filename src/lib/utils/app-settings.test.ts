@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { LANGUAGE_IDS, THEME_IDS } from '@/lib/models/settings';
+import { COLOR_THEME_IDS, LANGUAGE_IDS, THEME_IDS } from '@/lib/models/settings';
 import { DUPLICATE_KEEPER_RULE_IDS } from '@/lib/models/duplicate-file';
 import * as AppSettingsUtils from '@/lib/utils/app-settings';
 import { BYTE_UNIT_BASES } from '@/lib/utils/format';
@@ -30,6 +30,39 @@ describe('AppSettingsUtils', () => {
     expect(settings.language).toBe(savedSettings.language);
     expect(settings.theme).toBe(savedSettings.theme);
   });
+
+  it('keeps classic colors when upgrading the previous six-field document', () => {
+    const { colorTheme, ...released } = {
+      ...AppSettingsUtils.defaults(LANGUAGE_IDS.zhTW),
+      theme: THEME_IDS.dark,
+      hideCleanupReadFailureAlerts: true,
+    };
+
+    expect(colorTheme).toBe(COLOR_THEME_IDS.mango);
+    expect(AppSettingsUtils.parse(released)).toEqual({ ...released, colorTheme: COLOR_THEME_IDS.mango });
+    expect(released).not.toHaveProperty('colorTheme');
+  });
+
+  it.each(Object.values(COLOR_THEME_IDS))(
+    'round-trips color palette %s without losing other preferences',
+    colorTheme => {
+      const saved = { ...AppSettingsUtils.defaults(LANGUAGE_IDS.jaJP), theme: THEME_IDS.dark, colorTheme };
+      expect(AppSettingsUtils.parse(saved)).toEqual(saved);
+    }
+  );
+
+  it.each([undefined, null, 0, 'unsupported'])(
+    'falls back from unavailable palette %s without losing preferences',
+    colorTheme => {
+      const saved = {
+        ...AppSettingsUtils.defaults(LANGUAGE_IDS.zhTW),
+        theme: THEME_IDS.dark,
+        hideCleanupReadFailureAlerts: true,
+        colorTheme,
+      };
+      expect(AppSettingsUtils.parse(saved)).toEqual({ ...saved, colorTheme: COLOR_THEME_IDS.mango });
+    }
+  );
 
   it('rejects incomplete persisted settings', () => {
     expect(() => AppSettingsUtils.parse({})).toThrow('Invalid app settings document');
@@ -61,6 +94,7 @@ describe('AppSettingsUtils', () => {
       expect(AppSettingsUtils.parse(legacy, unitBase)).toEqual({
         ...legacy,
         hideCleanupReadFailureAlerts: false,
+        colorTheme: COLOR_THEME_IDS.mango,
         largeFileMinimumBytes: largeBytes,
         duplicateFileMinimumBytes: duplicateBytes,
       });

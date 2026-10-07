@@ -365,7 +365,7 @@ h2 span {
   margin-left: 6px;
 }
 .page-action {
-  @apply text-primary rounded-md;
+  @apply text-primary-text rounded-md;
   padding: 7px 10px;
   cursor: pointer;
   font-size: 12px;
@@ -432,7 +432,7 @@ h2 span {
   text-align: center;
 }
 .notice {
-  @apply text-destructive bg-muted rounded-md;
+  @apply text-destructive-text bg-muted rounded-md;
   padding: 12px;
   margin-bottom: 14px;
   display: flex;

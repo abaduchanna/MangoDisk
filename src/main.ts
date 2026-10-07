@@ -9,8 +9,6 @@ import { useAppStore } from './stores/app-store';
 import { useAiStore } from './stores/ai-store';
 import { useAnalysisStore } from './stores/analysis-store';
 
-document.documentElement.dataset.skin = 'mangodisk';
-
 const app = createApp(App);
 const pinia = createPinia();
 app.use(pinia);

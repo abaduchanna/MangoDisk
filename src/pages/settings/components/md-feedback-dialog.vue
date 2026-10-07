@@ -657,7 +657,7 @@ onMounted(() => {
 .field-error {
   min-width: 0;
   overflow: hidden;
-  color: var(--destructive);
+  color: var(--destructive-text);
   font-size: 11px;
   font-weight: 400;
   text-overflow: ellipsis;
@@ -665,7 +665,7 @@ onMounted(() => {
 }
 
 .feedback-submit-error {
-  color: var(--destructive);
+  color: var(--destructive-text);
 }
 
 .feedback-textarea {
@@ -718,7 +718,7 @@ onMounted(() => {
 }
 
 .attachment-copy .field-error {
-  color: var(--destructive);
+  color: var(--destructive-text);
 }
 
 .attachment-heading :deep(.attachment-picker-button) {
@@ -780,7 +780,7 @@ onMounted(() => {
   gap: 8px;
   cursor: pointer;
   border-radius: 8px;
-  color: var(--primary);
+  color: var(--primary-text);
   transition: background-color 150ms ease;
 }
 
@@ -874,7 +874,7 @@ onMounted(() => {
 @media (hover: hover) {
   .attachment-list button:hover {
     background: var(--surface-destructive-subtle);
-    color: var(--destructive);
+    color: var(--destructive-text);
   }
 }
 

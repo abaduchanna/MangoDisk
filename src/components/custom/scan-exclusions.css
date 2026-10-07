@@ -163,7 +163,7 @@
 }
 
 .scan-exclusions :is(.exclusion-empty-action, .name-empty) strong {
-  color: var(--primary);
+  color: var(--primary-text);
   font-size: var(--font-content-body);
   font-weight: 500;
 }
@@ -187,7 +187,7 @@
 
   .scan-exclusions .exclusion-row-actions .icon-action.destructive:not([aria-disabled='true']):hover {
     background: var(--surface-destructive-subtle);
-    color: var(--destructive);
+    color: var(--destructive-text);
   }
 
   .scan-exclusions :is(.exclusion-empty-action, .name-empty):hover:not(:disabled) {
