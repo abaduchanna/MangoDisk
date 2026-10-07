@@ -182,6 +182,7 @@ function setHelpOpen(item: ScanExcludedName, open: boolean) {
                 <span>{{ t('storageScanExclusions.exactName') }}</span>
                 <Input
                   v-model="name"
+                  class="h-10"
                   :disabled="disabled"
                   :placeholder="t('storageScanExclusions.namePlaceholder')"
                   :aria-invalid="!!error"

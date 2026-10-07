@@ -2486,7 +2486,7 @@
     "feedbackAction": "提交反馈",
     "feedbackDialog": {
       "title": "提交问题反馈",
-      "description": "您的反馈会帮助 MangoDisk 做得更好，我们会认真查看每一条反馈",
+      "description": "我们会认真查看每一条反馈",
       "categoryLabel": "反馈类型",
       "categories": {
         "issue": "遇到问题",
@@ -2494,12 +2494,12 @@
         "other": "其他反馈"
       },
       "contentLabel": "问题或建议",
-      "contentPlaceholder": "请说明您遇到的情况、当时进行的操作和期望的结果；也可以直接粘贴截图……",
+      "contentPlaceholder": "描述问题或建议，也可粘贴截图…",
       "emailLabel": "联系邮箱（选填）",
-      "emailPlaceholder": "如有进展，我们会通过邮件通知您",
+      "emailPlaceholder": "用于接收反馈进展",
       "attachmentsLabel": "截图与附件（选填）",
       "chooseAttachments": "选择附件",
-      "addAttachments": "点击选择附件，或直接拖入文件",
+      "addAttachments": "添加附件，或拖入文件",
       "attachmentHint": "支持图片、PDF、Markdown、Office、文本和 ZIP；最多 {count} 个，每个不超过 10 MB",
       "removeAttachment": "移除附件 {name}",
       "includeLogs": "同时提交诊断日志",

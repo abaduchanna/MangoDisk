@@ -2486,7 +2486,7 @@
     "feedbackAction": "Geri Bildirim Gönder",
     "feedbackDialog": {
       "title": "Geri bildirim gönder",
-      "description": "Geri bildiriminiz MangoDisk'i geliştirmemize yardımcı olur. Gönderilen her mesajı okuyoruz",
+      "description": "Her geri bildirimi dikkatle okuyoruz",
       "categoryLabel": "Geri bildirim türü",
       "categories": {
         "issue": "Sorun",
@@ -2494,12 +2494,12 @@
         "other": "Diğer"
       },
       "contentLabel": "Sorun veya öneri",
-      "contentPlaceholder": "Ne olduğunu, ne yaparken olduğunu ve ne beklediğinizi anlatın. Buraya ekran görüntüsü de yapıştırabilirsiniz…",
+      "contentPlaceholder": "Sorunu veya önerinizi açıklayın. Ekran görüntüsü de yapıştırabilirsiniz…",
       "emailLabel": "İletişim e-postası (isteğe bağlı)",
-      "emailPlaceholder": "Gelişme olursa size e-posta göndeririz",
+      "emailPlaceholder": "Gelişmeler için e-posta adresi",
       "attachmentsLabel": "Ekran görüntüleri ve ekler (isteğe bağlı)",
       "chooseAttachments": "Ek ekle",
-      "addAttachments": "Ek eklemek için tıklayın veya dosyaları buraya bırakın",
+      "addAttachments": "Ek ekleyin veya dosyaları buraya bırakın",
       "attachmentHint": "Görsel, PDF, Markdown, Office, metin ve ZIP; en fazla {count} dosya, her biri 10 MB",
       "removeAttachment": "{name} ekini kaldır",
       "includeLogs": "Tanılama günlüklerini ekle",

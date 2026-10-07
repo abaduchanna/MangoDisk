@@ -2486,7 +2486,7 @@
     "feedbackAction": "피드백 보내기",
     "feedbackDialog": {
       "title": "피드백 보내기",
-      "description": "여러분의 피드백이 MangoDisk를 더 좋게 만듭니다. 보내주신 의견은 빠짐없이 읽습니다",
+      "description": "보내주신 의견을 빠짐없이 확인합니다",
       "categoryLabel": "피드백 유형",
       "categories": {
         "issue": "문제",
@@ -2494,12 +2494,12 @@
         "other": "기타"
       },
       "contentLabel": "문제 또는 제안",
-      "contentPlaceholder": "무슨 일이 있었는지, 무엇을 하고 있었는지, 무엇을 기대했는지 알려주세요. 스크린샷을 여기에 붙여 넣을 수도 있습니다…",
+      "contentPlaceholder": "문제나 제안을 설명해 주세요. 스크린샷도 붙여 넣을 수 있습니다…",
       "emailLabel": "연락 이메일(선택 사항)",
-      "emailPlaceholder": "진행 상황이 있으면 이메일로 알려드립니다",
+      "emailPlaceholder": "진행 상황을 받을 이메일",
       "attachmentsLabel": "스크린샷 및 첨부 파일(선택 사항)",
       "chooseAttachments": "첨부 파일 추가",
-      "addAttachments": "클릭해서 첨부하거나 파일을 여기에 놓으세요",
+      "addAttachments": "첨부 파일을 추가하거나 여기에 놓으세요",
       "attachmentHint": "이미지, PDF, Markdown, Office, 텍스트, ZIP 파일. 최대 {count}개, 각 10 MB 이하",
       "removeAttachment": "첨부 파일 {name} 제거",
       "includeLogs": "진단 로그 포함",

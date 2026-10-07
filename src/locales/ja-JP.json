@@ -2486,7 +2486,7 @@
     "feedbackAction": "フィードバックを送信",
     "feedbackDialog": {
       "title": "フィードバックを送信",
-      "description": "皆さまのフィードバックを MangoDisk の改善に活かし、一件ずつ丁寧に確認します",
+      "description": "すべてのフィードバックを丁寧に確認します",
       "categoryLabel": "種類",
       "categories": {
         "issue": "問題",
@@ -2494,12 +2494,12 @@
         "other": "その他"
       },
       "contentLabel": "問題または提案",
-      "contentPlaceholder": "発生した状況、行っていた操作、期待していた結果をご記入ください。スクリーンショットを直接貼り付けることもできます…",
+      "contentPlaceholder": "問題や提案をご記入ください。スクリーンショットも貼り付けられます…",
       "emailLabel": "連絡先メール（任意）",
-      "emailPlaceholder": "進展があった際にメールでお知らせします",
+      "emailPlaceholder": "進展のお知らせ先",
       "attachmentsLabel": "スクリーンショット・添付ファイル（任意）",
       "chooseAttachments": "ファイルを選択",
-      "addAttachments": "クリックして選択するか、ファイルをここにドロップ",
+      "addAttachments": "添付ファイルを追加、またはここにドロップ",
       "attachmentHint": "画像、PDF、Markdown、Office、テキスト、ZIP に対応。最大 {count} 件、1 件 10 MB まで",
       "removeAttachment": "添付ファイル {name} を削除",
       "includeLogs": "診断ログを含める",

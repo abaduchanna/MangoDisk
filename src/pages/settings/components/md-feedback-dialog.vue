@@ -26,7 +26,6 @@ import { LOG_DOMAINS, LOG_EVENTS } from '@/lib/models/telemetry';
 import { ICON_NAMES } from '@/lib/models/ui';
 import { ClipboardService } from '@/lib/services/clipboard-service';
 import { DroppedAttachmentError, FeedbackService } from '@/lib/services/feedback-service';
-import { FileManagerService } from '@/lib/services/file-manager-service';
 import { LinkService } from '@/lib/services/link-service';
 import { LoggerService } from '@/lib/services/logger-service';
 import { NativeDragDropService, type NativeDragDropEvent } from '@/lib/services/native-drag-drop-service';
@@ -267,14 +266,6 @@ async function openGitHub() {
   }
 }
 
-async function openApplicationLogs() {
-  try {
-    await FileManagerService.openApplicationLogs();
-  } catch (error) {
-    emit('error', error);
-  }
-}
-
 async function copyReference() {
   if (!submittedId.value) return;
   try {
@@ -431,6 +422,28 @@ onMounted(() => {
         </MdDialogHeader>
 
         <div class="feedback-body scrollbar-stable">
+          <label class="field-label">
+            <span class="field-heading">
+              <span>{{ t('settings.feedbackDialog.contentLabel') }}</span>
+              <MdTooltip v-if="contentErrorKey" :text="t(contentErrorKey)"
+                ><small class="field-error" role="alert">
+                  {{ t(contentErrorKey) }}
+                </small></MdTooltip
+              >
+              <small class="field-count">{{ contentLength }} / {{ FEEDBACK_LIMITS.contentMaxLength }}</small>
+            </span>
+            <textarea
+              v-model="content"
+              class="feedback-textarea"
+              :class="{ invalid: contentErrorKey }"
+              :aria-invalid="Boolean(contentErrorKey)"
+              :disabled="submitting"
+              :maxlength="FEEDBACK_LIMITS.contentMaxLength"
+              :placeholder="t('settings.feedbackDialog.contentPlaceholder')"
+              @paste="onPaste"
+            />
+          </label>
+
           <div class="feedback-meta-grid">
             <label class="field-label">
               <span>{{ t('settings.feedbackDialog.categoryLabel') }}</span>
@@ -457,7 +470,7 @@ onMounted(() => {
               </span>
               <Input
                 v-model="email"
-                class="feedback-email font-normal"
+                class="feedback-email h-10 font-normal"
                 :class="{ invalid: emailErrorKey }"
                 type="email"
                 autocomplete="email"
@@ -468,28 +481,6 @@ onMounted(() => {
               />
             </label>
           </div>
-
-          <label class="field-label">
-            <span class="field-heading">
-              <span>{{ t('settings.feedbackDialog.contentLabel') }}</span>
-              <MdTooltip v-if="contentErrorKey" :text="t(contentErrorKey)"
-                ><small class="field-error" role="alert">
-                  {{ t(contentErrorKey) }}
-                </small></MdTooltip
-              >
-              <small class="field-count">{{ contentLength }} / {{ FEEDBACK_LIMITS.contentMaxLength }}</small>
-            </span>
-            <textarea
-              v-model="content"
-              class="feedback-textarea"
-              :class="{ invalid: contentErrorKey }"
-              :aria-invalid="Boolean(contentErrorKey)"
-              :disabled="submitting"
-              :maxlength="FEEDBACK_LIMITS.contentMaxLength"
-              :placeholder="t('settings.feedbackDialog.contentPlaceholder')"
-              @paste="onPaste"
-            />
-          </label>
 
           <section class="attachment-section">
             <div class="attachment-heading">
@@ -509,6 +500,7 @@ onMounted(() => {
                 >
               </span>
               <Button
+                v-if="attachments.length > 0"
                 class="attachment-picker-button"
                 variant="ghost"
                 size="sm"
@@ -547,7 +539,7 @@ onMounted(() => {
                 :disabled="submitting || addingAttachments || remainingAttachmentCount === 0"
                 @click="fileInput?.click()"
               >
-                <MdIcon :name="ICON_NAMES.fileImage" :size="22" />
+                <MdIcon :name="ICON_NAMES.paperclip" :size="18" />
                 <strong>{{ t('settings.feedbackDialog.addAttachments') }}</strong>
               </button>
               <ul v-else class="attachment-list" :class="{ 'scrollbar-stable-end': attachments.length > 3 }">
@@ -568,23 +560,23 @@ onMounted(() => {
             </div>
           </section>
 
-          <div class="log-option-row">
-            <label class="log-option">
-              <MdCheckbox :model-value="includeLogs" :disabled="submitting" @update:model-value="updateIncludeLogs" />
-              <span class="log-option-copy">
-                <strong>{{ t('settings.feedbackDialog.includeLogs') }}</strong>
-                <small>{{ t('settings.feedbackDialog.logPrivacyHint') }}</small>
-              </span>
-            </label>
-            <Button class="log-folder-button" variant="ghost" size="sm" type="button" @click="openApplicationLogs">
-              <MdIcon :name="ICON_NAMES.folderOpen" :size="15" />
-              {{ t('settings.feedbackDialog.openLogFolder') }}
-            </Button>
-          </div>
+          <label class="log-option">
+            <MdCheckbox :model-value="includeLogs" :disabled="submitting" @update:model-value="updateIncludeLogs" />
+            <span class="log-option-copy">
+              <strong>{{ t('settings.feedbackDialog.includeLogs') }}</strong>
+              <small>{{ t('settings.feedbackDialog.logPrivacyHint') }}</small>
+            </span>
+          </label>
         </div>
 
         <MdDialogFooter class="feedback-footer" align="between">
-          <Button variant="ghost" type="button" :disabled="submitting" @click="openGitHub">
+          <Button
+            class="feedback-github-button"
+            variant="ghost"
+            type="button"
+            :disabled="submitting"
+            @click="openGitHub"
+          >
             <MdIcon :name="ICON_NAMES.github" :size="17" />
             {{ t('settings.feedbackDialog.githubAction') }}
             <MdIcon :name="ICON_NAMES.external" :size="14" />
@@ -715,6 +707,7 @@ onMounted(() => {
 
 .attachment-copy strong {
   font-size: var(--font-content-body);
+  font-weight: var(--font-weight-label);
 }
 
 .attachment-copy small {
@@ -754,13 +747,14 @@ onMounted(() => {
 }
 
 .attachment-dropzone {
-  min-height: 84px;
+  min-height: 48px;
   border-width: 1px;
   border-style: dashed;
   border-radius: 9px;
-  padding: 10px;
+  padding: 8px;
+  border-color: var(--border-subtle);
   background: transparent;
-  @apply border-border/80 transition-colors;
+  @apply transition-colors;
 }
 
 .attachment-dropzone.empty {
@@ -781,25 +775,26 @@ onMounted(() => {
 .attachment-dropzone-action {
   display: flex;
   width: 100%;
-  min-height: 82px;
+  min-height: 46px;
   align-items: center;
   justify-content: center;
   gap: 8px;
   cursor: pointer;
   border-radius: 8px;
-  color: var(--primary-text);
-  transition: background-color 150ms ease;
+  color: var(--muted-foreground);
+  transition:
+    color 150ms ease,
+    background-color 150ms ease;
 }
 
 /*
- * Tailwind's opacity modifiers fall back to the full source color when
- * color-mix() is unavailable. Safari 15.6 would therefore paint this entire
- * action solid orange. The semantic surface keeps the same subtle feedback on
- * both legacy and modern WebKit.
+ * Semantic surfaces keep hover feedback subtle on Safari 15.6, which ignores
+ * color-mix() and otherwise falls back to Tailwind's full source color.
  */
 @media (hover: hover) {
   .attachment-dropzone-action:hover {
-    background: var(--surface-primary-subtle);
+    background: var(--surface-muted-subtle);
+    color: var(--foreground);
   }
 }
 
@@ -815,6 +810,7 @@ onMounted(() => {
 
 .attachment-dropzone-action strong {
   font-size: 13px;
+  font-weight: var(--font-weight-label);
 }
 
 .attachment-list {
@@ -890,18 +886,10 @@ onMounted(() => {
   outline-offset: -1px;
 }
 
-.log-option-row {
-  display: flex;
-  min-width: 0;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-}
-
 .log-option {
   display: flex;
   min-width: 0;
-  align-items: center;
+  align-items: flex-start;
   gap: 9px;
   cursor: pointer;
 }
@@ -916,6 +904,7 @@ onMounted(() => {
 
 .log-option strong {
   font-size: 12px;
+  font-weight: var(--font-weight-label);
 }
 
 .log-option small {
@@ -923,16 +912,6 @@ onMounted(() => {
   font-weight: 400;
   line-height: 1.45;
   @apply text-muted-foreground;
-}
-
-.log-option-row :deep(.log-folder-button) {
-  flex: none;
-  height: 32px;
-  gap: 6px;
-  padding: 0 9px;
-  font-size: 12px;
-  font-weight: 500;
-  @apply text-muted-foreground hover:bg-muted/60 hover:text-foreground;
 }
 
 @container (max-width: 540px) {
@@ -943,15 +922,15 @@ onMounted(() => {
   .attachment-heading {
     align-items: flex-end;
   }
-
-  .log-option-row {
-    align-items: flex-start;
-  }
 }
 
 .feedback-footer {
   flex: none;
   align-items: center;
+}
+
+.feedback-footer :deep(.feedback-github-button) {
+  @apply text-muted-foreground hover:text-foreground;
 }
 
 .feedback-primary-actions {

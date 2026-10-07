@@ -2486,7 +2486,7 @@
     "feedbackAction": "Submit Feedback",
     "feedbackDialog": {
       "title": "Send Feedback",
-      "description": "Your feedback helps make MangoDisk better. We read every submission",
+      "description": "We read every submission",
       "categoryLabel": "Feedback type",
       "categories": {
         "issue": "Issue",
@@ -2494,12 +2494,12 @@
         "other": "Other"
       },
       "contentLabel": "Issue or suggestion",
-      "contentPlaceholder": "Tell us what happened, what you were doing, and what you expected. You can also paste a screenshot here…",
+      "contentPlaceholder": "Describe the issue or suggestion. You can paste screenshots…",
       "emailLabel": "Contact email (optional)",
-      "emailPlaceholder": "We'll email you if there are any updates",
+      "emailPlaceholder": "Email for updates",
       "attachmentsLabel": "Screenshots and attachments (optional)",
       "chooseAttachments": "Add attachments",
-      "addAttachments": "Click to add attachments, or drop files here",
+      "addAttachments": "Add attachments or drop files here",
       "attachmentHint": "Images, PDF, Markdown, Office, text, and ZIP; up to {count} files, 10 MB each",
       "removeAttachment": "Remove attachment {name}",
       "includeLogs": "Include diagnostic logs",
