@@ -98,11 +98,14 @@ impl ResidentState {
             .lock()
             .unwrap_or_else(|error| error.into_inner());
         let catalogue = self.catalogue.load(Ordering::Relaxed);
+        // macOS usage and engine statistics share one cheap property read. Keep
+        // real history warm independently of the menu-bar display selection.
+        // Windows PDH initialization remains demand-driven because it is costly.
+        let gpu_sampling = preferences.enabled
+            && (cfg!(target_os = "macos") || preferences.shows(MetricId::Gpu) || panel_open);
         MetricId::ALL.map(|metric| Demand {
-            // Existing lightweight overviews stay warm. GPU's first PDH query can
-            // be expensive, so acquire it only for a selected display or open panel.
-            active: (preferences.enabled
-                && (metric != MetricId::Gpu || preferences.shows(metric) || panel_open))
+            active: (preferences.enabled && metric != MetricId::Gpu)
+                || (metric == MetricId::Gpu && gpu_sampling)
                 || (metric == MetricId::Network && catalogue & 1 != 0)
                 || (metric == MetricId::Disk && catalogue & 2 != 0)
                 || (metric == MetricId::Gpu && catalogue & 4 != 0),
@@ -112,8 +115,7 @@ impl ResidentState {
                     || (matches!(metric, MetricId::Cpu | MetricId::Gpu)
                         && panel_open
                         && selected == metric)),
-            catalogue_only: metric == MetricId::Gpu
-                && !(preferences.enabled && (preferences.shows(metric) || panel_open)),
+            catalogue_only: metric == MetricId::Gpu && !gpu_sampling,
             selection: match metric {
                 MetricId::Network => preferences.network_interface.clone(),
                 MetricId::Disk => preferences.disk_volume.clone(),
@@ -189,6 +191,11 @@ pub fn start(app: &tauri::AppHandle, preferences: ResidentPreferences) -> Arc<Re
         let mut loop_delayed = false;
         let mut display_pending: Option<Instant> = None;
         let mut display_updated = Instant::now() - Duration::from_secs(1);
+        log::info!(
+            "resident_gpu_sampling_policy keep_history_when_hidden={} interval_ms={}",
+            cfg!(target_os = "macos"),
+            MetricId::Gpu.interval_ms()
+        );
         loop {
             let loop_ms = loop_at.elapsed().as_millis();
             loop_at = Instant::now();
@@ -714,7 +721,10 @@ mod overview_tests {
         state.panel_open.store(false, Ordering::Relaxed);
         assert!(!state.cpu_processes_visible());
         for (metric, demand) in MetricId::ALL.into_iter().zip(state.demands(false)) {
-            assert_eq!(demand.active, metric != MetricId::Gpu);
+            assert_eq!(
+                demand.active,
+                metric != MetricId::Gpu || cfg!(target_os = "macos")
+            );
             assert!(!demand.detailed);
         }
         assert!(state.disk_activity_demand().active);
@@ -726,6 +736,7 @@ mod overview_tests {
             .all(|demand| !demand.active && !demand.detailed));
     }
 
+    #[cfg(not(target_os = "macos"))]
     #[test]
     fn gpu_catalogue_can_be_requested_without_enabling_its_native_display() {
         let state = test_state();
@@ -755,8 +766,29 @@ mod overview_tests {
                 .active
         );
     }
+    #[cfg(target_os = "macos")]
     #[test]
-    fn gpu_demand_stops_when_hidden_and_unselected_but_native_display_keeps_history_warm() {
+    fn macos_gpu_history_remains_active_across_hidden_panels_with_display_disabled() {
+        let state = test_state();
+        let gpu = MetricId::ALL
+            .iter()
+            .position(|metric| *metric == MetricId::Gpu)
+            .unwrap();
+        assert!(!state.preferences.lock().unwrap().shows(MetricId::Gpu));
+        for panel_open in [true, false, true, false, true] {
+            state.panel_open.store(panel_open, Ordering::Relaxed);
+            *state.panel_metric.lock().unwrap() = MetricId::Gpu;
+            let demand = state.demands(false)[gpu].clone();
+            assert!(demand.active, "hidden panels must retain real GPU history");
+            assert!(!demand.catalogue_only);
+            assert_eq!(demand.detailed, panel_open);
+        }
+        state.preferences.lock().unwrap().enabled = false;
+        assert!(!state.demands(false)[gpu].active);
+    }
+
+    #[test]
+    fn gpu_background_demand_respects_platform_cost_and_global_disable() {
         let state = test_state();
         let gpu = MetricId::ALL
             .iter()
@@ -764,7 +796,7 @@ mod overview_tests {
             .unwrap();
         assert!(state.demands(false)[gpu].active);
         state.panel_open.store(false, Ordering::Relaxed);
-        assert!(!state.demands(false)[gpu].active);
+        assert_eq!(state.demands(false)[gpu].active, cfg!(target_os = "macos"));
         state
             .preferences
             .lock()
