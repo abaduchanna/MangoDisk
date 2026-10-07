@@ -4110,12 +4110,15 @@
     "quitAction": "Çık"
   },
   "gpuDetails": {
+    "allocatableMemoryHint": "Ayrılmış kapasite, sistemin ayırabildiği bellektir ve donanım rezervlerini içermeyebilir. Toplam GPU kapasitesi de etkilenir",
     "cachedLabel": "Önbellek",
     "cached": "Son kullanılabilir veriler gösteriliyor; güncelleme bekleniyor",
     "activities": "Motor etkinliği",
     "customActivities": "Sürücü tanımlı motorlar",
     "customHint": "Ayrı gösterilir; yukarıdaki toplam GPU kullanımına dahil edilmez",
     "dedicatedMemory": "Ayrılmış GPU belleği",
+    "totalMemory": "GPU belleği",
+    "sharedMemory": "Paylaşılan GPU belleği",
     "graphics": "3D",
     "copy": "Kopyalama",
     "videoDecode": "Video çözme",

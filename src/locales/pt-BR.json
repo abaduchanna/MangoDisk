@@ -4110,12 +4110,15 @@
     "quitAction": "Encerrar"
   },
   "gpuDetails": {
+    "allocatableMemoryHint": "A capacidade dedicada usa a memória alocável pelo sistema e pode excluir reservas de hardware. Isso também afeta a capacidade total da GPU",
     "cachedLabel": "Em cache",
     "cached": "Exibindo os últimos dados disponíveis; aguardando atualização",
     "activities": "Atividade dos motores",
     "customActivities": "Motores definidos pelo driver",
     "customHint": "Exibidos separadamente; não entram no uso total da GPU mostrado acima",
     "dedicatedMemory": "Memória dedicada da GPU",
+    "totalMemory": "Memória da GPU",
+    "sharedMemory": "Memória compartilhada da GPU",
     "graphics": "3D",
     "copy": "Cópia",
     "videoDecode": "Decodificação de vídeo",

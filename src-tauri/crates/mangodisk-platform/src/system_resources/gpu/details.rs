@@ -33,12 +33,21 @@ pub enum GpuMemoryArchitecture {
     Unknown,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub enum GpuMemoryCapacitySource {
+    Reported,
+    Allocatable,
+}
+
 #[derive(Debug, Clone, Default, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct GpuMemory {
     pub dedicated_used_bytes: Option<u64>,
     pub dedicated_total_bytes: Option<u64>,
+    pub dedicated_total_source: Option<GpuMemoryCapacitySource>,
     pub shared_used_bytes: Option<u64>,
+    pub shared_total_bytes: Option<u64>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]

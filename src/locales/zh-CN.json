@@ -4110,12 +4110,15 @@
     "quitAction": "退出"
   },
   "gpuDetails": {
+    "allocatableMemoryHint": "专用容量来自系统可分配内存，可能不含硬件预留；GPU 总容量也会受影响",
     "cachedLabel": "缓存",
     "cached": "正在显示上次数据，等待更新",
     "activities": "引擎活动",
     "customActivities": "驱动自定义引擎",
     "customHint": "单独显示，不计入上方 GPU 总利用率",
     "dedicatedMemory": "专用 GPU 内存",
+    "totalMemory": "GPU 内存",
+    "sharedMemory": "共享 GPU 内存",
     "graphics": "3D",
     "copy": "复制",
     "videoDecode": "视频解码",

@@ -23,6 +23,7 @@ struct Capabilities {
     dedicated_used_bytes: bool,
     dedicated_total_bytes: bool,
     shared_used_bytes: bool,
+    shared_total_bytes: bool,
 }
 impl Capabilities {
     fn read(details: Option<&GpuDetails>) -> Option<Self> {
@@ -74,6 +75,10 @@ impl Capabilities {
                 .memory
                 .as_ref()
                 .is_some_and(|m| m.shared_used_bytes.is_some()),
+            shared_total_bytes: details
+                .memory
+                .as_ref()
+                .is_some_and(|m| m.shared_total_bytes.is_some()),
         })
     }
 }

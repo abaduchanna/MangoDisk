@@ -3,7 +3,7 @@ import type { ResourceReadings, MetricReading } from '@/lib/models/system-resour
 export function emptyReadings(): ResourceReadings {
   const empty = <T>(): MetricReading<T> => ({ status: 'loading', sampledAtMs: null, value: null });
   return {
-    schemaVersion: 12,
+    schemaVersion: 14,
     observedAtMs: 0,
     cpu: empty(),
     cpuIdentity: null,

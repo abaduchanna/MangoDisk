@@ -4110,12 +4110,15 @@
     "quitAction": "結束"
   },
   "gpuDetails": {
+    "allocatableMemoryHint": "專用容量來自系統可分配記憶體，可能不含硬體保留；GPU 總容量也會受影響",
     "cachedLabel": "快取",
     "cached": "正在顯示上次資料，等待更新",
     "activities": "引擎活動",
     "customActivities": "驅動程式自訂引擎",
     "customHint": "分別顯示，不計入上方 GPU 總使用率",
     "dedicatedMemory": "專用 GPU 記憶體",
+    "totalMemory": "GPU 記憶體",
+    "sharedMemory": "共用 GPU 記憶體",
     "graphics": "3D",
     "copy": "複製",
     "videoDecode": "影片解碼",

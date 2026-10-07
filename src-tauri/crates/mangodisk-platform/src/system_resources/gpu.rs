@@ -15,6 +15,8 @@ mod windows_counter;
 #[cfg(windows)]
 mod windows_details;
 #[cfg(windows)]
+mod windows_memory;
+#[cfg(windows)]
 mod windows_metadata;
 #[cfg(windows)]
 pub use windows::GpuReader;

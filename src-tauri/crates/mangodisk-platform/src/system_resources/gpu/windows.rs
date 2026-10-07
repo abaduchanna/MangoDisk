@@ -405,6 +405,7 @@ mod tests {
             engines: engines.iter().copied().collect(),
             nodes: HashMap::new(),
             dedicated_bytes: 0,
+            memory_capacities: Vec::new(),
             telemetry: Default::default(),
         }
     }

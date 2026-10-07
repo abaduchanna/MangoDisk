@@ -3,6 +3,7 @@ import { summarizeUtilizationHistory } from '@/lib/utils/utilization-history-sum
 import MdGpuEngineHistory from './md-gpu-engine-history.vue';
 import MdResourceFacts from './md-resource-facts.vue';
 import { customGpuActivities, summarizeGpuActivities } from '@/lib/utils/gpu-activity';
+import { gpuMemoryRows } from '@/lib/utils/gpu-memory';
 import { computed, onMounted, ref, watch } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { Select, SelectContent, SelectItem } from '@/components/ui/select';
@@ -98,10 +99,11 @@ const cacheStatus = computed(() =>
   summaryReading.value.status !== 'ready' ? summaryReading.value.status : props.reading.gpuDetails.status
 );
 const memory = computed(() => (details.value?.memoryStatus === 'ready' ? details.value.memory : null));
-const dedicatedPercent = computed(() =>
-  memory.value?.dedicatedUsedBytes != null && memory.value.dedicatedTotalBytes
-    ? Math.min(100, (memory.value.dedicatedUsedBytes / memory.value.dedicatedTotalBytes) * 100)
-    : null
+const memoryRows = computed(() => gpuMemoryRows(memory.value));
+const allocatableCapacity = computed(
+  () =>
+    memory.value?.dedicatedTotalSource === 'allocatable' &&
+    memoryRows.value.some(row => row.key === 'dedicated' && row.total !== null)
 );
 function activityLabel(activity: GpuActivity) {
   return activity.name || t(GPU_ACTIVITY_LABEL_KEYS[activity.kind]);
@@ -177,28 +179,36 @@ onMounted(() => {
       </div>
       <MdResourceFacts v-if="value" :facts="facts" class="gpu-facts" />
       <template v-if="details">
-        <section v-if="memory?.dedicatedUsedBytes != null || details.memoryStatus === 'failed'" class="memory-section">
-          <h3>{{ t('systemStatus.memory') }}</h3>
-          <template v-if="memory">
-            <div v-if="memory.dedicatedUsedBytes !== null" class="memory-row">
-              <span>{{ t('gpuDetails.dedicatedMemory') }}</span
-              ><b
-                >{{ ByteSizeService.memory(memory.dedicatedUsedBytes)
-                }}<template v-if="memory.dedicatedTotalBytes !== null">
-                  / {{ ByteSizeService.memory(memory.dedicatedTotalBytes) }}</template
-                ></b
+        <section v-if="memoryRows.length || details.memoryStatus === 'failed'" class="memory-section">
+          <h3>
+            <MdTooltip v-if="allocatableCapacity" :text="t('gpuDetails.allocatableMemoryHint')">
+              <button type="button" class="activity-help memory-help">
+                {{ t('systemStatus.memory') }}
+                <MdIcon :name="ICON_NAMES.info" :size="12" />
+              </button>
+            </MdTooltip>
+            <template v-else>{{ t('systemStatus.memory') }}</template>
+          </h3>
+          <template v-if="memoryRows.length">
+            <div v-for="row in memoryRows" :key="row.key" class="memory-item">
+              <div class="memory-row">
+                <span>{{ t(row.label) }}</span
+                ><b
+                  >{{ ByteSizeService.memory(row.used)
+                  }}<template v-if="row.total !== null"> / {{ ByteSizeService.memory(row.total) }}</template></b
+                >
+              </div>
+              <div
+                v-if="row.percent !== null"
+                class="activity-track"
+                role="meter"
+                :aria-label="t(row.label)"
+                :aria-valuenow="row.percent"
+                :aria-valuemin="0"
+                :aria-valuemax="100"
               >
-            </div>
-            <div
-              v-if="dedicatedPercent !== null"
-              class="activity-track"
-              role="meter"
-              :aria-label="t('gpuDetails.dedicatedMemory')"
-              :aria-valuenow="dedicatedPercent"
-              :aria-valuemin="0"
-              :aria-valuemax="100"
-            >
-              <i :style="{ width: `${dedicatedPercent}%` }" />
+                <i :style="{ width: `${row.percent}%` }" />
+              </div>
             </div>
           </template>
           <p v-else-if="details.memoryArchitecture !== 'unified'" class="detail-note" role="status">
@@ -460,6 +470,9 @@ button:focus-visible {
   font-size: 11px;
   margin: 8px 0;
   flex-wrap: wrap;
+}
+.memory-item + .memory-item {
+  margin-top: 10px;
 }
 .detail-note button {
   @apply text-primary;

@@ -4110,12 +4110,15 @@
     "quitAction": "Quit"
   },
   "gpuDetails": {
+    "allocatableMemoryHint": "Dedicated capacity uses system-allocatable memory and may exclude hardware reservations. This also affects total GPU capacity",
     "cachedLabel": "Cached",
     "cached": "Showing the last available data; waiting for an update",
     "activities": "Engine activity",
     "customActivities": "Driver-defined engines",
     "customHint": "Shown separately; excluded from the GPU utilization above",
     "dedicatedMemory": "Dedicated GPU memory",
+    "totalMemory": "GPU memory",
+    "sharedMemory": "Shared GPU memory",
     "graphics": "3D",
     "copy": "Copy",
     "videoDecode": "Video decode",

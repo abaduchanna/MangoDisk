@@ -88,10 +88,11 @@ pub(super) struct Metadata {
     pub(super) engines: HashSet<(u32, u32)>,
     pub(super) nodes: HashMap<(u32, u32), Node>,
     pub(super) dedicated_bytes: u64,
+    pub(super) memory_capacities: Vec<super::windows_memory::Capacities>,
     pub(super) telemetry: TelemetryReader,
 }
 
-struct AdapterHandle(u32);
+pub(super) struct AdapterHandle(u32);
 impl Drop for AdapterHandle {
     fn drop(&mut self) {
         unsafe {
@@ -111,7 +112,7 @@ impl AdapterHandle {
         )?;
         Ok(Self(value.hAdapter))
     }
-    fn query<T>(
+    pub(super) fn query<T>(
         &self,
         kind: KMTQUERYADAPTERINFOTYPE,
         value: &mut T,
@@ -227,6 +228,7 @@ impl Metadata {
             && self.ordinal == previous.ordinal
             && self.physical_count == previous.physical_count
             && self.dedicated_bytes == previous.dedicated_bytes
+            && self.memory_capacities == previous.memory_capacities
             && self.nodes == previous.nodes
     }
     pub(super) fn log_inventory(&self, luid: (u32, u32)) {
@@ -371,6 +373,9 @@ impl Metadata {
             .iter()
             .position(|unit| *unit == 0)
             .unwrap_or(description.Description.len());
+        let memory_capacities = (0..count.Count)
+            .map(|physical| super::windows_memory::read(&handle, &id, physical, count.Count))
+            .collect();
         Ok(Some(Self {
             id,
             name: String::from_utf16_lossy(&description.Description[..length]),
@@ -379,6 +384,7 @@ impl Metadata {
             engines,
             nodes,
             dedicated_bytes: description.DedicatedVideoMemory as u64,
+            memory_capacities,
             telemetry: TelemetryReader {
                 handle: Some(handle),
                 retry_at: vec![None; count.Count as usize],
@@ -448,6 +454,7 @@ mod tests {
                 engines: HashSet::new(),
                 nodes: HashMap::new(),
                 dedicated_bytes: 0,
+                memory_capacities: Vec::new(),
                 telemetry: TelemetryReader {
                     retry_at: vec![None],
                     observations: vec![None],

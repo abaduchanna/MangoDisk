@@ -62,9 +62,19 @@ pub(super) fn attach(
             });
             let allocation = memory.as_ref().ok().map(|values| GpuMemory {
                 dedicated_used_bytes: bytes(&values[0], (*high, *low, physical)),
-                dedicated_total_bytes: (adapter.physical_count == 1 && adapter.dedicated_bytes > 0)
-                    .then_some(adapter.dedicated_bytes),
+                dedicated_total_bytes: adapter
+                    .memory_capacities
+                    .get(physical as usize)
+                    .and_then(|capacity| capacity.dedicated),
+                dedicated_total_source: adapter
+                    .memory_capacities
+                    .get(physical as usize)
+                    .and_then(|capacity| capacity.dedicated_source),
                 shared_used_bytes: bytes(&values[1], (*high, *low, physical)),
+                shared_total_bytes: adapter
+                    .memory_capacities
+                    .get(physical as usize)
+                    .and_then(|capacity| capacity.shared),
             });
             let memory_status = match memory {
                 Err(error)

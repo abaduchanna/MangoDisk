@@ -7,6 +7,13 @@ export interface GpuActivity {
   usedPercent: number;
   includedInSummary: boolean;
 }
+export interface GpuMemory {
+  dedicatedUsedBytes: number | null;
+  dedicatedTotalBytes: number | null;
+  dedicatedTotalSource: 'reported' | 'allocatable' | null;
+  sharedUsedBytes: number | null;
+  sharedTotalBytes: number | null;
+}
 export interface GpuDetails {
   activities: GpuActivity[];
   telemetry: {
@@ -19,11 +26,7 @@ export interface GpuDetails {
   };
   memoryArchitecture: 'unified' | 'dedicated' | 'shared' | 'unknown';
   memoryStatus: 'ready' | 'unsupported' | 'failed';
-  memory: {
-    dedicatedUsedBytes: number | null;
-    dedicatedTotalBytes: number | null;
-    sharedUsedBytes: number | null;
-  } | null;
+  memory: GpuMemory | null;
 }
 export const GPU_ACTIVITY_LABEL_KEYS: Record<GpuActivityKind, string> = {
   graphics: 'gpuDetails.graphics',

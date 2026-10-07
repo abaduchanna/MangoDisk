@@ -121,7 +121,7 @@ export interface DiskIoRate {
   writtenBytesPerSecond: number;
 }
 export interface ResourceReadings {
-  schemaVersion: 12;
+  schemaVersion: 14;
   observedAtMs: number;
   cpu: MetricReading<CpuUsage>;
   cpuIdentity: CpuIdentity | null;

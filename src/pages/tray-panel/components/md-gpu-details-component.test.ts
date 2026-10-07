@@ -66,7 +66,9 @@ function reading(): ResourceReadings {
           memory: {
             dedicatedUsedBytes: 1024 ** 3,
             dedicatedTotalBytes: 24 * 1024 ** 3,
+            dedicatedTotalSource: 'reported',
             sharedUsedBytes: 512 * 1024 ** 2,
+            sharedTotalBytes: 32 * 1024 ** 3,
           },
         },
       },
@@ -94,6 +96,72 @@ afterEach(() => {
   document.body.innerHTML = '';
 });
 describe('GPU detail capabilities and selection', () => {
+  it.each(Object.keys(messages))('explains allocatable capacity only on hover in %s', async locale => {
+    const value = reading();
+    value.gpuDetails.value!.details!.memory!.dedicatedTotalSource = 'allocatable';
+    const { wrapper } = render(value, locale);
+    await flushPromises();
+    const hint = messages[locale as keyof typeof messages].gpuDetails.allocatableMemoryHint;
+    const tooltip = wrapper.findAllComponents({ name: 'MdTooltip' }).find(item => item.find('.memory-help').exists());
+    expect(tooltip?.props('text')).toBe(hint);
+    expect(wrapper.text()).not.toContain(hint);
+    expect(wrapper.findAll('.memory-section [role="meter"]')).toHaveLength(3);
+    const next = structuredClone(value);
+    next.gpuDetails.value!.details!.memory!.dedicatedTotalSource = 'reported';
+    await wrapper.setProps({ reading: next });
+    expect(wrapper.find('.memory-help').exists()).toBe(false);
+  });
+  it('does not attach a capacity warning to missing or unrelated memory', async () => {
+    const value = reading();
+    const memory = value.gpuDetails.value!.details!.memory!;
+    memory.dedicatedTotalSource = 'allocatable';
+    memory.dedicatedTotalBytes = null;
+    const { wrapper } = render(value);
+    await flushPromises();
+    expect(wrapper.find('.memory-help').exists()).toBe(false);
+    const next = structuredClone(value);
+    next.gpuDetails.value!.details!.memory!.dedicatedTotalBytes = 128;
+    next.gpuDetails.value!.details!.memory!.dedicatedUsedBytes = null;
+    await wrapper.setProps({ reading: next });
+    expect(wrapper.find('.memory-help').exists()).toBe(false);
+  });
+  it('omits absent dedicated memory and its hint on a shared-memory virtual GPU', async () => {
+    const value = reading();
+    const details = value.gpuDetails.value!.details!;
+    details.memoryArchitecture = 'shared';
+    details.memory!.dedicatedUsedBytes = 0;
+    details.memory!.dedicatedTotalBytes = 0;
+    details.memory!.dedicatedTotalSource = 'allocatable';
+    const { wrapper } = render(value);
+    await flushPromises();
+    expect(wrapper.findAll('.memory-row > span').map(row => row.text())).toEqual([
+      enUS.gpuDetails.totalMemory,
+      enUS.gpuDetails.sharedMemory,
+    ]);
+    expect(wrapper.find('.memory-help').exists()).toBe(false);
+    expect(wrapper.findAll('.memory-section [role="meter"]')).toHaveLength(2);
+  });
+  it('shows measured memory without inventing an unavailable physical capacity', async () => {
+    const value = reading();
+    value.gpuDetails.value!.details!.memory!.dedicatedTotalBytes = null;
+    const { wrapper } = render(value);
+    await flushPromises();
+    const rows = wrapper.findAll('.memory-row');
+    expect(rows).toHaveLength(3);
+    expect(rows[0].get('b').text()).toBe('1.50 GB');
+    expect(rows[1].get('b').text()).toBe('1.00 GB');
+    expect(rows[2].get('b').text()).toBe('512 MB / 32.0 GB');
+    expect(wrapper.findAll('.memory-section [role="meter"]')).toHaveLength(1);
+  });
+  it('renders a shared-only observation and hides an incomplete total', async () => {
+    const value = reading();
+    value.gpuDetails.value!.details!.memory!.dedicatedUsedBytes = null;
+    const { wrapper } = render(value);
+    await flushPromises();
+    expect(wrapper.findAll('.memory-row')).toHaveLength(1);
+    expect(wrapper.get('.memory-row').text()).toContain(enUS.gpuDetails.sharedMemory);
+    expect(wrapper.findAll('.memory-row > span').map(row => row.text())).not.toContain(enUS.gpuDetails.totalMemory);
+  });
   it('keeps custom engine activity separate from the summary', async () => {
     const { wrapper } = render();
     await flushPromises();
@@ -101,8 +169,8 @@ describe('GPU detail capabilities and selection', () => {
     expect(wrapper.get('.custom-activities').text()).toContain('Graphics_1');
     expect(wrapper.get('.custom-activities').text()).toContain('56%');
     expect(wrapper.get('.custom-activities').attributes('open')).toBeUndefined();
-    expect(wrapper.findAll('.memory-row')).toHaveLength(1);
-    expect(wrapper.text()).not.toContain('Shared memory');
+    expect(wrapper.findAll('.memory-row')).toHaveLength(3);
+    expect(wrapper.text()).toContain(enUS.gpuDetails.sharedMemory);
     expect(wrapper.text()).not.toContain(enUS.gpuDetails.customHint);
   });
   it('renders stable functional and natural-name orders as activity changes', async () => {
@@ -252,7 +320,7 @@ describe('GPU detail capabilities and selection', () => {
     );
     const { wrapper } = render();
     expect(wrapper.get('header strong').text()).toBe('3%');
-    expect(wrapper.findAll('.memory-row')).toHaveLength(1);
+    expect(wrapper.findAll('.memory-row')).toHaveLength(3);
     const preferences = preferencesFixture();
     preferences.gpuAdapter = 'b';
     resolve(preferences);
@@ -278,7 +346,7 @@ describe('GPU detail capabilities and selection', () => {
     const { wrapper } = render(value);
     await flushPromises();
     expect(wrapper.get('header strong').text()).toBe('8%');
-    expect(wrapper.findAll('.memory-row')).toHaveLength(1);
+    expect(wrapper.findAll('.memory-row')).toHaveLength(3);
     expect(wrapper.find('.cache-notice').exists()).toBe(true);
     value.gpuDetails = { ...value.gpuDetails, status: 'ready' };
     await wrapper.setProps({ reading: { ...value } });
