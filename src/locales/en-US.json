@@ -2500,7 +2500,7 @@
       "attachmentsLabel": "Screenshots and attachments (optional)",
       "chooseAttachments": "Add attachments",
       "addAttachments": "Click to add attachments, or drop files here",
-      "attachmentHint": "Images, PDFs, text files, and ZIP archives; up to {count} files, 10 MB each",
+      "attachmentHint": "Images, PDF, Markdown, Office, text, and ZIP; up to {count} files, 10 MB each",
       "removeAttachment": "Remove attachment {name}",
       "includeLogs": "Include diagnostic logs",
       "logPrivacyHint": "(No file contents or raw paths; used only for troubleshooting)",
@@ -2518,7 +2518,7 @@
         "contentTooLong": "Maximum 5,000 characters",
         "invalidEmail": "Enter a valid email address",
         "tooManyAttachments": "You can attach up to 5 files",
-        "unsupportedAttachment": "Choose an image, PDF, text, or ZIP file",
+        "unsupportedAttachment": "Choose an image, PDF, Markdown, Office, text, or ZIP file",
         "attachmentTooLarge": "Each attachment must be 10 MB or smaller",
         "attachmentFailed": "The attachment could not be read. Remove it and try again",
         "submitFailed": "Couldn’t send feedback. Try again later; your content and attachments are saved"

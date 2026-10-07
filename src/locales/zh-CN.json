@@ -2500,7 +2500,7 @@
       "attachmentsLabel": "截图与附件（选填）",
       "chooseAttachments": "选择附件",
       "addAttachments": "点击选择附件，或直接拖入文件",
-      "attachmentHint": "支持图片、PDF、文本和 ZIP；最多 {count} 个，每个不超过 10 MB",
+      "attachmentHint": "支持图片、PDF、Markdown、Office、文本和 ZIP；最多 {count} 个，每个不超过 10 MB",
       "removeAttachment": "移除附件 {name}",
       "includeLogs": "同时提交诊断日志",
       "logPrivacyHint": "（不包含文件内容或原始路径，仅用于问题诊断）",
@@ -2518,7 +2518,7 @@
         "contentTooLong": "最多可以输入 5000 个字符",
         "invalidEmail": "请输入有效的邮箱地址",
         "tooManyAttachments": "最多可以添加 5 个附件",
-        "unsupportedAttachment": "此附件类型暂不支持，请选择图片、PDF、文本或 ZIP 文件",
+        "unsupportedAttachment": "请选择图片、PDF、Markdown、Office、文本或 ZIP 文件",
         "attachmentTooLarge": "单个附件不能超过 10 MB",
         "attachmentFailed": "附件读取失败，请移除后重试",
         "submitFailed": "暂时无法提交，请稍后重试。内容和附件已保留"

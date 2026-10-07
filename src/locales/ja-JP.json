@@ -2500,7 +2500,7 @@
       "attachmentsLabel": "スクリーンショット・添付ファイル（任意）",
       "chooseAttachments": "ファイルを選択",
       "addAttachments": "クリックして選択するか、ファイルをここにドロップ",
-      "attachmentHint": "画像、PDF、テキスト、ZIP に対応。最大 {count} 件、1 件 10 MB まで",
+      "attachmentHint": "画像、PDF、Markdown、Office、テキスト、ZIP に対応。最大 {count} 件、1 件 10 MB まで",
       "removeAttachment": "添付ファイル {name} を削除",
       "includeLogs": "診断ログを含める",
       "logPrivacyHint": "（ファイル内容や元のパスは含まず、問題の診断にのみ使用します）",
@@ -2518,7 +2518,7 @@
         "contentTooLong": "5000 文字以内で入力してください",
         "invalidEmail": "有効なメールアドレスを入力してください",
         "tooManyAttachments": "添付できるファイルは最大 5 件です",
-        "unsupportedAttachment": "画像、PDF、テキスト、または ZIP ファイルを選択してください",
+        "unsupportedAttachment": "画像、PDF、Markdown、Office、テキスト、または ZIP ファイルを選択してください",
         "attachmentTooLarge": "添付ファイルは 1 件 10 MB 以下にしてください",
         "attachmentFailed": "添付ファイルを読み取れませんでした。削除してもう一度お試しください",
         "submitFailed": "送信できませんでした。入力内容と添付ファイルは保持されています"

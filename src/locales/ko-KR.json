@@ -2500,7 +2500,7 @@
       "attachmentsLabel": "스크린샷 및 첨부 파일(선택 사항)",
       "chooseAttachments": "첨부 파일 추가",
       "addAttachments": "클릭해서 첨부하거나 파일을 여기에 놓으세요",
-      "attachmentHint": "이미지, PDF, 텍스트 파일, ZIP 압축 파일. 최대 {count}개, 각 10 MB 이하",
+      "attachmentHint": "이미지, PDF, Markdown, Office, 텍스트, ZIP 파일. 최대 {count}개, 각 10 MB 이하",
       "removeAttachment": "첨부 파일 {name} 제거",
       "includeLogs": "진단 로그 포함",
       "logPrivacyHint": "(파일 내용이나 원본 경로는 포함되지 않으며 문제 해결에만 사용됩니다)",
@@ -2518,7 +2518,7 @@
         "contentTooLong": "최대 5,000자까지 입력할 수 있습니다",
         "invalidEmail": "올바른 이메일 주소를 입력하세요",
         "tooManyAttachments": "최대 5개 파일까지 첨부할 수 있습니다",
-        "unsupportedAttachment": "이미지, PDF, 텍스트 또는 ZIP 파일을 선택하세요",
+        "unsupportedAttachment": "이미지, PDF, Markdown, Office, 텍스트 또는 ZIP 파일을 선택하세요",
         "attachmentTooLarge": "첨부 파일은 각각 10 MB 이하여야 합니다",
         "attachmentFailed": "첨부 파일을 읽을 수 없습니다. 제거하고 다시 시도하세요",
         "submitFailed": "피드백을 보낼 수 없습니다. 나중에 다시 시도하세요. 작성한 내용과 첨부 파일은 저장되어 있습니다"

@@ -2500,7 +2500,7 @@
       "attachmentsLabel": "Ekran görüntüleri ve ekler (isteğe bağlı)",
       "chooseAttachments": "Ek ekle",
       "addAttachments": "Ek eklemek için tıklayın veya dosyaları buraya bırakın",
-      "attachmentHint": "Görseller, PDF'ler, metin dosyaları ve ZIP arşivleri; her biri en fazla 10 MB olmak üzere {count} dosya",
+      "attachmentHint": "Görsel, PDF, Markdown, Office, metin ve ZIP; en fazla {count} dosya, her biri 10 MB",
       "removeAttachment": "{name} ekini kaldır",
       "includeLogs": "Tanılama günlüklerini ekle",
       "logPrivacyHint": "(Dosya içerikleri veya ham yollar içermez; yalnızca sorunları gidermek için kullanılır)",
@@ -2518,7 +2518,7 @@
         "contentTooLong": "En fazla 5.000 karakter",
         "invalidEmail": "Geçerli bir e-posta adresi girin",
         "tooManyAttachments": "En fazla 5 dosya ekleyebilirsiniz",
-        "unsupportedAttachment": "Görsel, PDF, metin veya ZIP dosyası seçin",
+        "unsupportedAttachment": "Görsel, PDF, Markdown, Office, metin veya ZIP dosyası seçin",
         "attachmentTooLarge": "Her ek en fazla 10 MB olmalıdır",
         "attachmentFailed": "Ek okunamadı. Kaldırıp tekrar deneyin",
         "submitFailed": "Geri bildirim gönderilemedi. Daha sonra tekrar deneyin; metniniz ve ekleriniz kaydedildi"

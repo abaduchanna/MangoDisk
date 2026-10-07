@@ -2500,7 +2500,7 @@
       "attachmentsLabel": "Capturas de tela e anexos (opcional)",
       "chooseAttachments": "Adicionar anexos",
       "addAttachments": "Clique para adicionar anexos ou arraste arquivos aqui",
-      "attachmentHint": "Imagens, PDFs, arquivos de texto e arquivos ZIP; até {count} arquivos, 10 MB cada",
+      "attachmentHint": "Imagens, PDF, Markdown, Office, texto e ZIP; até {count} arquivos, 10 MB cada",
       "removeAttachment": "Remover anexo {name}",
       "includeLogs": "Incluir logs de diagnóstico",
       "logPrivacyHint": "(Sem conteúdo de arquivos nem caminhos completos; apenas para diagnóstico)",
@@ -2518,7 +2518,7 @@
         "contentTooLong": "Máximo de 5.000 caracteres",
         "invalidEmail": "Digite um endereço de e-mail válido",
         "tooManyAttachments": "Você pode anexar até 5 arquivos",
-        "unsupportedAttachment": "Escolha uma imagem, PDF, arquivo de texto ou ZIP",
+        "unsupportedAttachment": "Escolha um arquivo de imagem, PDF, Markdown, Office, texto ou ZIP",
         "attachmentTooLarge": "Cada anexo deve ter 10 MB ou menos",
         "attachmentFailed": "Não foi possível ler o anexo. Remova-o e tente novamente",
         "submitFailed": "Não foi possível enviar o feedback. Tente novamente mais tarde; seu conteúdo e anexos estão salvos"

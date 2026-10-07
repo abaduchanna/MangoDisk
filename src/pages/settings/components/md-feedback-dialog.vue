@@ -16,6 +16,7 @@ import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { PROJECT_LINKS } from '@/lib/models/application-shell';
 import {
+  FEEDBACK_ATTACHMENT_ACCEPT,
   FEEDBACK_CATEGORY_IDS,
   FEEDBACK_LIMITS,
   type FeedbackCategory,
@@ -83,7 +84,6 @@ let referenceCopyTimer: ReturnType<typeof setTimeout> | null = null;
 const remainingAttachmentCount = computed(() => FEEDBACK_LIMITS.attachmentCount - attachments.value.length);
 const categoryLabel = computed(() => t(CATEGORY_LABEL_KEYS[category.value]));
 const contentLength = computed(() => feedbackContentLength(content.value));
-const acceptTypes = 'image/png,image/jpeg,image/webp,application/pdf,application/zip,text/plain,.log,.txt,.zip';
 
 function setCategory(value: unknown) {
   if (typeof value !== 'string' || !Object.values(FEEDBACK_CATEGORY_IDS).includes(value as FeedbackCategory)) return;
@@ -520,7 +520,14 @@ onMounted(() => {
                 {{ t('settings.feedbackDialog.chooseAttachments') }}
               </Button>
             </div>
-            <input ref="fileInput" class="sr-only" type="file" multiple :accept="acceptTypes" @change="onFileInput" />
+            <input
+              ref="fileInput"
+              class="sr-only"
+              type="file"
+              multiple
+              :accept="FEEDBACK_ATTACHMENT_ACCEPT"
+              @change="onFileInput"
+            />
             <div
               class="attachment-dropzone"
               :class="{
