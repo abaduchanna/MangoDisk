@@ -123,6 +123,116 @@ describe('resource details', () => {
     }
   );
 
+  it.each([en, zh, tw, ja, ko, pt, ru, tr])(
+    'shows memory pressure separately from capacity in each locale',
+    messages => {
+      for (const pressure of ['normal', 'warning', 'critical', 'unavailable'] as const) {
+        const reading = emptyReadings();
+        reading.memory = {
+          status: 'ready',
+          sampledAtMs: 1000,
+          value: {
+            schemaVersion: 4,
+            sampledAtMs: 1000,
+            memory: { totalBytes: 100, usedBytes: 88, freeBytes: 12, swapUsedBytes: 0, usedPercent: 88, pressure },
+            processes: null,
+          },
+        };
+        const wrapper = mount(Overview, {
+          props: { metric: 'memory', reading },
+          global: { plugins: [createI18n({ legacy: false, locale: 'test', messages: { test: messages } })] },
+        });
+        expect(wrapper.get('.resource-value').text()).toBe('88%');
+        expect(wrapper.get('.resource-meta').text()).toContain('88 B / 100 B');
+        expect(wrapper.get('[role="meter"]').attributes('aria-valuenow')).toBe('88');
+        expect(wrapper.get('.overview-pressure .memory-pressure').attributes('data-pressure')).toBe(pressure);
+        expect(wrapper.get('.memory-pressure').text()).toBe(messages.monitoring.pressure[pressure]);
+        expect(wrapper.getComponent(MdTooltip).props('text')).toBe(messages.monitoring.pressure[`${pressure}Hint`]);
+        wrapper.unmount();
+      }
+    }
+  );
+
+  it('hides absent or unsupported pressure and marks retained pressure as stale until readings recover', async () => {
+    const reading = emptyReadings();
+    const wrapper = mount(Overview, {
+      props: { metric: 'memory', reading },
+      global: { plugins: [createI18n({ legacy: false, locale: 'en', messages: { en } })] },
+    });
+    expect(wrapper.find('.overview-pressure').exists()).toBe(false);
+    reading.memory = {
+      status: 'ready',
+      sampledAtMs: 1000,
+      value: {
+        schemaVersion: 4,
+        sampledAtMs: 1000,
+        memory: {
+          totalBytes: 100,
+          usedBytes: 88,
+          freeBytes: 12,
+          swapUsedBytes: 0,
+          usedPercent: 88,
+          pressure: 'unsupported',
+        },
+        processes: null,
+      },
+    };
+    await wrapper.setProps({ reading: { ...reading } });
+    expect(wrapper.find('.overview-pressure').exists()).toBe(false);
+    reading.memory.value!.memory.pressure = 'normal';
+    for (const status of ['loading', 'stale', 'disconnected', 'failed', 'unsupported'] as const) {
+      await wrapper.setProps({ reading: { ...reading, memory: { ...reading.memory, status } } });
+      expect(wrapper.get('.memory-pressure').attributes('data-pressure')).toBe('stale');
+      expect(wrapper.get('.memory-pressure').text()).toBe(en.monitoring.pressure.stale);
+      expect(wrapper.get('.resource-value').text()).toBe('—');
+    }
+    await wrapper.setProps({ reading: { ...reading } });
+    expect(wrapper.get('.memory-pressure').attributes('data-pressure')).toBe('normal');
+    expect(wrapper.get('.resource-value').text()).toBe('88%');
+    wrapper.unmount();
+  });
+
+  it('explains overview pressure on hover and opens memory details from the pressure label', async () => {
+    const reading = emptyReadings();
+    reading.memory = {
+      status: 'ready',
+      sampledAtMs: 1000,
+      value: {
+        schemaVersion: 4,
+        sampledAtMs: 1000,
+        memory: {
+          totalBytes: 100,
+          usedBytes: 88,
+          freeBytes: 12,
+          swapUsedBytes: 0,
+          usedPercent: 88,
+          pressure: 'normal',
+        },
+        processes: null,
+      },
+    };
+    const wrapper = mount(Overview, {
+      props: { metric: 'memory', reading, interactive: true },
+      attachTo: document.body,
+      global: { plugins: [createI18n({ legacy: false, locale: 'en', messages: { en } })] },
+    });
+    try {
+      await wrapper.get('.memory-pressure').trigger('pointermove', { pointerType: 'mouse' });
+      await vi.waitFor(() =>
+        expect(document.querySelector('[role="tooltip"]')?.textContent).toContain(en.monitoring.pressure.normalHint)
+      );
+      await wrapper.setProps({ reading: { ...reading, memory: { ...reading.memory, status: 'stale' } } });
+      await vi.waitFor(() => expect(document.querySelector('[role="tooltip"]')).toBeNull());
+      await wrapper.get('.memory-pressure').trigger('click');
+      expect(wrapper.emitted('memory')).toHaveLength(1);
+      await wrapper.setProps({ interactive: false });
+      await wrapper.get('.memory-pressure').trigger('click');
+      expect(wrapper.emitted('memory')).toHaveLength(1);
+    } finally {
+      wrapper.unmount();
+    }
+  });
+
   it('leaves the disconnected interval blank instead of moving old samples to now', () => {
     const reading = emptyReadings();
     reading.observedAtMs = 90000;

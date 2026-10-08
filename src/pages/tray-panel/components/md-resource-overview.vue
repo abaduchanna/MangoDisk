@@ -5,6 +5,7 @@ import MdIcon from '@/components/icons/md-icon.vue';
 import { ICON_NAMES } from '@/lib/models/ui';
 import { computed } from 'vue';
 import MdResourceTrend from './md-resource-trend.vue';
+import MdMemoryPressure from './md-memory-pressure.vue';
 import { useI18n } from 'vue-i18n';
 import {
   METRIC_LABEL_KEYS,
@@ -166,6 +167,13 @@ const rates = computed(() =>
           {{ ByteSizeService.memory(memory.usedBytes) }} / {{ ByteSizeService.memory(memory.totalBytes) }}
         </span>
         <span v-else role="status">{{ t(METRIC_STATUS_KEYS[current.status]) }}</span>
+        <span v-if="memory && memory.pressure !== 'unsupported'" class="overview-pressure">
+          <MdMemoryPressure
+            :pressure="memory.pressure"
+            :status="current.status"
+            @click="interactive && $emit('memory')"
+          />
+        </span>
       </template>
       <template v-else-if="metric === 'disk'">
         <MdTooltip v-if="ready && reading.disk.value" :text="isMacOs ? t('systemStatus.diskCapacityHint') : null">
@@ -267,7 +275,7 @@ small {
 .resource-meta > .resource-status {
   flex: none;
 }
-.resource-meta button {
+.resource-meta .cleanup-link {
   @apply text-primary-text;
   flex: none;
   font-size: 10px;
@@ -276,12 +284,20 @@ small {
   border-radius: 4px;
   cursor: pointer;
 }
-.resource-meta button:hover {
+.resource-meta .cleanup-link:hover {
   @apply bg-accent;
 }
-.resource-meta button:focus-visible {
+.resource-meta .cleanup-link:focus-visible {
   outline: 2px solid var(--ring);
   outline-offset: 2px;
+}
+.resource-meta > .overview-pressure {
+  display: inline-flex;
+  flex: none;
+  max-width: 55%;
+  overflow: visible;
+  position: relative;
+  z-index: 2;
 }
 .gpu-source {
   overflow: hidden;
