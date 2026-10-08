@@ -18,6 +18,7 @@ pub(super) fn overview(raw: &NativeMemorySnapshot) -> CoreResult<MemoryOverview>
         used_bytes,
         free_bytes: raw.free_bytes.min(raw.total_bytes),
         swap_used_bytes: raw.swap_used_bytes,
+        pressure: raw.pressure,
         used_percent: ((used_bytes as u128 * 100 + raw.total_bytes as u128 / 2)
             / raw.total_bytes as u128) as u8,
     })
@@ -269,6 +270,7 @@ mod tests {
             used_bytes: 20,
             free_bytes: 30,
             swap_used_bytes: 5,
+            pressure: mangodisk_platform::system_resources::memory::MemoryPressure::Unsupported,
             process_memory_kind:
                 mangodisk_platform::system_resources::memory::ProcessMemoryKind::native(),
             processes: None,
@@ -277,6 +279,15 @@ mod tests {
         raw.total_bytes = 10;
         let result = overview(&raw).unwrap();
         assert_eq!(result.used_percent, 100);
+        for pressure in [
+            mangodisk_platform::system_resources::memory::MemoryPressure::Normal,
+            mangodisk_platform::system_resources::memory::MemoryPressure::Warning,
+            mangodisk_platform::system_resources::memory::MemoryPressure::Critical,
+            mangodisk_platform::system_resources::memory::MemoryPressure::Unavailable,
+        ] {
+            raw.pressure = pressure;
+            assert_eq!(overview(&raw).unwrap().pressure, pressure);
+        }
         assert_eq!(result.free_bytes, 10);
         raw.total_bytes = u64::MAX;
         raw.used_bytes = u64::MAX;

@@ -3993,7 +3993,19 @@
     "partialMemory": "一部データ（{readable}/{total} プロセス）",
     "memoryUnavailable": "読取不可",
     "usedCapacity": "使用中 {used} / {total}",
-    "memoryOptions": "メモリ詳細と解放設定"
+    "memoryOptions": "メモリ詳細と解放設定",
+    "pressure": {
+      "normal": "負荷は正常",
+      "warning": "負荷が上昇",
+      "critical": "負荷が高い",
+      "unavailable": "負荷取得不可",
+      "stale": "負荷未更新",
+      "normalHint": "メモリプレッシャー：正常\n通常、メモリの解放は不要です",
+      "warningHint": "メモリプレッシャー：上昇\n使っていないアプリを閉じてください",
+      "criticalHint": "メモリプレッシャー：高い\n応答が遅くなる場合があります。不要なアプリを閉じてください",
+      "unavailableHint": "メモリプレッシャー：取得不可\n一時的に取得できません。右側は使用率です",
+      "staleHint": "メモリプレッシャー：未更新\n更新を待っています。右側は使用率です"
+    }
   },
   "systemStatus": {
     "appearanceTitle": "表示スタイル",

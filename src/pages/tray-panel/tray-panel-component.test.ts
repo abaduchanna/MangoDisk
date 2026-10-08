@@ -61,7 +61,14 @@ vi.mock('@/lib/services/file-manager-service', () => ({ FileManagerService: { re
 vi.mock('@/lib/services/logger-service', () => ({ LoggerService: { warn: vi.fn() } }));
 vi.mock('@/lib/services/byte-size-service', () => ({ ByteSizeService: { memory: (bytes: number) => `${bytes} B` } }));
 
-const memory = { totalBytes: 100, usedBytes: 40, freeBytes: 60, swapUsedBytes: 2, usedPercent: 40 };
+const memory = {
+  totalBytes: 100,
+  usedBytes: 40,
+  freeBytes: 60,
+  swapUsedBytes: 2,
+  usedPercent: 40,
+  pressure: 'unsupported' as const,
+};
 const snapshot: ResidentReading = {
   revision: 1,
   ...emptyReadings(),
@@ -69,7 +76,7 @@ const snapshot: ResidentReading = {
     status: 'ready',
     sampledAtMs: 1,
     value: {
-      schemaVersion: 3,
+      schemaVersion: 4,
       sampledAtMs: 1,
       memory,
       processes: {
@@ -627,6 +634,59 @@ describe('monitoring panel interactions', () => {
 });
 
 describe('memory presentation', () => {
+  it.each(['normal', 'warning', 'critical', 'unavailable'] as const)(
+    'shows native %s pressure independently of usage and retains existing controls',
+    pressure => {
+      const { wrapper } = render(MemoryOverview, { memory: { ...memory, usedPercent: 88, pressure } }, false, enUS);
+      expect(wrapper.get('.memory-pressure').attributes('data-pressure')).toBe(pressure);
+      expect(wrapper.get('.memory-pressure').attributes('aria-label')).toBe(enUS.monitoring.pressure[pressure]);
+      expect(wrapper.get('.memory-percent').text()).toBe('88%');
+      expect(wrapper.find('.release-button').exists()).toBe(true);
+      expect(wrapper.get('[role="progressbar"]').attributes('aria-valuenow')).toBe('88');
+    }
+  );
+
+  it('opens the native pressure explanation and closes it when pressure changes', async () => {
+    const { wrapper } = render(MemoryOverview, { memory: { ...memory, pressure: 'normal' } }, false, enUS);
+    await wrapper.get('.memory-pressure').trigger('pointermove', { pointerType: 'mouse' });
+    await vi.waitFor(() =>
+      expect(document.querySelector('[role="tooltip"]')?.textContent).toContain(enUS.monitoring.pressure.normalHint)
+    );
+    await wrapper.setProps({ memory: { ...memory, pressure: 'unavailable' } });
+    await vi.waitFor(() => expect(document.querySelector('[role="tooltip"]')).toBeNull());
+    expect(wrapper.get('.memory-pressure').attributes('data-pressure')).toBe('unavailable');
+  });
+
+  it('hides unsupported pressure and stops presenting old pressure as current', async () => {
+    const { wrapper } = render(MemoryOverview, { memory }, false, enUS);
+    expect(wrapper.find('.memory-pressure').exists()).toBe(false);
+    await wrapper.setProps({ memory: { ...memory, pressure: 'normal' }, status: 'stale' });
+    expect(wrapper.get('.memory-pressure').attributes('data-pressure')).toBe('stale');
+    expect(wrapper.get('.memory-pressure').text()).toContain(enUS.monitoring.pressure.stale);
+    await wrapper.setProps({ status: 'ready' });
+    expect(wrapper.get('.memory-pressure').attributes('data-pressure')).toBe('normal');
+  });
+
+  it.each([enUS, zhCN, zhTW, jaJP, koKR, ptBR, trTR, ruRU])('localizes every pressure state and hint', messages => {
+    for (const pressure of ['normal', 'warning', 'critical', 'unavailable', 'stale'] as const) {
+      const { wrapper } = render(
+        MemoryOverview,
+        {
+          memory: { ...memory, pressure: pressure === 'stale' ? 'normal' : pressure },
+          status: pressure === 'stale' ? 'stale' : 'ready',
+        },
+        false,
+        messages
+      );
+      expect(wrapper.get('.memory-pressure').text()).toContain(messages.monitoring.pressure[pressure]);
+      const lines = messages.monitoring.pressure[`${pressure}Hint`].split('\n');
+      expect(lines).toHaveLength(2);
+      for (const line of lines) {
+        expect(line.length).toBeGreaterThan(0);
+        expect(line).not.toMatch(/[.!?。！？：:;；，,]$/);
+      }
+    }
+  });
   it('keeps details behind the memory options menu with an accessible usage meter', async () => {
     const { wrapper } = render(MemoryOverview, { memory });
     expect(wrapper.text()).not.toContain('60 B');

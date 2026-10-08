@@ -144,7 +144,7 @@ let disposed = false;
 let unlisten: (() => void) | null = null;
 let revision = -1;
 function accept(value: ResidentReading) {
-  if (disposed || value.schemaVersion !== 14 || value.revision < revision) return;
+  if (disposed || value.schemaVersion !== 15 || value.revision < revision) return;
   revision = value.revision;
   interfaces.value = value.interfaces;
   volumes.value = value.volumes;

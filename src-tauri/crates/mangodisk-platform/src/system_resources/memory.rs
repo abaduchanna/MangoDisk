@@ -34,12 +34,24 @@ impl ProcessMemoryKind {
     }
 }
 
+/// Native system pressure, distinct from RAM utilization or free-memory percentages.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+pub enum MemoryPressure {
+    Unsupported,
+    Unavailable,
+    Normal,
+    Warning,
+    Critical,
+}
+
 #[derive(Debug, Clone)]
 pub struct NativeMemorySnapshot {
     pub total_bytes: u64,
     pub used_bytes: u64,
     pub free_bytes: u64,
     pub swap_used_bytes: u64,
+    pub pressure: MemoryPressure,
     pub process_memory_kind: ProcessMemoryKind,
     /// None means no process enumeration was requested, not an empty process list.
     pub processes: Option<Vec<ProcessMemory>>,
@@ -51,6 +63,8 @@ pub trait MemorySource: Send {
 }
 
 pub struct MemorySampler {
+    #[cfg(target_os = "macos")]
+    pressure: super::memory_macos::PressureReader,
     system: System,
     #[cfg(target_os = "macos")]
     processes: super::process_snapshot_macos::ProcessSnapshotReader,
@@ -63,6 +77,8 @@ impl Default for MemorySampler {
         // Do not load CPU topology, disks, users, or process command lines at startup.
         Self {
             system: System::new(),
+            #[cfg(target_os = "macos")]
+            pressure: Default::default(),
             #[cfg(windows)]
             processes: Default::default(),
             #[cfg(target_os = "macos")]
@@ -155,6 +171,10 @@ impl MemorySource for MemorySampler {
             used_bytes,
             free_bytes,
             swap_used_bytes: self.system.used_swap(),
+            #[cfg(target_os = "macos")]
+            pressure: self.pressure.read(),
+            #[cfg(not(target_os = "macos"))]
+            pressure: MemoryPressure::Unsupported,
             process_memory_kind: ProcessMemoryKind::native(),
             processes,
         })

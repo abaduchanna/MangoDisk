@@ -23,11 +23,13 @@ export interface MetricReading<T> {
   sampledAtMs: number | null;
   value: T | null;
 }
+export type MemoryPressure = 'unsupported' | 'unavailable' | 'normal' | 'warning' | 'critical';
 export interface MemoryOverview {
   totalBytes: number;
   usedBytes: number;
   freeBytes: number;
   swapUsedBytes: number;
+  pressure: MemoryPressure;
   usedPercent: number;
 }
 export interface ApplicationIdentity {
@@ -61,7 +63,7 @@ export interface ProcessMemorySummary {
   omittedProcessCount: number;
 }
 export interface SystemResourceSnapshot {
-  schemaVersion: 3;
+  schemaVersion: 4;
   sampledAtMs: number;
   memory: MemoryOverview;
   processes: ProcessMemorySummary | null;
@@ -121,7 +123,7 @@ export interface DiskIoRate {
   writtenBytesPerSecond: number;
 }
 export interface ResourceReadings {
-  schemaVersion: 14;
+  schemaVersion: 15;
   observedAtMs: number;
   cpu: MetricReading<CpuUsage>;
   cpuIdentity: CpuIdentity | null;

@@ -8,6 +8,7 @@ pub struct MemoryOverview {
     pub free_bytes: u64,
     pub swap_used_bytes: u64,
     pub used_percent: u8,
+    pub pressure: mangodisk_platform::system_resources::memory::MemoryPressure,
 }
 
 #[derive(Debug, Clone, Serialize)]

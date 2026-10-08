@@ -1,7 +1,61 @@
 //! Native footprint and physical-memory counters; unavailable values are never RSS substitutes.
-use super::memory::ProcessMemory;
+use super::memory::{MemoryPressure, ProcessMemory};
 use crate::{PlatformError, PlatformErrorCode, PlatformResult};
 use std::mem::MaybeUninit;
+
+#[derive(Default)]
+pub(super) struct PressureReader {
+    last_observation: Option<Result<MemoryPressure, String>>,
+}
+
+impl PressureReader {
+    pub(super) fn read(&mut self) -> MemoryPressure {
+        let observation = read_pressure();
+        // Log capability, transitions and recovery once, rather than every resident sample.
+        if self.last_observation.as_ref() != Some(&observation) {
+            match &observation {
+                Ok(pressure) => log::info!("memory_pressure_observation source=kern.memorystatus_vm_pressure_level outcome={pressure:?}"),
+                Err(error) => log::warn!("memory_pressure_observation source=kern.memorystatus_vm_pressure_level outcome=unavailable error={}", crate::diagnostics::text(error)),
+            }
+            self.last_observation = Some(observation.clone());
+        }
+        observation.unwrap_or(MemoryPressure::Unavailable)
+    }
+}
+
+fn read_pressure() -> Result<MemoryPressure, String> {
+    let mut level = 0_u32;
+    let mut size = std::mem::size_of_val(&level);
+    let status = unsafe {
+        libc::sysctlbyname(
+            c"kern.memorystatus_vm_pressure_level".as_ptr(),
+            (&mut level as *mut u32).cast(),
+            &mut size,
+            std::ptr::null_mut(),
+            0,
+        )
+    };
+    if status != 0 {
+        return Err(format!(
+            "stage=sysctlbyname error={}",
+            std::io::Error::last_os_error()
+        ));
+    }
+    decode_pressure(level, size)
+}
+
+fn decode_pressure(level: u32, size: usize) -> Result<MemoryPressure, String> {
+    if size != std::mem::size_of::<u32>() {
+        return Err(format!("stage=decode size={size} level={level}"));
+    }
+    // XNU exports dispatch flags (1/2/4), not its internal pressure enumeration (0–4).
+    match level {
+        1 => Ok(MemoryPressure::Normal),
+        2 => Ok(MemoryPressure::Warning),
+        4 => Ok(MemoryPressure::Critical),
+        _ => Err(format!("stage=decode unknown_level={level}")),
+    }
+}
 
 pub(super) fn overview(total: u64) -> PlatformResult<(u64, u64)> {
     static HOST: std::sync::OnceLock<u32> = std::sync::OnceLock::new();
@@ -73,6 +127,21 @@ pub(super) fn fill_application_metadata(processes: &mut [ProcessMemory]) {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn pressure_accepts_only_native_dispatch_levels_and_exact_counter_size() {
+        for (level, expected) in [
+            (1, MemoryPressure::Normal),
+            (2, MemoryPressure::Warning),
+            (4, MemoryPressure::Critical),
+        ] {
+            assert_eq!(decode_pressure(level, 4), Ok(expected));
+        }
+        for level in [0, 3, 5, u32::MAX] {
+            assert!(decode_pressure(level, 4).is_err());
+        }
+        assert!(decode_pressure(1, 8).is_err());
+    }
+
     #[test]
     fn usage_includes_inactive_app_pages_and_counts_speculative_pages_once() {
         assert_eq!(physical_usage(1000, 10, 5, 2, 20), (750, 30));

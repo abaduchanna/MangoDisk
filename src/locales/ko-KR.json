@@ -3993,7 +3993,19 @@
     "partialMemory": "일부 데이터 ({readable}/{total}개 프로세스)",
     "memoryUnavailable": "전체 메모리 데이터를 읽을 수 없습니다",
     "usedCapacity": "사용 중 {used} / {total}",
-    "memoryOptions": "메모리 상세 및 해제 설정"
+    "memoryOptions": "메모리 상세 및 해제 설정",
+    "pressure": {
+      "normal": "압력 정상",
+      "warning": "압력 상승",
+      "critical": "압력 높음",
+      "unavailable": "압력 확인 불가",
+      "stale": "압력 업데이트 안 됨",
+      "normalHint": "메모리 압력: 정상\n대개 메모리를 비울 필요가 없습니다",
+      "warningHint": "메모리 압력: 상승\n사용하지 않는 앱을 닫는 것을 고려하세요",
+      "criticalHint": "메모리 압력: 높음\n응답이 느려질 수 있으니 필요 없는 앱을 닫으세요",
+      "unavailableHint": "메모리 압력: 확인 불가\n일시적으로 읽을 수 없습니다; 오른쪽은 사용률입니다",
+      "staleHint": "메모리 압력: 미갱신\n업데이트 대기 중; 오른쪽은 사용률입니다"
+    }
   },
   "systemStatus": {
     "appearanceTitle": "표시 스타일",

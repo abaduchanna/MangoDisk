@@ -28,7 +28,7 @@ impl<S: MemorySource> SystemResourceService<S> {
         let raw = self.source.sample(include_processes)?;
         let memory = memory::overview(&raw)?;
         Ok(SystemResourceSnapshot {
-            schema_version: 3,
+            schema_version: 4,
             sampled_at_ms,
             memory,
             processes: raw.processes.map(|processes| {
@@ -57,6 +57,7 @@ mod tests {
                 used_bytes: 45,
                 free_bytes: 55,
                 swap_used_bytes: 2,
+                pressure: mangodisk_platform::system_resources::memory::MemoryPressure::Unsupported,
                 process_memory_kind:
                     mangodisk_platform::system_resources::memory::ProcessMemoryKind::native(),
                 processes: details.then(|| {
@@ -90,9 +91,10 @@ mod tests {
             .is_empty());
         let overview = service.sample(false, 30).unwrap();
         let json = serde_json::to_value(overview).unwrap();
-        assert_eq!(json["schemaVersion"], 3);
+        assert_eq!(json["schemaVersion"], 4);
         assert_eq!(json["sampledAtMs"], 30);
         assert_eq!(json["memory"]["usedPercent"], 45);
+        assert_eq!(json["memory"]["pressure"], "unsupported");
         assert!(json["processes"].is_null());
     }
 }

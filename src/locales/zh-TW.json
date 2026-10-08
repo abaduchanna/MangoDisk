@@ -3993,7 +3993,19 @@
     "partialMemory": "部分資料（{readable}/{total} 個程序）",
     "memoryUnavailable": "暫時無法讀取完整記憶體資料",
     "usedCapacity": "已用 {used} / {total}",
-    "memoryOptions": "記憶體詳情與釋放設定"
+    "memoryOptions": "記憶體詳情與釋放設定",
+    "pressure": {
+      "normal": "壓力正常",
+      "warning": "壓力偏高",
+      "critical": "壓力過高",
+      "unavailable": "壓力無法取得",
+      "stale": "壓力未更新",
+      "normalHint": "記憶體壓力：正常\n系統能滿足目前需求，通常不需釋放記憶體",
+      "warningHint": "記憶體壓力：偏高\n記憶體資源較吃緊，可關閉暫時不用的應用程式",
+      "criticalHint": "記憶體壓力：過高\n可能影響回應速度，建議關閉不需要的應用程式",
+      "unavailableHint": "記憶體壓力：無法取得\n暫時無法讀取，右側百分比表示記憶體使用率",
+      "staleHint": "記憶體壓力：未更新\n等待資料更新，右側百分比表示記憶體使用率"
+    }
   },
   "systemStatus": {
     "appearanceTitle": "顯示樣式",

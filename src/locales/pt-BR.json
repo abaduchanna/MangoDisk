@@ -3993,7 +3993,19 @@
     "partialMemory": "Dados parciais ({readable}/{total} processos)",
     "memoryUnavailable": "O uso completo de memória dos processos está temporariamente indisponível",
     "usedCapacity": "{used} em uso / {total}",
-    "memoryOptions": "Detalhes de memória e configurações de liberação"
+    "memoryOptions": "Detalhes de memória e configurações de liberação",
+    "pressure": {
+      "normal": "Pressão normal",
+      "warning": "Pressão elevada",
+      "critical": "Pressão alta",
+      "unavailable": "Pressão indisponível",
+      "stale": "Pressão desatualizada",
+      "normalHint": "Pressão de memória: normal\nGeralmente não é necessário liberar memória",
+      "warningHint": "Pressão de memória: elevada\nConsidere fechar aplicativos que não está usando",
+      "criticalHint": "Pressão de memória: alta\nPode haver lentidão; feche aplicativos desnecessários",
+      "unavailableHint": "Pressão de memória: indisponível\nLeitura indisponível; a porcentagem indica o uso",
+      "staleHint": "Pressão de memória: desatualizada\nAguardando atualização; a porcentagem indica o uso"
+    }
   },
   "systemStatus": {
     "appearanceTitle": "Aparência",

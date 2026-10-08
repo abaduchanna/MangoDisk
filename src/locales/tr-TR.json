@@ -3993,7 +3993,19 @@
     "partialMemory": "Kısmi veri ({readable}/{total} işlem)",
     "memoryUnavailable": "İşlemlerin toplam bellek kullanımı geçici olarak okunamıyor",
     "usedCapacity": "{total} / {used} kullanımda",
-    "memoryOptions": "Bellek ayrıntıları ve boşaltma ayarları"
+    "memoryOptions": "Bellek ayrıntıları ve boşaltma ayarları",
+    "pressure": {
+      "normal": "Baskı normal",
+      "warning": "Baskı artmış",
+      "critical": "Baskı yüksek",
+      "unavailable": "Baskı okunamıyor",
+      "stale": "Baskı güncel değil",
+      "normalHint": "Bellek baskısı: normal\nGenellikle belleği boşaltmak gerekmez",
+      "warningHint": "Bellek baskısı: artmış\nKullanmadığınız uygulamaları kapatmayı düşünün",
+      "criticalHint": "Bellek baskısı: yüksek\nYanıtlar yavaşlayabilir; gereksiz uygulamaları kapatın",
+      "unavailableHint": "Bellek baskısı: okunamıyor\nGeçici olarak okunamıyor; sağdaki yüzde kullanımdır",
+      "staleHint": "Bellek baskısı: güncel değil\nGüncelleme bekleniyor; sağdaki yüzde kullanımdır"
+    }
   },
   "systemStatus": {
     "appearanceTitle": "Görünüm",

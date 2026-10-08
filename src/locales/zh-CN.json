@@ -3993,7 +3993,19 @@
     "partialMemory": "部分数据（{readable}/{total} 个进程）",
     "memoryUnavailable": "暂时无法读取完整内存数据",
     "usedCapacity": "已用 {used} / {total}",
-    "memoryOptions": "内存详情与释放设置"
+    "memoryOptions": "内存详情与释放设置",
+    "pressure": {
+      "normal": "压力正常",
+      "warning": "压力偏高",
+      "critical": "压力过高",
+      "unavailable": "压力不可用",
+      "stale": "压力未更新",
+      "normalHint": "内存压力：正常\n系统能够满足当前内存需求，通常无需释放内存",
+      "warningHint": "内存压力：偏高\n内存资源较紧张，可关闭暂时不用的应用",
+      "criticalHint": "内存压力：过高\n可能影响响应速度，建议关闭不需要的应用",
+      "unavailableHint": "内存压力：不可用\n暂时无法读取，右侧百分比表示内存使用率",
+      "staleHint": "内存压力：未更新\n等待数据更新，右侧百分比表示内存使用率"
+    }
   },
   "systemStatus": {
     "appearanceTitle": "显示样式",

@@ -3993,7 +3993,19 @@
     "partialMemory": "Partial data ({readable}/{total} processes)",
     "memoryUnavailable": "Complete process memory is temporarily unavailable",
     "usedCapacity": "{used} used / {total}",
-    "memoryOptions": "Memory details and release settings"
+    "memoryOptions": "Memory details and release settings",
+    "pressure": {
+      "normal": "Normal pressure",
+      "warning": "Elevated pressure",
+      "critical": "High pressure",
+      "unavailable": "Pressure unavailable",
+      "stale": "Pressure out of date",
+      "normalHint": "Memory pressure: normal\nFreeing memory is usually unnecessary",
+      "warningHint": "Memory pressure: elevated\nConsider closing apps you are not using",
+      "criticalHint": "Memory pressure: high\nResponses may slow down; close unnecessary apps",
+      "unavailableHint": "Memory pressure: unavailable\nTemporarily unreadable; the percentage shows usage",
+      "staleHint": "Memory pressure: out of date\nWaiting for an update; the percentage shows usage"
+    }
   },
   "systemStatus": {
     "appearanceTitle": "Appearance",

@@ -53,7 +53,7 @@ pub struct ResourceReadings {
 impl Default for ResourceReadings {
     fn default() -> Self {
         Self {
-            schema_version: 14,
+            schema_version: 15,
             observed_at_ms: 0,
             cpu: MetricReading::default(),
             cpu_identity: None,
@@ -722,7 +722,7 @@ mod tests {
             second.cpu_processes.value.as_ref().unwrap()
         ));
         let wire = serde_json::to_value(&second).unwrap();
-        assert_eq!(wire["schemaVersion"], 14);
+        assert_eq!(wire["schemaVersion"], 15);
         assert_eq!(wire["cpuProcesses"]["value"]["readableProcessCount"], 12);
         assert!(!cache.expire(2000));
         assert!(cache.expire(6001));
@@ -734,13 +734,14 @@ mod tests {
         use super::super::models::{MemoryOverview, ProcessMemorySummary};
         let mut cache = ResourceCache::default();
         let sample = |at, processes| SystemResourceSnapshot {
-            schema_version: 3,
+            schema_version: 4,
             sampled_at_ms: at,
             memory: MemoryOverview {
                 total_bytes: 100,
                 used_bytes: 40,
                 free_bytes: 60,
                 swap_used_bytes: 0,
+                pressure: mangodisk_platform::system_resources::memory::MemoryPressure::Unsupported,
                 used_percent: 40,
             },
             processes,
@@ -843,7 +844,7 @@ mod tests {
             },
             1000,
         ));
-        assert_eq!(cache.snapshot(1000).schema_version, 14);
+        assert_eq!(cache.snapshot(1000).schema_version, 15);
         assert_eq!(
             cache.snapshot(6001).cpu_processes.status,
             MetricStatus::Stale
@@ -950,13 +951,15 @@ mod tests {
         let mut cache = ResourceCache::default();
         for time in [0, 3000, 6000] {
             cache.memory(SystemResourceSnapshot {
-                schema_version: 3,
+                schema_version: 4,
                 sampled_at_ms: time,
                 memory: super::super::models::MemoryOverview {
                     total_bytes: 100,
                     used_bytes: 80,
                     free_bytes: 20,
                     swap_used_bytes: 5,
+                    pressure:
+                        mangodisk_platform::system_resources::memory::MemoryPressure::Unsupported,
                     used_percent: 80,
                 },
                 processes: None,

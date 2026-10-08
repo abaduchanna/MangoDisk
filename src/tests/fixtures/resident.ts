@@ -35,9 +35,16 @@ export function readingFixture(revision = 1): ResidentReading {
       status: 'ready',
       sampledAtMs: revision,
       value: {
-        schemaVersion: 3,
+        schemaVersion: 4,
         sampledAtMs: revision,
-        memory: { totalBytes: 100, usedBytes: 40, freeBytes: 60, usedPercent: 40, swapUsedBytes: 0 },
+        memory: {
+          totalBytes: 100,
+          usedBytes: 40,
+          freeBytes: 60,
+          usedPercent: 40,
+          swapUsedBytes: 0,
+          pressure: 'unsupported',
+        },
         processes: null,
       },
     },

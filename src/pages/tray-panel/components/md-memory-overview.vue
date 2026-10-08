@@ -14,12 +14,13 @@ import MdIcon from '@/components/icons/md-icon.vue';
 import { ICON_NAMES } from '@/lib/models/ui';
 import { useI18n } from 'vue-i18n';
 import type { MemoryReleaseResult } from '@/lib/models/resident';
-import type { MemoryOverview } from '@/lib/models/system-resources';
+import type { MemoryOverview, MemoryPressure, MetricStatus } from '@/lib/models/system-resources';
 import { ByteSizeService } from '@/lib/services/byte-size-service';
 
 const props = withDefaults(
   defineProps<{
     memory: MemoryOverview;
+    status?: MetricStatus;
     releasing?: boolean;
     releaseResult?: MemoryReleaseResult | null;
     releaseAvailable?: boolean;
@@ -29,6 +30,7 @@ const props = withDefaults(
     automaticReleaseRule?: string;
   }>(),
   {
+    status: 'ready',
     releaseAvailable: true,
     releaseResult: null,
     releasing: false,
@@ -47,6 +49,18 @@ watch(
   }
 );
 const { t } = useI18n({ useScope: 'global' });
+const PRESSURE_KEYS: Record<Exclude<MemoryPressure, 'unsupported'> | 'stale', { label: string; hint: string }> = {
+  normal: { label: 'monitoring.pressure.normal', hint: 'monitoring.pressure.normalHint' },
+  warning: { label: 'monitoring.pressure.warning', hint: 'monitoring.pressure.warningHint' },
+  critical: { label: 'monitoring.pressure.critical', hint: 'monitoring.pressure.criticalHint' },
+  unavailable: { label: 'monitoring.pressure.unavailable', hint: 'monitoring.pressure.unavailableHint' },
+  stale: { label: 'monitoring.pressure.stale', hint: 'monitoring.pressure.staleHint' },
+};
+const pressureState = computed(() => {
+  if (props.memory.pressure === 'unsupported') return null;
+  return props.status === 'ready' ? props.memory.pressure : 'stale';
+});
+const pressureHint = computed(() => (pressureState.value ? t(PRESSURE_KEYS[pressureState.value].hint) : undefined));
 const resultMessage = computed(() => {
   const result = props.releaseResult;
   if (!result) return '';
@@ -95,7 +109,23 @@ const shortLabel = computed(() => {
 <template>
   <section class="memory-overview" :aria-label="t('monitoring.memory')">
     <header class="memory-heading">
-      <span>{{ t('monitoring.memory') }}</span>
+      <div class="memory-title">
+        <span>{{ t('monitoring.memory') }}</span>
+        <MdTooltip v-if="pressureState" :text="pressureHint">
+          <template #content>
+            <span class="whitespace-pre-line">{{ pressureHint }}</span>
+          </template>
+          <button
+            type="button"
+            class="memory-pressure"
+            :data-pressure="pressureState"
+            :aria-label="t(PRESSURE_KEYS[pressureState].label)"
+          >
+            <span class="pressure-dot" aria-hidden="true" />
+            <span>{{ t(PRESSURE_KEYS[pressureState].label) }}</span>
+          </button>
+        </MdTooltip>
+      </div>
       <strong class="memory-percent">{{ memory.usedPercent }}<small>%</small></strong>
     </header>
     <div
@@ -205,6 +235,53 @@ const shortLabel = computed(() => {
 .memory-heading {
   min-height: 30px;
   font-size: 12px;
+}
+.memory-title {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  line-height: 20px;
+}
+.memory-title > :first-child {
+  flex: none;
+  white-space: nowrap;
+}
+.memory-pressure {
+  @apply text-muted-foreground;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  min-width: 0;
+  font-size: inherit;
+  line-height: inherit;
+  white-space: nowrap;
+  border-radius: 3px;
+  cursor: help;
+}
+.memory-pressure[data-pressure='normal'] {
+  color: var(--success-foreground);
+}
+.memory-pressure[data-pressure='warning'] {
+  color: var(--warning-foreground);
+}
+.memory-pressure[data-pressure='critical'] {
+  @apply text-destructive-text;
+}
+.memory-pressure > :last-child {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.pressure-dot {
+  width: 5px;
+  height: 5px;
+  flex: none;
+  border-radius: 50%;
+  background: currentColor;
+}
+.memory-pressure:focus-visible {
+  outline: 2px solid var(--ring);
+  outline-offset: 2px;
 }
 .memory-percent {
   font-size: 24px;

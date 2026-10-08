@@ -314,6 +314,7 @@ onBeforeUnmount(() => {
           <MdMemoryOverview
             class="detail-summary"
             :memory="store.reading.memory.value.memory"
+            :status="store.reading.memory.status"
             :releasing="store.releasing"
             :release-result="store.releaseResult"
             :release-available="memoryReleaseSupported"
