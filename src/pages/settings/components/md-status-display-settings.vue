@@ -14,6 +14,7 @@ import MdDialogContent from '@/components/custom/md-dialog-content.vue';
 import MdDialogHeader from '@/components/custom/md-dialog-header.vue';
 import MdDialogFooter from '@/components/custom/md-dialog-footer.vue';
 import MdWindowsDisplayFeedback from './md-windows-display-feedback.vue';
+import MdWindowsTemperatureSetup from './md-windows-temperature-setup.vue';
 import { Select, SelectContent, SelectItem } from '@/components/ui/select';
 import { SelectTrigger } from 'reka-ui';
 import MdWindowsDisplayMode from './md-windows-display-mode.vue';
@@ -23,11 +24,14 @@ import type { NetworkInterface, ResourceVolume } from '@/lib/models/system-resou
 import type { ResidentPreferences, ResidentReading, ResidentDisplayMetricId } from '@/lib/models/resident';
 import { ResidentService } from '@/lib/services/resident-service';
 import { useResidentSettingsStore } from '@/stores/resident-settings-store';
+import { useWindowsMonitoringStore } from '@/stores/windows-monitoring-store';
 import { LoggerService } from '@/lib/services/logger-service';
 
 const props = withDefaults(defineProps<{ isMacOs: boolean; isLinux?: boolean }>(), { isLinux: false });
 const { t } = useI18n({ useScope: 'global' });
 const settings = useResidentSettingsStore();
+const monitoring = useWindowsMonitoringStore();
+const temperatureSelectionPending = ref(false);
 const panelOpening = ref(false);
 const panelError = ref(false);
 async function openPanel() {
@@ -55,7 +59,13 @@ const canReorder = computed(() => props.isMacOs || props.isLinux || settings.dra
 const rows = computed(() => dragRows.value ?? settings.draft?.metrics ?? []);
 const displayLabelKeys = { ...METRIC_LABEL_KEYS, cpuTemperature: 'cpuTemperature.label' };
 const visibleRows = computed(() =>
-  rows.value.filter(row => (props.isMacOs || row.id !== 'cpuTemperature') && (!props.isLinux || row.id !== 'gpu'))
+  rows.value
+    .filter(row => (!props.isLinux || row.id !== 'cpuTemperature') && (!props.isLinux || row.id !== 'gpu'))
+    .map(row =>
+      row.id === 'cpuTemperature' && !props.isMacOs && !settings.draft?.windowsCpuTemperatureEnabled
+        ? { ...row, enabled: false }
+        : row
+    )
 );
 // Older preferences may have every item cleared. Mirror the native Logo
 // fallback without writing on load, and retain it when the next metric is added.
@@ -69,6 +79,8 @@ function enableIcon(enabled: boolean) {
   void settings.change({ showIcon: enabled });
 }
 const settingsOpen = ref(false);
+const temperatureSetupOpen = ref(false);
+const selectTemperatureAfterSetup = ref(false);
 const expandedSelection = ref<'network' | 'disk' | 'gpu' | null>(null);
 // Keep the native switch and collapsed content on the committed state. Failed
 // writes must not hide the user's controls or leave a misleading enabled state.
@@ -86,8 +98,10 @@ watch(displayEnabled, enabled => {
   }
 });
 watch(settingsOpen, open => {
-  if (open) void loadCatalogue();
-  else {
+  if (open) {
+    void loadCatalogue();
+    if (!props.isMacOs && !props.isLinux) void monitoring.load();
+  } else {
     // A dismissed editor must not leave a floating drag preview or a pending
     // reorder that could be committed after reopening. Saved choices stay intact.
     cancelDrag();
@@ -153,7 +167,23 @@ function accept(value: ResidentReading) {
   volumes.value = value.volumes;
   gpuAdapters.value = value.gpuAdapters;
 }
-function enable(id: ResidentDisplayMetricId, enabled: boolean) {
+async function enable(id: ResidentDisplayMetricId, enabled: boolean) {
+  if (id === 'cpuTemperature' && !props.isMacOs && !props.isLinux && enabled) {
+    if (temperatureSelectionPending.value || monitoring.loading || monitoring.busy) return;
+    temperatureSelectionPending.value = true;
+    try {
+      await monitoring.load();
+      if (disposed || !settingsOpen.value || !displayEnabled.value) return;
+      if (monitoring.loading || monitoring.busy) return;
+      if (monitoring.observation?.state !== 'ready' || !settings.preferences?.windowsCpuTemperatureEnabled) {
+        selectTemperatureAfterSetup.value = true;
+        temperatureSetupOpen.value = true;
+        return;
+      }
+    } finally {
+      temperatureSelectionPending.value = false;
+    }
+  }
   if (!enabled && selectionLocked(rows.value.some(row => row.id === id && row.enabled))) return;
   cancelDrag();
   void settings.change({
@@ -487,21 +517,65 @@ onBeforeUnmount(() => {
                       >
                         <MdIcon :name="ICON_NAMES.grip" :size="15" />
                       </button>
-                      <label :for="`status-${row.id}`">
-                        <MdCheckbox
-                          :id="`status-${row.id}`"
-                          :model-value="row.enabled"
-                          :disabled="selectionLocked(row.enabled)"
-                          @update:model-value="enable(row.id, $event === true)"
-                        />
-                        {{
-                          row.id === 'cpu'
-                            ? t('systemStatus.cpuShort')
-                            : row.id === 'disk'
-                              ? t('systemStatus.volume')
-                              : t(displayLabelKeys[row.id])
-                        }}
-                      </label>
+                      <div class="metric-label-group">
+                        <label :for="`status-${row.id}`">
+                          <MdCheckbox
+                            :id="`status-${row.id}`"
+                            :model-value="row.enabled"
+                            :disabled="
+                              selectionLocked(row.enabled) ||
+                              (row.id === 'cpuTemperature' &&
+                                !isMacOs &&
+                                !isLinux &&
+                                (temperatureSelectionPending || monitoring.loading || monitoring.busy))
+                            "
+                            @update:model-value="enable(row.id, $event === true)"
+                          />
+                          {{
+                            row.id === 'cpu'
+                              ? t('systemStatus.cpuShort')
+                              : row.id === 'disk'
+                                ? t('systemStatus.volume')
+                                : t(displayLabelKeys[row.id])
+                          }}
+                        </label>
+                        <MdTooltip
+                          v-if="row.id === 'cpuTemperature' && !isMacOs && !isLinux"
+                          :text="t('windowsMonitoring.displayHint')"
+                        >
+                          <button type="button" class="md-help-action" :aria-label="t('windowsMonitoring.displayHint')">
+                            <MdIcon :name="ICON_NAMES.info" :size="14" />
+                          </button>
+                        </MdTooltip>
+                        <span
+                          v-if="
+                            row.id === 'cpuTemperature' &&
+                            !isMacOs &&
+                            !isLinux &&
+                            monitoring.statusLabel(settings.preferences?.windowsCpuTemperatureEnabled ?? false)
+                          "
+                          role="status"
+                          class="inline-flex shrink-0 items-center rounded bg-muted px-1.5 py-0.5 text-content-meta font-medium leading-4"
+                          :class="monitoring.needsAttention ? 'text-destructive-text' : 'text-muted-foreground'"
+                          >{{
+                            t(
+                              monitoring.statusLabel(settings.preferences?.windowsCpuTemperatureEnabled ?? false) ??
+                                'windowsMonitoring.states.notEnabled'
+                            )
+                          }}</span
+                        >
+                      </div>
+                      <Button
+                        v-if="row.id === 'cpuTemperature' && !isMacOs && !isLinux"
+                        variant="ghost"
+                        size="sm"
+                        class="text-muted-foreground"
+                        @click="
+                          selectTemperatureAfterSetup = false;
+                          temperatureSetupOpen = true;
+                        "
+                        >{{ t('windowsMonitoring.manage') }}</Button
+                      >
                       <Select
                         v-if="row.id === 'network' || row.id === 'disk' || row.id === 'gpu'"
                         :disabled="!row.enabled"
@@ -611,6 +685,12 @@ onBeforeUnmount(() => {
         </MdDialogFooter>
       </MdDialogContent>
     </Dialog>
+    <MdWindowsTemperatureSetup
+      v-if="!isMacOs && !isLinux"
+      :open="temperatureSetupOpen"
+      :select-display-item="selectTemperatureAfterSetup"
+      @update:open="temperatureSetupOpen = $event"
+    />
   </div>
 </template>
 
@@ -693,6 +773,14 @@ onBeforeUnmount(() => {
   min-width: 0;
   gap: 8px;
 }
+.metric-label-group {
+  display: flex;
+  align-items: center;
+  flex: 1;
+  flex-wrap: wrap;
+  min-width: 0;
+  gap: 4px 8px;
+}
 .status-item label {
   @apply text-foreground;
   display: flex;
@@ -705,6 +793,9 @@ onBeforeUnmount(() => {
   font-weight: 400;
   cursor: pointer;
   overflow-wrap: anywhere;
+}
+.status-item .metric-label-group label {
+  flex: 0 1 auto;
 }
 .logo-marker {
   display: grid;

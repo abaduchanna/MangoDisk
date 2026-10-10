@@ -8,6 +8,8 @@ import WindowsMode from './md-windows-display-mode.vue';
 import { Select } from '@/components/ui/select';
 import WindowsFeedback from './md-windows-display-feedback.vue';
 import { ResidentService } from '@/lib/services/resident-service';
+import { WindowsMonitoringService } from '@/lib/services/windows-monitoring-service';
+import { useWindowsMonitoringStore } from '@/stores/windows-monitoring-store';
 import { preferencesFixture, readingFixture } from '@/tests/fixtures/resident';
 
 vi.mock('@/lib/services/resident-service', () => ({
@@ -26,6 +28,10 @@ vi.mock('@/lib/services/resident-service', () => ({
   },
 }));
 vi.mock('@/lib/services/logger-service', () => ({ LoggerService: { warn: vi.fn() } }));
+vi.mock('@/lib/services/windows-monitoring-service', () => ({
+  WindowsMonitoringService: { observe: vi.fn(), install: vi.fn(), uninstall: vi.fn() },
+}));
+vi.mock('vue-sonner', () => ({ toast: { error: vi.fn(), warning: vi.fn() } }));
 vi.mock('@/lib/services/byte-size-service', () => ({ ByteSizeService: { memory: (value: number) => `${value} B` } }));
 // Reka's modal accessibility checks require the rendered content to belong to document.body.
 // Keeping every wrapper attached also prevents aria-hidden from serializing a detached DOM tree
@@ -55,6 +61,11 @@ const wrappers: ReturnType<typeof mount>[] = [];
 describe('status display interactions', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    vi.mocked(WindowsMonitoringService.observe).mockResolvedValue({
+      state: 'ready',
+      driverAvailable: true,
+      serviceInstalled: true,
+    });
     vi.mocked(ResidentService.displayStatus).mockResolvedValue('tray');
     vi.mocked(ResidentService.onDisplayStatus).mockResolvedValue(vi.fn());
     vi.mocked(ResidentService.preferences).mockResolvedValue(preferencesFixture());
@@ -145,7 +156,95 @@ describe('status display interactions', () => {
     await openConfiguration(wrapper);
     expect(wrapper.find('#usage-colors').exists()).toBe(true);
     expect(wrapper.find('#menu-bar-compact').exists()).toBe(false);
-    expect(wrapper.find('#status-cpuTemperature').exists()).toBe(false);
+    expect(wrapper.find('#status-cpuTemperature').exists()).toBe(true);
+  });
+
+  it.each(['notInstalled', 'unavailable', 'incompatible', 'unsupportedHardware'] as const)(
+    'checks the current service and keeps the Windows temperature unchecked when %s',
+    async state => {
+      const saved = preferencesFixture();
+      saved.windowsCpuTemperatureEnabled = true;
+      saved.metrics.find(row => row.id === 'cpuTemperature')!.enabled = false;
+      vi.mocked(ResidentService.preferences).mockResolvedValue(saved);
+      vi.mocked(WindowsMonitoringService.observe).mockResolvedValue({
+        state,
+        driverAvailable: false,
+        serviceInstalled: state !== 'notInstalled',
+      });
+      const wrapper = mount(Settings, { props: { isMacOs: false }, global: global() });
+      wrappers.push(wrapper);
+      await flushPromises();
+      await openConfiguration(wrapper);
+      useWindowsMonitoringStore().observation = { state: 'ready', driverAvailable: true, serviceInstalled: true };
+      await wrapper.get('#status-cpuTemperature').trigger('click');
+      await flushPromises();
+      expect(WindowsMonitoringService.observe).toHaveBeenCalled();
+      expect(wrapper.get('#status-cpuTemperature').attributes('data-state')).toBe('unchecked');
+      expect(ResidentService.savePreferences).not.toHaveBeenCalled();
+      expect(wrapper.text()).toContain('windowsMonitoring.title');
+    }
+  );
+
+  it('shows the service failure beside the temperature label before opening management', async () => {
+    vi.mocked(WindowsMonitoringService.observe).mockResolvedValue({
+      state: 'unavailable',
+      driverAvailable: false,
+      serviceInstalled: true,
+    });
+    const wrapper = mount(Settings, { props: { isMacOs: false }, global: global() });
+    wrappers.push(wrapper);
+    await flushPromises();
+    await openConfiguration(wrapper);
+    const row = wrapper.get('[data-metric="cpuTemperature"]');
+    expect(row.get('[role="status"]').text()).toBe('windowsMonitoring.states.unavailable');
+    expect(row.get('.metric-label-group').find('.md-help-action').exists()).toBe(true);
+    expect(wrapper.text()).not.toContain('windowsMonitoring.title');
+  });
+
+  it('checks the current service before saving the Windows temperature display choice', async () => {
+    const saved = preferencesFixture();
+    saved.windowsCpuTemperatureEnabled = true;
+    vi.mocked(ResidentService.preferences).mockResolvedValue(saved);
+    const wrapper = mount(Settings, { props: { isMacOs: false }, global: global() });
+    wrappers.push(wrapper);
+    await flushPromises();
+    await openConfiguration(wrapper);
+    await wrapper.get('#status-cpuTemperature').trigger('click');
+    await flushPromises();
+    expect(WindowsMonitoringService.observe).toHaveBeenCalledTimes(2);
+    expect(ResidentService.savePreferences).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        metrics: saved.metrics.map(row => ({ ...row, enabled: row.id === 'cpuTemperature' ? true : row.enabled })),
+      })
+    );
+    expect(wrapper.text()).not.toContain('windowsMonitoring.title');
+  });
+
+  it('does not save a late temperature check after the display configuration closes', async () => {
+    const saved = preferencesFixture();
+    saved.windowsCpuTemperatureEnabled = true;
+    vi.mocked(ResidentService.preferences).mockResolvedValue(saved);
+    let resolve!: (value: Awaited<ReturnType<typeof WindowsMonitoringService.observe>>) => void;
+    vi.mocked(WindowsMonitoringService.observe)
+      .mockResolvedValueOnce({ state: 'ready', driverAvailable: true, serviceInstalled: true })
+      .mockReturnValueOnce(
+        new Promise(done => {
+          resolve = done;
+        })
+      );
+    const wrapper = mount(Settings, { props: { isMacOs: false }, global: global() });
+    wrappers.push(wrapper);
+    await flushPromises();
+    await openConfiguration(wrapper);
+    await wrapper.get('#status-cpuTemperature').trigger('click');
+    await flushPromises();
+    expect(wrapper.get('#status-cpuTemperature').attributes('disabled')).toBeDefined();
+    const done = wrapper.findAll('button').find(row => row.text() === 'systemStatus.done')!;
+    await done.trigger('click');
+    resolve({ state: 'ready', driverAvailable: true, serviceInstalled: true });
+    await flushPromises();
+    expect(ResidentService.savePreferences).not.toHaveBeenCalled();
+    expect(wrapper.text()).not.toContain('windowsMonitoring.title');
   });
 
   it('saves macOS temperature independently of CPU utilization and preserves a temperature-only entry', async () => {
@@ -467,7 +566,7 @@ describe('status display interactions', () => {
         metrics: preferencesFixture().metrics,
       })
     );
-    expect(wrapper.findAll('.drag-handle')).toHaveLength(5);
+    expect(wrapper.findAll('.drag-handle')).toHaveLength(6);
     await wrapper.get('input[name="taskbar-position"][value="left"]').setValue(true);
     await flushPromises();
     expect(ResidentService.savePreferences).toHaveBeenLastCalledWith(
@@ -480,7 +579,7 @@ describe('status display interactions', () => {
     await wrapper.get('input[name="taskbar-position"][value="auto"]').setValue(true);
     await flushPromises();
     expect(ResidentService.savePreferences).toHaveBeenLastCalledWith(
-      expect.objectContaining({ schemaVersion: 11, taskbarPosition: 'auto' })
+      expect.objectContaining({ schemaVersion: 12, taskbarPosition: 'auto' })
     );
     await wrapper.get('input[name="windows-display-mode"][value="tray"]').setValue(true);
     await flushPromises();

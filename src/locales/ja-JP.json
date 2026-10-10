@@ -4177,5 +4177,49 @@
     "coreMaximumHint": "CPU コアセンサー {count} 個の最高温度",
     "unsupportedHint": "MangoDisk はこのデバイスで CPU 温度センサーを確認して読み取ることができません",
     "trend": "直近1分間の CPU 温度（摂氏）"
+  },
+  "windowsMonitoring": {
+    "title": "CPU 温度",
+    "manage": "管理",
+    "install": "インストールして有効化",
+    "enable": "有効化",
+    "repair": "温度取得を修復",
+    "remove": "取得サービスを削除",
+    "installHint": "インストールには管理者の承認が必要です",
+    "removeHint": "削除すると温度記録が停止します。既定では PawnIO を保持します",
+    "states": {
+      "unavailable": "取得サービス異常",
+      "incompatible": "取得サービス要更新",
+      "unsupportedHardware": "非対応の機器",
+      "notEnabled": "温度取得無効",
+      "notInstalled": "取得サービス未導入",
+      "ready": "取得サービス準備完了"
+    },
+    "outcomes": {
+      "unsupportedHardware": "未対応のハードウェアです。何もインストールしていません",
+      "busy": "別のインストールが進行中です",
+      "verificationFailed": "検証に失敗したため、インストーラーを実行していません",
+      "installationFailed": "インストール未完了です。状態を更新して再試行してください",
+      "serviceUnavailable": "サービスを利用できません。修復してください",
+      "restartRequired": "変更を完了するには Windows を再起動してください",
+      "driverRemovalFailed": "PawnIO の削除が未完了です。他の監視アプリを終了して再試行してください",
+      "removalFailed": "削除が未完了です。状態を更新して再試行してください"
+    },
+    "disabledHint": "CPU 温度の収集は無効です。表示項目の設定で有効にできます",
+    "supportHint": "対応 x64 PC の Intel CPU パッケージ温度をサポートします",
+    "collectionHint": "MangoDisk の実行中は温度の推移を記録します",
+    "displayHint": "温度表示を非表示にしても記録は続きます",
+    "more": "その他",
+    "installBody": "MangoDisk 取得サービスで CPU 温度と推移を表示します",
+    "enableHint": "有効にすると CPU 温度と推移を確認できます",
+    "supportSummary": "一部の Intel PC に対応",
+    "repairHint": "温度を取得できません。取得サービスを修復してください",
+    "unsupportedHint": "このデバイスでは CPU 温度の取得に対応していません",
+    "repairDescription": "取得サービスを再インストールし、ドライバーを確認",
+    "driverHint": "{driver} ドライバーがなければ、温度取得用にインストールします",
+    "pawnIoWebsite": "PawnIO の公式サイトを開く",
+    "linkFailed": "ブラウザーを開けません。再試行してください",
+    "removeDriver": "PawnIO ドライバーも削除",
+    "removeDriverHint": "他の監視アプリのセンサー取得に影響する場合があります"
   }
 }

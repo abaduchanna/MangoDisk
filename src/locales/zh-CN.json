@@ -4177,5 +4177,49 @@
     "coreMaximumHint": "{count} 个 CPU 核心传感器的最高温度",
     "unsupportedHint": "MangoDisk 无法在此设备读取已确认的 CPU 温度传感器",
     "trend": "最近一分钟 CPU 温度，单位摄氏度"
+  },
+  "windowsMonitoring": {
+    "title": "CPU 温度",
+    "manage": "管理",
+    "install": "安装并启用",
+    "enable": "启用",
+    "repair": "修复温度采集",
+    "remove": "移除采集服务",
+    "installHint": "安装需要管理员授权",
+    "removeHint": "移除后将停止记录温度，默认保留 PawnIO 驱动",
+    "states": {
+      "unavailable": "采集服务异常",
+      "incompatible": "采集服务需更新",
+      "unsupportedHardware": "设备暂不支持",
+      "notEnabled": "温度采集未启用",
+      "notInstalled": "采集服务未安装",
+      "ready": "采集服务就绪"
+    },
+    "outcomes": {
+      "unsupportedHardware": "硬件不支持，未安装任何组件",
+      "busy": "另一个安装操作正在进行",
+      "verificationFailed": "组件校验失败，未执行下载的文件",
+      "installationFailed": "安装未完成，请刷新状态后重试",
+      "serviceUnavailable": "服务不可用，请尝试修复",
+      "restartRequired": "请重启 Windows 以完成驱动变更",
+      "driverRemovalFailed": "PawnIO 驱动未完全移除，请关闭其他监控软件后重试",
+      "removalFailed": "移除未完成，请刷新状态后重试"
+    },
+    "disabledHint": "CPU 温度采集尚未启用，可在显示项目设置中开启",
+    "supportHint": "支持兼容 x64 电脑的 Intel CPU 封装温度",
+    "collectionHint": "MangoDisk 运行时持续记录温度曲线",
+    "displayHint": "隐藏温度显示后，仍会继续记录温度曲线",
+    "more": "更多",
+    "installBody": "安装 MangoDisk 采集服务，即可查看 CPU 温度和温度曲线",
+    "enableHint": "启用后，即可查看 CPU 温度和温度曲线",
+    "supportSummary": "目前支持部分 Intel 电脑",
+    "repairHint": "温度采集暂不可用，请尝试修复采集服务",
+    "unsupportedHint": "此设备暂不支持 CPU 温度采集",
+    "repairDescription": "重新安装采集服务，并检查驱动",
+    "driverHint": "如缺少 {driver} 驱动，将一并安装，用于读取 CPU 温度",
+    "pawnIoWebsite": "打开 PawnIO 官网",
+    "linkFailed": "无法打开浏览器，请稍后重试",
+    "removeDriver": "同时移除 PawnIO 驱动",
+    "removeDriverHint": "其他监控软件可能也在使用此驱动，移除后可能无法读取传感器"
   }
 }

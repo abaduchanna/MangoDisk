@@ -11,12 +11,12 @@ const maximumLocaleChunkBytes = 304 * 1024;
 const maximumLocaleGzipBytes = 60 * 1024;
 // Cyrillic uses two UTF-8 bytes per letter. Keep a measured, locale-specific
 // allowance instead of weakening the budget for every locale chunk.
-// Japanese administrator and trace backup guidance measures 316,843 raw
-// bytes. Keep a locale-specific margin for these status messages while
-// retaining the shared 60 KiB compressed transfer limit.
+// Optional Windows setup adds 32 localized status and action strings. Japanese
+// measures 319,339 raw bytes; Russian measures 67,914 gzip bytes. Keep their
+// measured margins local instead of increasing every locale or application budget.
 const localeChunkLimitOverrides = new Map([
-  ['ja-jp', { bytes: 310 * 1024, gzipBytes: 60 * 1024 }],
-  ['ru-ru', { bytes: 380 * 1024, gzipBytes: 66 * 1024 }],
+  ['ja-jp', { bytes: 313 * 1024, gzipBytes: 60 * 1024 }],
+  ['ru-ru', { bytes: 380 * 1024, gzipBytes: 67 * 1024 }],
 ]);
 
 function fail(message) {

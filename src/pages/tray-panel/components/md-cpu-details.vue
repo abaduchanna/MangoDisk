@@ -1,12 +1,22 @@
 <script setup lang="ts">
 import { computed } from 'vue';
+import { Button } from '@/components/ui/button';
 import MdResourceFacts from './md-resource-facts.vue';
 import MdCpuTemperature from './md-cpu-temperature.vue';
 import MdResourceTrend from './md-resource-trend.vue';
 import { useI18n } from 'vue-i18n';
 import { summarizeUtilizationHistory } from '@/lib/utils/utilization-history-summary';
 import type { ResourceReadings } from '@/lib/models/system-resources';
-const props = withDefaults(defineProps<{ reading: ResourceReadings; active?: boolean }>(), { active: true });
+const props = withDefaults(
+  defineProps<{
+    reading: ResourceReadings;
+    active?: boolean;
+    temperatureEnabled?: boolean;
+    temperatureSupported?: boolean;
+  }>(),
+  { active: true, temperatureEnabled: true, temperatureSupported: true }
+);
+defineEmits<{ configureTemperature: [] }>();
 const { t } = useI18n({ useScope: 'global' });
 const facts = computed(() => {
   const frequencyReading = props.reading.cpuFrequency;
@@ -53,9 +63,19 @@ const facts = computed(() => {
 </script>
 <template>
   <MdResourceFacts :facts="facts" class="cpu-details" :aria-label="t('cpuDetails.summary')" />
-  <section class="temperature-details" :aria-label="t('cpuTemperature.label')">
-    <MdCpuTemperature :reading="reading.cpuTemperature" :observed-at-ms="reading.observedAtMs" />
-    <div v-if="reading.cpuTemperatureHistory.length" class="temperature-chart">
+  <section
+    v-if="temperatureSupported && reading.cpuTemperature.status !== 'unsupported'"
+    class="temperature-details"
+    :aria-label="t('cpuTemperature.label')"
+  >
+    <template v-if="!temperatureEnabled">
+      <p class="text-content-secondary">{{ t('windowsMonitoring.disabledHint') }}</p>
+      <Button variant="ghost" size="sm" @click="$emit('configureTemperature')">{{
+        t('windowsMonitoring.manage')
+      }}</Button>
+    </template>
+    <MdCpuTemperature v-else :reading="reading.cpuTemperature" :observed-at-ms="reading.observedAtMs" />
+    <div v-if="temperatureEnabled && reading.cpuTemperatureHistory.length" class="temperature-chart">
       <div class="temperature-axis" aria-hidden="true"><span>150°C</span><span>0°C</span></div>
       <MdResourceTrend
         :key="`${reading.cpuTemperature.value?.source}:${reading.cpuTemperature.value?.kind}:${reading.cpuTemperature.value?.sensorCount}`"

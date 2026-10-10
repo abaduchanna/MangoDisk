@@ -18,12 +18,24 @@ import { ICON_NAMES } from '@/lib/models/ui';
 import type { ResidentDestination } from '@/lib/models/resident';
 import { ResidentService } from '@/lib/services/resident-service';
 import { useTrayPanelStore } from '@/stores/tray-panel-store';
+import { useResidentSettingsStore } from '@/stores/resident-settings-store';
+import { useWindowsMonitoringStore } from '@/stores/windows-monitoring-store';
 import { useAppStore } from '@/stores/app-store';
 import { Dialog } from '@/components/ui/dialog';
 import MdDialogContent from '@/components/custom/md-dialog-content.vue';
 import MdMemoryReleaseSettings from '@/components/memory-release/md-memory-release-settings.vue';
 const { t } = useI18n({ useScope: 'global' });
 const store = useTrayPanelStore();
+const residentSettings = useResidentSettingsStore();
+const windowsMonitoring = useWindowsMonitoringStore();
+const temperatureEnabled = computed(
+  () => !OperatingSystemService.isWindows() || residentSettings.preferences?.windowsCpuTemperatureEnabled === true
+);
+const temperatureSupported = computed(
+  () =>
+    !OperatingSystemService.isWindows() ||
+    (windowsMonitoring.observation !== null && windowsMonitoring.observation.state !== 'unsupportedHardware')
+);
 const appStore = useAppStore();
 const memorySettings = useMemoryReleaseStore();
 const settingsOpen = ref(false);
@@ -152,6 +164,8 @@ async function connect() {
           await ResidentService.onPanelVisibility(visible => {
             if (disposed) return;
             panelVisible.value = visible;
+            if (visible && OperatingSystemService.isWindows()) void residentSettings.load();
+            if (visible && OperatingSystemService.isWindows()) void windowsMonitoring.load();
             if (!visible) return;
             // A prewarmed WebView survives closing. Do not present an old result
             // as a new action's state when the user returns to the panel.
@@ -186,6 +200,12 @@ async function refresh() {
   }
 }
 onMounted(() => {
+  // The first native show event can precede WebView subscription. Hydrate settings
+  // and capability independently so a missed event cannot leave stale panel state.
+  if (OperatingSystemService.isWindows()) {
+    void residentSettings.load();
+    void windowsMonitoring.load();
+  }
   if (memoryReleaseSupported) {
     void MemoryReleaseService.onPreferences(value => memorySettings.accept(value))
       .then(retain)
@@ -263,6 +283,7 @@ onBeforeUnmount(() => {
         <MdResourceOverview
           v-for="metric in overviewMetrics"
           :key="metric"
+          :show-cpu-temperature="temperatureEnabled"
           class="detail-summary"
           :active="panelVisible"
           :metric="metric"
@@ -300,7 +321,13 @@ onBeforeUnmount(() => {
           :reading="store.reading"
           :active="panelVisible"
         />
-        <MdCpuDetails :reading="store.reading" :active="panelVisible" />
+        <MdCpuDetails
+          :reading="store.reading"
+          :active="panelVisible"
+          :temperature-enabled="temperatureEnabled"
+          :temperature-supported="temperatureSupported"
+          @configure-temperature="navigate('settings')"
+        />
         <MdApplicationResourceList
           class="monitor-processes"
           metric="cpu"

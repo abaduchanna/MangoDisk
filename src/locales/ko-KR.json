@@ -4177,5 +4177,49 @@
     "coreMaximumHint": "CPU 코어 센서 {count}개의 최고 온도",
     "unsupportedHint": "MangoDisk가 이 기기에서 확인된 CPU 온도 센서를 읽을 수 없습니다",
     "trend": "최근 1분간 CPU 온도(섭씨)"
+  },
+  "windowsMonitoring": {
+    "title": "CPU 온도",
+    "manage": "관리",
+    "install": "설치 및 활성화",
+    "enable": "활성화",
+    "repair": "온도 수집 복구",
+    "remove": "수집 서비스 제거",
+    "installHint": "설치하려면 관리자 승인이 필요합니다",
+    "removeHint": "서비스를 제거하면 온도 기록이 중단됩니다. 기본적으로 PawnIO는 유지됩니다",
+    "states": {
+      "unavailable": "수집 서비스 오류",
+      "incompatible": "수집 서비스 업데이트 필요",
+      "unsupportedHardware": "지원되지 않는 기기",
+      "notEnabled": "온도 수집 비활성화",
+      "notInstalled": "수집 서비스 미설치",
+      "ready": "수집 서비스 준비됨"
+    },
+    "outcomes": {
+      "unsupportedHardware": "지원되지 않는 하드웨어입니다. 구성 요소를 설치하지 않았습니다",
+      "busy": "다른 설치 작업이 진행 중입니다",
+      "verificationFailed": "검증에 실패했습니다. 다운로드한 파일을 실행하지 않았습니다",
+      "installationFailed": "설치가 완료되지 않았습니다. 상태를 새로 고친 후 다시 시도해 주세요",
+      "serviceUnavailable": "서비스를 사용할 수 없습니다. 복구해 주세요",
+      "restartRequired": "드라이버 변경을 완료하려면 Windows를 다시 시작하세요",
+      "driverRemovalFailed": "PawnIO가 완전히 제거되지 않았습니다. 다른 모니터링 앱을 닫고 다시 시도하세요",
+      "removalFailed": "제거가 완료되지 않았습니다. 상태를 새로 고친 후 다시 시도하세요"
+    },
+    "disabledHint": "CPU 온도 수집이 꺼져 있습니다. 표시 항목 설정에서 활성화할 수 있습니다",
+    "supportHint": "호환되는 x64 PC의 Intel CPU 패키지 온도를 지원합니다",
+    "collectionHint": "MangoDisk 실행 중에는 온도 추이를 계속 기록합니다",
+    "displayHint": "온도 표시를 숨겨도 기록은 계속됩니다",
+    "more": "더 보기",
+    "installBody": "MangoDisk 수집 서비스를 설치하면 CPU 온도와 추이를 볼 수 있습니다",
+    "enableHint": "활성화하면 CPU 온도와 추이를 볼 수 있습니다",
+    "supportSummary": "현재 일부 Intel PC를 지원합니다",
+    "repairHint": "온도를 수집할 수 없습니다. 수집 서비스를 복구하세요",
+    "unsupportedHint": "이 기기는 CPU 온도 수집을 지원하지 않습니다",
+    "repairDescription": "수집 서비스를 다시 설치하고 드라이버 확인",
+    "driverHint": "{driver} 드라이버가 없으면 CPU 온도를 읽기 위해 함께 설치합니다",
+    "pawnIoWebsite": "PawnIO 공식 웹사이트 열기",
+    "linkFailed": "브라우저를 열 수 없습니다. 나중에 다시 시도하세요",
+    "removeDriver": "PawnIO 드라이버도 제거",
+    "removeDriverHint": "다른 모니터링 앱도 이 드라이버를 사용할 수 있으며, 제거하면 센서를 읽지 못할 수 있습니다"
   }
 }

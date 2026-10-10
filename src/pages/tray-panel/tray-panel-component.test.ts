@@ -1,5 +1,5 @@
 vi.mock('@/lib/services/operating-system-service', () => ({
-  OperatingSystemService: { isLinux: vi.fn(() => false), isWindows: () => false, isMacOs: () => true },
+  OperatingSystemService: { isLinux: vi.fn(() => false), isWindows: vi.fn(() => false), isMacOs: () => true },
 }));
 vi.mock('@/lib/services/memory-release-service', () => ({
   MemoryReleaseService: {
@@ -35,9 +35,12 @@ import { OperatingSystemService } from '@/lib/services/operating-system-service'
 import { ICON_NAMES } from '@/lib/models/ui';
 import { useTrayPanelStore } from '@/stores/tray-panel-store';
 import type { ResidentReading } from '@/lib/models/resident';
+import { preferencesFixture } from '@/tests/fixtures/resident';
+import { useResidentSettingsStore } from '@/stores/resident-settings-store';
 
 vi.mock('@/lib/services/resident-service', () => ({
   ResidentService: {
+    preferences: vi.fn(),
     onReading: vi.fn(),
     onPanelVisibility: vi.fn(),
     onPanelMetric: vi.fn(),
@@ -126,11 +129,12 @@ function render(
     },
   });
   wrappers.push(wrapper);
-  return { wrapper, store: useTrayPanelStore(pinia) };
+  return { wrapper, pinia, store: useTrayPanelStore(pinia) };
 }
 
 describe('monitoring panel interactions', () => {
   beforeEach(() => {
+    vi.mocked(OperatingSystemService.isWindows).mockReturnValue(false);
     vi.clearAllMocks();
     vi.mocked(OperatingSystemService.isLinux).mockReturnValue(false);
     vi.mocked(FileIconService.peek).mockReturnValue('cached');
@@ -148,6 +152,18 @@ describe('monitoring panel interactions', () => {
   afterEach(() => {
     wrappers.splice(0).forEach(wrapper => wrapper.unmount());
     vi.useRealTimers();
+  });
+
+  it('loads Windows temperature consent on the initial frame without a visibility event', async () => {
+    vi.mocked(OperatingSystemService.isWindows).mockReturnValue(true);
+    vi.mocked(ResidentService.onPanelVisibility).mockResolvedValueOnce(vi.fn());
+    const preferences = { ...preferencesFixture(), windowsCpuTemperatureEnabled: true };
+    vi.mocked(ResidentService.preferences).mockResolvedValue(preferences);
+    const { wrapper, pinia } = render();
+    await flushPromises();
+    expect(ResidentService.preferences).toHaveBeenCalledOnce();
+    expect(useResidentSettingsStore(pinia).preferences?.windowsCpuTemperatureEnabled).toBe(true);
+    expect(wrapper.text()).not.toContain('windowsMonitoring.disabledHint');
   });
 
   it.each([enUS, zhCN, zhTW, jaJP, koKR, trTR, ptBR])(

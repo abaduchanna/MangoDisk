@@ -8,9 +8,9 @@ import MdIconTrend from '@/components/icons/md-icon-trend.vue';
 import enUS from '@/locales/en-US.json';
 import type { ResourceReadings } from '@/lib/models/system-resources';
 import { emptyReadings } from '@/lib/utils/system-resources';
-const render = (reading: ResourceReadings) =>
+const render = (reading: ResourceReadings, temperatureEnabled = true, temperatureSupported = true) =>
   mount(MdCpuDetails, {
-    props: { reading },
+    props: { reading, temperatureEnabled, temperatureSupported },
     global: { plugins: [createI18n({ legacy: false, locale: 'en-US', messages: { 'en-US': enUS } })] },
   });
 const windowsReading = () => {
@@ -36,6 +36,14 @@ const windowsReading = () => {
   return reading;
 };
 describe('CPU detail observations', () => {
+  it('hides the entire temperature card when collection is unsupported', () => {
+    const reading = emptyReadings();
+    const wrapper = render(reading, false, false);
+    expect(wrapper.find('.temperature-details').exists()).toBe(false);
+    expect(wrapper.text()).not.toContain(enUS.windowsMonitoring.disabledHint);
+    wrapper.unmount();
+  });
+
   it('starts a new temperature curve when the sensor group changes', async () => {
     const reading = emptyReadings();
     reading.observedAtMs = 70_000;
