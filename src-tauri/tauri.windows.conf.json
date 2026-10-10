@@ -25,6 +25,11 @@
         "installerIcon": "icons/windows/icon.ico",
         "uninstallerIcon": "icons/windows/icon.ico"
       }
+    },
+    "resources": {
+      "resources/privileged/MangoDiskPrivileged.exe": "privileged/MangoDiskPrivileged.exe",
+      "crates/mangodisk-privileged/vendors/pawnio/notice.md": "licenses/pawnio-notice.md",
+      "crates/mangodisk-privileged/vendors/pawnio/modules/0.2.11/COPYING": "licenses/pawnio-modules-lgpl-2.1.txt"
     }
   }
 }

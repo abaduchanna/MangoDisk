@@ -18,8 +18,8 @@
   },
   "type": "module",
   "scripts": {
-    "dev": "vite",
-    "build": "pnpm test && pnpm rust:test && pnpm build:frontend",
+    "dev": "node scripts/build-privileged.mjs && vite",
+    "build": "pnpm test && pnpm rust:test && pnpm build:frontend && node scripts/build-privileged.mjs --release",
     "preview": "vite preview",
     "type-check": "vue-tsc --build --force",
     "test": "vitest run",
@@ -51,11 +51,11 @@
     "benchmark:application-uninstaller": "cargo run --manifest-path src-tauri/xtask/Cargo.toml --release -- --application-uninstall-benchmark --runs 6",
     "rust:fmt": "cargo fmt --all",
     "rust:fmt:check": "cargo fmt --all -- --check",
-    "rust:clippy": "cargo clippy --workspace --all-targets -- -D warnings",
-    "rust:check": "cargo check --workspace --all-targets",
+    "rust:clippy": "node scripts/build-privileged.mjs && cargo clippy --workspace --all-targets -- -D warnings",
+    "rust:check": "node scripts/build-privileged.mjs && cargo check --workspace --all-targets",
     "check": "pnpm check:rule-sources && pnpm check:source-language && pnpm check:generated-ui && pnpm check:identity && pnpm check:frontend && pnpm rust:fmt:check && pnpm rust:clippy && pnpm rust:check && pnpm rust:test",
     "build:frontend": "vue-tsc --build --force && vite build && node ./scripts/check-build-output.mjs",
-    "rust:test": "cargo test --manifest-path src-tauri/Cargo.toml -p mangodisk-core"
+    "rust:test": "cargo test --manifest-path src-tauri/Cargo.toml -p mangodisk-core -p mangodisk-privileged -p mangodisk-privileged-protocol"
   },
   "dependencies": {
     "@lucide/vue": "^1.52.0",

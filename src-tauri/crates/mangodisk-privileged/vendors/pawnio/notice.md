@@ -1,0 +1,34 @@
+# Bundled PawnIO components
+
+These are unmodified official vendor binaries. They are embedded only in the
+Windows `MangoDiskPrivileged` executable, not in the desktop executable or
+macOS/Linux builds. Bundling does not install or enable them: installation is
+an explicit user action requiring administrator approval.
+
+| Component | Version | File | Bytes | SHA-256 |
+| --- | --- | --- | --- | --- |
+| PawnIO official installer | 2.2.0 | `2.2.0/PawnIO_setup.exe` | 3410960 | `1f519a22e47187f70a1379a48ca604981c4fcf694f4e65b734aaa74a9fba3032` |
+| Intel MSR signed module | 0.2.11 | `modules/0.2.11/IntelMSR.bin` | 5324 | `d6ed85d65ab17a22f813ef98207d6d537155ee2ded5976a21cb48413c9b92e5f` |
+
+Upstream author: namazso.
+
+- Installer release: https://github.com/namazso/PawnIO.Setup/releases/tag/2.2.0
+- Module release: https://github.com/namazso/PawnIO.Modules/releases/tag/0.2.11
+- Module source: https://github.com/namazso/PawnIO.Modules/tree/0.2.11
+- Integration and redistribution guidance:
+  https://github.com/namazso/PawnIO.Modules/wiki/Using-PawnIO-Modules
+
+The official installer is a proprietary distribution whose redistribution is
+allowed by upstream. Its original bytes, signatures and embedded notices are
+preserved. This does not relicense it under MangoDisk's license.
+
+The module is distributed under GNU LGPL 2.1. Its unmodified upstream license
+is in `modules/0.2.11/COPYING`; the exact corresponding source is available at
+the versioned module source link above. The Windows application package includes
+this notice and the license under its `licenses` resource directory.
+
+When updating a vendor release, replace the original binary, its pinned digest
+in `src/artifacts.rs`, size assertions in `src/vendor_payloads.rs`, provenance
+and applicable notices together. Verify the installer's official Authenticode
+signature and the module's compatibility with the signed PawnIO driver. Never
+patch vendor binaries or substitute an unsigned driver/module.
