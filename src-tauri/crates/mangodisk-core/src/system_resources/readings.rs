@@ -142,8 +142,24 @@ impl ResourceCache {
                 if value.celsius.is_finite()
                     && value.celsius > 0.0
                     && value.celsius <= 150.0
-                    && value.sensor_count > 0 =>
+                    && value.sensor_count > 0
+                    && value.sampled_at_ms.is_none_or(|sampled| {
+                        sampled <= timestamp_ms
+                            && timestamp_ms - sampled <= TEMPERATURE_FRESHNESS_MS
+                    }) =>
             {
+                let sampled_at_ms = value.sampled_at_ms.unwrap_or(timestamp_ms);
+                let repeated = self.readings.cpu_temperature.sampled_at_ms == Some(sampled_at_ms)
+                    && self
+                        .readings
+                        .cpu_temperature
+                        .value
+                        .as_ref()
+                        .is_some_and(|previous| {
+                            previous.kind == value.kind
+                                && previous.source == value.source
+                                && previous.sensor_count == value.sensor_count
+                        });
                 if self
                     .readings
                     .cpu_temperature
@@ -157,12 +173,16 @@ impl ResourceCache {
                 {
                     self.cpu_temperature_history.clear();
                 }
-                self.cpu_temperature_history.push(TrendPoint {
-                    sampled_at_ms: timestamp_ms,
-                    primary: value.celsius,
-                    secondary: None,
-                });
-                self.readings.cpu_temperature = MetricReading::ready(value, timestamp_ms);
+                // Service cache hits are the same native observation. Do not
+                // reset the trend or manufacture a newer sample timestamp.
+                if !repeated {
+                    self.cpu_temperature_history.push(TrendPoint {
+                        sampled_at_ms,
+                        primary: value.celsius,
+                        secondary: None,
+                    });
+                }
+                self.readings.cpu_temperature = MetricReading::ready(value, sampled_at_ms);
             }
             Some(result) => {
                 let unsupported = result.as_ref().err().is_some_and(|error| {
@@ -553,6 +573,63 @@ mod tests {
     use mangodisk_platform::system_resources::cpu::CpuCounters;
 
     #[test]
+    fn cached_native_temperature_preserves_history_and_original_freshness() {
+        use mangodisk_platform::system_resources::cpu::temperature::{
+            CpuTemperatureKind, CpuTemperatureSource,
+        };
+        let mut cache = ResourceCache::default();
+        let details = |sampled_at_ms| CpuDetails {
+            identity: CpuIdentity::default(),
+            frequency: None,
+            temperature: Some(Ok(CpuTemperature {
+                celsius: 48.0,
+                sensor_count: 1,
+                kind: CpuTemperatureKind::Package,
+                source: CpuTemperatureSource::IntelDtsPawnIo,
+                sampled_at_ms: Some(sampled_at_ms),
+            })),
+        };
+        cache.cpu_details(details(1000), 1000);
+        cache.cpu_details(details(5000), 5000);
+        cache.cpu_details(details(5000), 6000);
+        let reading = cache.snapshot(6000);
+        assert_eq!(reading.cpu_temperature_history.len(), 2);
+        assert_eq!(reading.cpu_temperature.sampled_at_ms, Some(5000));
+        assert_eq!(
+            cache.snapshot(15001).cpu_temperature.status,
+            MetricStatus::Stale
+        );
+    }
+
+    #[test]
+    fn native_temperature_rejects_future_or_expired_sample_timestamps() {
+        use mangodisk_platform::system_resources::cpu::temperature::{
+            CpuTemperatureKind, CpuTemperatureSource,
+        };
+        for sampled_at_ms in [1, 20_001] {
+            let mut cache = ResourceCache::default();
+            cache.cpu_details(
+                CpuDetails {
+                    identity: CpuIdentity::default(),
+                    frequency: None,
+                    temperature: Some(Ok(CpuTemperature {
+                        celsius: 50.0,
+                        kind: CpuTemperatureKind::Package,
+                        source: CpuTemperatureSource::IntelDtsPawnIo,
+                        sensor_count: 1,
+                        sampled_at_ms: Some(sampled_at_ms),
+                    })),
+                },
+                20_000,
+            );
+            let reading = cache.snapshot(20_000);
+            assert_eq!(reading.cpu_temperature.status, MetricStatus::Failed);
+            assert!(reading.cpu_temperature.value.is_none());
+            assert!(reading.cpu_temperature_history.is_empty());
+        }
+    }
+
+    #[test]
     fn temperature_freshness_failure_and_sensor_identity_are_independent_of_cpu_load() {
         use mangodisk_platform::system_resources::cpu::temperature::{
             CpuTemperatureKind, CpuTemperatureSource,
@@ -567,6 +644,7 @@ mod tests {
         let value = || CpuTemperature {
             celsius: 48.5,
             sensor_count: 16,
+            sampled_at_ms: None,
             kind: CpuTemperatureKind::CoreAverage,
             source: CpuTemperatureSource::AppleSmc,
         };

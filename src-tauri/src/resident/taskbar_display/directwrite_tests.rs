@@ -73,6 +73,7 @@ fn native_grayscale_preserves_alpha_colors_and_field_fit_across_dpi() {
                 let entries: Vec<_> = [
                     (DisplayId::Memory, "MEM 18%", "18"),
                     (DisplayId::Cpu, "CPU 100%", "100"),
+                    (DisplayId::CpuTemperature, "CPU 150°C", "150"),
                     (DisplayId::Upload, "↑999.9 TB/s", "999.9"),
                     (DisplayId::Download, "↓ 99.9 MB/s", "99.9"),
                     (DisplayId::Disk, "DISK 0%", "0"),

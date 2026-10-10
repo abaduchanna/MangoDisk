@@ -246,6 +246,7 @@ impl Reader {
                 sum / self.sensors.len() as f64
             },
             sensor_count: self.sensors.len() as u32,
+            sampled_at_ms: None,
             kind: self.kind,
             source: CpuTemperatureSource::AppleSmc,
         })

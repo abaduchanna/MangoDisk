@@ -65,6 +65,7 @@ impl Reader {
             kind: self.kind,
             source: CpuTemperatureSource::LinuxHwmon,
             sensor_count: self.labels.len() as u32,
+            sampled_at_ms: None,
         })
     }
 }

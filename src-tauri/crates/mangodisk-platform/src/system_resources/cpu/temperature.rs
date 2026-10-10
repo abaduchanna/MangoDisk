@@ -6,6 +6,8 @@ use serde::Serialize;
 mod linux;
 #[cfg(target_os = "macos")]
 mod macos;
+#[cfg(windows)]
+mod windows;
 
 pub const TEMPERATURE_INTERVAL_MS: u64 = 4_000;
 pub const TEMPERATURE_FRESHNESS_MS: u64 = 10_000;
@@ -23,6 +25,7 @@ pub enum CpuTemperatureKind {
 pub enum CpuTemperatureSource {
     AppleSmc,
     LinuxHwmon,
+    IntelDtsPawnIo,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -32,9 +35,13 @@ pub struct CpuTemperature {
     pub kind: CpuTemperatureKind,
     pub source: CpuTemperatureSource,
     pub sensor_count: u32,
+    #[serde(skip)]
+    pub sampled_at_ms: Option<u64>,
 }
 
 pub struct CpuTemperatureReader {
+    #[cfg(windows)]
+    reader: windows::Reader,
     #[cfg(target_os = "macos")]
     reader: macos::Reader,
     #[cfg(target_os = "linux")]
@@ -52,19 +59,22 @@ impl CpuTemperatureReader {
                 reader: linux::Reader::new()?,
             })
         }
-        #[cfg(not(any(target_os = "macos", target_os = "linux")))]
+        #[cfg(windows)]
         {
             let _ = model;
-            // Windows' public ACPI interface describes a thermal zone, not a
-            // verified CPU sensor. Never label its first result as CPU temperature.
+            windows::Reader::new().map(|reader| Self { reader })
+        }
+        #[cfg(not(any(windows, target_os = "macos", target_os = "linux")))]
+        {
+            let _ = model;
             Err(unsupported())
         }
     }
 
     pub fn read(&mut self) -> PlatformResult<CpuTemperature> {
-        #[cfg(any(target_os = "macos", target_os = "linux"))]
+        #[cfg(any(windows, target_os = "macos", target_os = "linux"))]
         return self.reader.read();
-        #[cfg(not(any(target_os = "macos", target_os = "linux")))]
+        #[cfg(not(any(windows, target_os = "macos", target_os = "linux")))]
         Err(unsupported())
     }
 }
@@ -94,14 +104,11 @@ mod tests {
         assert!(valid_celsius(105.0));
         assert!(valid_celsius(150.0));
     }
-    #[cfg(windows)]
+    #[cfg(all(windows, not(target_arch = "x86_64")))]
     #[test]
-    fn anonymous_acpi_zones_do_not_enable_cpu_temperature() {
+    fn non_x64_hardware_never_uses_anonymous_acpi_temperatures() {
         assert_eq!(
-            CpuTemperatureReader::new(Some("Intel Core i7"))
-                .err()
-                .unwrap()
-                .code(),
+            CpuTemperatureReader::new(None).err().unwrap().code(),
             PlatformErrorCode::Unsupported
         );
     }

@@ -6,7 +6,8 @@ export interface ResidentReading extends ResourceReadings {
 export type ResidentDisplayMetricId = MetricId | 'cpuTemperature';
 
 export interface ResidentPreferences {
-  schemaVersion: 11;
+  schemaVersion: 12;
+  windowsCpuTemperatureEnabled: boolean;
   revision: number;
   enabled: boolean;
   showIcon: boolean;

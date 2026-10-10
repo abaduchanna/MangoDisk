@@ -41,6 +41,8 @@ libc = "0.2.190"
 walkdir = "2.5.0"
 
 [target.'cfg(windows)'.dependencies]
+mangodisk-privileged = { path = "../mangodisk-privileged" }
+mangodisk-privileged-protocol = { path = "../mangodisk-privileged-protocol" }
 base64 = "0.23.1"
 getrandom = "0.4.3"
 png = "0.18.1"

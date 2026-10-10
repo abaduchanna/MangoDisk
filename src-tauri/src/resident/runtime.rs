@@ -103,13 +103,14 @@ impl ResidentState {
         // Windows PDH initialization remains demand-driven because it is costly.
         let gpu_sampling = preferences.enabled
             && (cfg!(target_os = "macos") || preferences.shows(MetricId::Gpu) || panel_open);
+        // Display selection must not interrupt real temperature history. Windows
+        // requires explicit capability consent even when resident display is hidden.
+        let temperature_sampling = (cfg!(windows) && preferences.windows_cpu_temperature_enabled)
+            || (cfg!(target_os = "macos") && preferences.enabled);
         MetricId::ALL.map(|metric| Demand {
-            temperature: preferences.enabled
-                && metric == MetricId::Cpu
-                && (preferences.shows_cpu_temperature()
-                    || (panel_open
-                        && matches!(selected, MetricId::Cpu | MetricId::Network | MetricId::Disk))),
+            temperature: temperature_sampling && metric == MetricId::Cpu,
             active: (preferences.enabled && metric != MetricId::Gpu)
+                || (metric == MetricId::Cpu && temperature_sampling)
                 || (metric == MetricId::Gpu && gpu_sampling)
                 || (metric == MetricId::Network && catalogue & 1 != 0)
                 || (metric == MetricId::Disk && catalogue & 2 != 0)
@@ -648,7 +649,27 @@ mod overview_tests {
     use super::*;
 
     #[test]
-    fn menu_bar_temperature_demand_survives_closing_the_panel_only_on_macos() {
+    fn temperature_history_demand_survives_hiding_and_switching_panels() {
+        let state = test_state();
+        state
+            .preferences
+            .lock()
+            .unwrap()
+            .windows_cpu_temperature_enabled = true;
+        for panel_open in [false, true] {
+            state.panel_open.store(panel_open, Ordering::Relaxed);
+            for selected in MetricId::ALL {
+                *state.panel_metric.lock().unwrap() = selected;
+                let cpu = state.demands(false)[0].clone();
+                assert!(cpu.active);
+                assert_eq!(cpu.temperature, cfg!(any(windows, target_os = "macos")));
+                assert_eq!(cpu.detailed, panel_open && selected == MetricId::Cpu);
+            }
+        }
+    }
+
+    #[test]
+    fn macos_temperature_history_is_independent_of_display_selection() {
         let state = test_state();
         state.panel_open.store(false, Ordering::Relaxed);
         state
@@ -683,9 +704,15 @@ mod overview_tests {
             })
             .unwrap()
             .enabled = false;
-        assert!(!state.demands(false)[0].temperature);
+        assert_eq!(
+            state.demands(false)[0].temperature,
+            cfg!(target_os = "macos")
+        );
         *state.panel_metric.lock().unwrap() = MetricId::Cpu;
-        assert!(state.demands(false)[0].temperature);
+        assert_eq!(
+            state.demands(false)[0].temperature,
+            cfg!(target_os = "macos")
+        );
         state.preferences.lock().unwrap().enabled = false;
         assert!(state
             .demands(false)
@@ -755,14 +782,18 @@ mod overview_tests {
     #[test]
     fn process_detail_visibility_never_changes_overview_cadence() {
         let state = test_state();
+        state
+            .preferences
+            .lock()
+            .unwrap()
+            .windows_cpu_temperature_enabled = true;
         for selected in MetricId::ALL {
             *state.panel_metric.lock().unwrap() = selected;
             for (metric, demand) in MetricId::ALL.into_iter().zip(state.demands(false)) {
                 assert!(demand.active);
                 assert_eq!(
                     demand.temperature,
-                    metric == MetricId::Cpu
-                        && matches!(selected, MetricId::Cpu | MetricId::Network | MetricId::Disk)
+                    metric == MetricId::Cpu && cfg!(any(windows, target_os = "macos"))
                 );
                 assert_eq!(
                     demand.detailed,
@@ -782,15 +813,63 @@ mod overview_tests {
                 metric != MetricId::Gpu || cfg!(target_os = "macos")
             );
             assert!(!demand.detailed);
-            assert!(!demand.temperature);
+            assert_eq!(
+                demand.temperature,
+                metric == MetricId::Cpu && cfg!(any(windows, target_os = "macos"))
+            );
         }
         assert!(state.disk_activity_demand().active);
         state.preferences.lock().unwrap().enabled = false;
         assert!(!state.disk_activity_demand().active);
-        assert!(state
-            .demands(false)
-            .iter()
-            .all(|demand| !demand.active && !demand.detailed));
+        for (metric, demand) in MetricId::ALL.into_iter().zip(state.demands(false)) {
+            assert_eq!(demand.active, cfg!(windows) && metric == MetricId::Cpu);
+            assert_eq!(demand.temperature, cfg!(windows) && metric == MetricId::Cpu);
+            assert!(!demand.detailed);
+        }
+    }
+
+    #[cfg(windows)]
+    #[test]
+    fn windows_temperature_requires_opt_in_for_panels_and_resident_display() {
+        let state = test_state();
+        state
+            .preferences
+            .lock()
+            .unwrap()
+            .metrics
+            .iter_mut()
+            .find(|row| {
+                row.id == crate::resident::preference_schema::DisplayMetricId::CpuTemperature
+            })
+            .unwrap()
+            .enabled = true;
+        for selected in MetricId::ALL {
+            *state.panel_metric.lock().unwrap() = selected;
+            assert!(!state.demands(false)[0].temperature);
+        }
+        state
+            .preferences
+            .lock()
+            .unwrap()
+            .windows_cpu_temperature_enabled = true;
+        state.panel_open.store(false, Ordering::Relaxed);
+        state.preferences.lock().unwrap().enabled = false;
+        state
+            .preferences
+            .lock()
+            .unwrap()
+            .metrics
+            .iter_mut()
+            .for_each(|row| row.enabled = false);
+        let cpu = state.demands(false)[0].clone();
+        assert!(cpu.active && cpu.temperature);
+        assert!(!cpu.detailed);
+        state
+            .preferences
+            .lock()
+            .unwrap()
+            .windows_cpu_temperature_enabled = false;
+        assert!(!state.demands(false)[0].temperature);
     }
 
     #[cfg(not(target_os = "macos"))]

@@ -64,7 +64,7 @@ pub fn columns(entries: &[DisplayEntry], compact: bool) -> Vec<Column> {
                 ),
                 DisplayId::Download | DisplayId::App => return None,
                 DisplayId::CpuTemperature => (
-                    "TEMP".into(),
+                    "CPU".into(),
                     if entry.digits == "—" {
                         "—".into()
                     } else {
@@ -136,7 +136,7 @@ mod tests {
     fn temperature_columns_keep_celsius_and_fixed_width_without_percentage_colors() {
         for compact in [false, true] {
             let maximum = columns(&[entry(DisplayId::CpuTemperature, "150", "°C")], compact);
-            assert_eq!(maximum[0].top, "TEMP");
+            assert_eq!(maximum[0].top, "CPU");
             assert_eq!(maximum[0].bottom, "150°C");
             assert_eq!(maximum[0].tone, Default::default());
             for digits in ["9", "99", "100", "—"] {

@@ -67,6 +67,7 @@ pub fn columns(
                 } else {
                     match entry.id {
                         DisplayId::Cpu => "CPU",
+                        DisplayId::CpuTemperature => "CPU",
                         DisplayId::Gpu => "GPU",
                         DisplayId::Memory => "MEM",
                         _ => "DISK",
@@ -83,16 +84,27 @@ pub fn columns(
                     format!(
                         "{}{}",
                         entry.digits,
-                        if entry.digits == "—" { "" } else { "%" }
+                        if entry.digits == "—" {
+                            ""
+                        } else if entry.id == DisplayId::CpuTemperature {
+                            "°C"
+                        } else {
+                            "%"
+                        }
                     )
                 },
                 // Compact units save width without discarding numeric precision.
                 // Four numeric characters cover 99.9 and a rounded 1000.
-                width: ((match (compact, network) {
-                    (true, true) => 55,
-                    (true, false) => 34,
-                    (false, true) => 81,
-                    (false, false) => 38,
+                width: ((if entry.id == DisplayId::CpuTemperature {
+                    // Three digits plus Celsius fit at every supported DPI.
+                    44
+                } else {
+                    match (compact, network) {
+                        (true, true) => 55,
+                        (true, false) => 34,
+                        (false, true) => 81,
+                        (false, false) => 38,
+                    }
                 }) * dpi
                     / 96) as i32,
                 network: network.then(|| {
@@ -177,6 +189,30 @@ mod tests {
             digits: digits.into(),
             text: text.into(),
             tooltip: String::new(),
+        }
+    }
+    #[test]
+    fn temperature_columns_identify_celsius_and_keep_width_stable() {
+        for compact in [false, true] {
+            for dpi in [96, 120, 144, 192, 240] {
+                for digits in ["—", "9", "52", "100", "150"] {
+                    let result = columns(
+                        &[entry(DisplayId::CpuTemperature, "", digits)],
+                        dpi,
+                        compact,
+                    );
+                    assert_eq!(result[0].first, "CPU");
+                    assert_eq!(
+                        result[0].second,
+                        if digits == "—" {
+                            "—".into()
+                        } else {
+                            format!("{digits}°C")
+                        }
+                    );
+                    assert_eq!(result[0].width, (44 * dpi / 96) as i32);
+                }
+            }
         }
     }
     #[test]

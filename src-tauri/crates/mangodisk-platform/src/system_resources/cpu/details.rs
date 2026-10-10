@@ -48,9 +48,9 @@ pub struct CpuDetailsReader {
     frequency: Option<macos::FrequencyReader>,
 }
 impl CpuDetailsReader {
-    pub fn read(&mut self, detailed: bool, temperature_visible: bool) -> CpuDetails {
+    pub fn read(&mut self, detailed: bool, temperature_requested: bool) -> CpuDetails {
         let identity = self.identity.get_or_insert_with(identity).clone();
-        let temperature = self.read_temperature(temperature_visible, identity.model.as_deref());
+        let temperature = self.read_temperature(temperature_requested, identity.model.as_deref());
         #[cfg(any(windows, all(target_os = "macos", target_arch = "aarch64")))]
         let frequency = if detailed {
             let reader = self.frequency.get_or_insert_with(Default::default);
@@ -71,10 +71,10 @@ impl CpuDetailsReader {
     }
     fn read_temperature(
         &mut self,
-        visible: bool,
+        requested: bool,
         model: Option<&str>,
     ) -> Option<PlatformResult<CpuTemperature>> {
-        if !visible {
+        if !requested {
             self.temperature = None;
             self.temperature_due = None;
             return None;
@@ -111,8 +111,8 @@ impl CpuDetailsReader {
         Some(result)
     }
     pub fn reset(&mut self) {
-        self.temperature = None;
-        self.temperature_due = None;
+        // Detail visibility resets frequency baselines, not temperature cadence.
+        // Temperature resources are released by read_temperature(false) or Drop.
         #[cfg(any(windows, all(target_os = "macos", target_arch = "aarch64")))]
         {
             if let Some(reader) = &mut self.frequency {
@@ -194,6 +194,22 @@ fn identity() -> CpuIdentity {
 mod tests {
     use super::*;
     #[test]
+    fn resetting_detail_baselines_preserves_temperature_cadence_and_backoff() {
+        for delay in [TEMPERATURE_INTERVAL_MS, 30_000] {
+            let due = Instant::now() + Duration::from_millis(delay);
+            let mut reader = CpuDetailsReader {
+                temperature_due: Some(due),
+                ..Default::default()
+            };
+            reader.reset();
+            assert_eq!(reader.temperature_due, Some(due));
+            assert!(reader.read_temperature(true, None).is_none());
+            assert!(reader.read_temperature(false, None).is_none());
+            assert!(reader.temperature_due.is_none());
+        }
+    }
+
+    #[test]
     fn frequency_rejects_zero_nonfinite_and_implausible_values() {
         for value in [0.0, -1.0, f64::NAN, f64::INFINITY, 20_001.0] {
             assert_eq!(valid_mhz(value), None);
@@ -210,7 +226,7 @@ mod temperature_tests {
         let mut reader = CpuDetailsReader::default();
         assert!(reader.read_temperature(false, None).is_none());
         assert!(reader.temperature_due.is_none());
-        #[cfg(any(windows, all(target_os = "macos", target_arch = "aarch64")))]
+        #[cfg(all(target_os = "macos", target_arch = "aarch64"))]
         {
             let missing = reader
                 .read_temperature(true, Some("VirtualApple"))

@@ -110,13 +110,15 @@ fn run_worker(
             sensor.reset_baselines();
         }
         let started = Instant::now();
-        let timestamp_ms = timestamp_ms();
-        let result = sensor.sample(&demand, timestamp_ms);
+        let sample_started_at_ms = timestamp_ms();
+        let result = sensor.sample(&demand, sample_started_at_ms);
         let completion = Completion {
             metric,
             generation: requested_generation,
             monotonic_ms: origin.elapsed().as_millis() as u64,
-            timestamp_ms,
+            // Native services may timestamp a reading during the blocking query.
+            // Validate its freshness against completion, not the query's start.
+            timestamp_ms: timestamp_ms(),
             duration_ms: started.elapsed().as_millis() as u64,
             result,
         };
@@ -232,6 +234,52 @@ mod tests {
             self.owner.take();
             let _ = self.retired.send(());
         }
+    }
+
+    #[test]
+    fn completion_timestamp_includes_time_spent_acquiring_native_samples() {
+        let (requests, jobs) = mpsc::sync_channel(1);
+        let (events, completed) = mpsc::sync_channel(1);
+        let (started, starts) = mpsc::channel();
+        let (proceed, wait) = mpsc::channel();
+        let (retired, _) = mpsc::channel();
+        let worker = std::thread::spawn(move || {
+            let mut probe = Some(Probe {
+                owner: None,
+                started,
+                proceed: wait,
+                retired,
+            });
+            run_worker(MetricId::Cpu, Instant::now(), events, jobs, || {
+                Sensor::Probe(probe.take().unwrap())
+            });
+        });
+        requests
+            .send(Request::Sample {
+                generation: 1,
+                demand: Demand {
+                    active: true,
+                    temperature: true,
+                    ..Default::default()
+                },
+            })
+            .unwrap();
+        starts.recv_timeout(Duration::from_secs(3)).unwrap();
+        // A native service timestamps its reading during the blocking query.
+        std::thread::sleep(Duration::from_millis(10));
+        let native_sampled_at_ms = timestamp_ms();
+        proceed.send(()).unwrap();
+        let SamplingEvent::Completed(completion) =
+            completed.recv_timeout(Duration::from_secs(3)).unwrap()
+        else {
+            panic!("expected completion")
+        };
+        drop(requests);
+        worker.join().unwrap();
+        assert!(
+            completion.timestamp_ms >= native_sampled_at_ms,
+            "a freshly acquired native sample must not appear to come from the future"
+        );
     }
 
     #[test]
