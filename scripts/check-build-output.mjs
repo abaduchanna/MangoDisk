@@ -11,11 +11,11 @@ const maximumLocaleChunkBytes = 304 * 1024;
 const maximumLocaleGzipBytes = 60 * 1024;
 // Cyrillic uses two UTF-8 bytes per letter. Keep a measured, locale-specific
 // allowance instead of weakening the budget for every locale chunk.
-// Japanese guidance, including deletion recovery status, measures 315,546
-// raw bytes. Reserve a 1 KiB margin for these localized status messages while
+// Japanese administrator and trace backup guidance measures 316,843 raw
+// bytes. Keep a locale-specific margin for these status messages while
 // retaining the shared 60 KiB compressed transfer limit.
 const localeChunkLimitOverrides = new Map([
-  ['ja-jp', { bytes: 309 * 1024, gzipBytes: 60 * 1024 }],
+  ['ja-jp', { bytes: 310 * 1024, gzipBytes: 60 * 1024 }],
   ['ru-ru', { bytes: 380 * 1024, gzipBytes: 66 * 1024 }],
 ]);
 

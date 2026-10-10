@@ -1806,7 +1806,8 @@
       "required": "尚未檢查",
       "sizePending": "需要系統管理員權限",
       "action": "系統管理員檢查",
-      "checking": "檢查中…"
+      "checking": "檢查中…",
+      "restartHint": "以系統管理員身分重新啟動 MangoDisk 後再次掃描"
     },
     "categoryItemCount": "{count} 個項目",
     "categoryTitles": {
@@ -3633,7 +3634,7 @@
       "special.windows-system-logs": {
         "name": "Windows 記錄檔檔案",
         "description": "Windows 資料夾下 Panther、Logs 和 System32\\LogFiles 中超過 3 天的安裝、升級和診斷記錄檔",
-        "impact": "只處理固定的系統記錄檔資料夾和記錄檔類型；使用中或目前帳號無權存取的檔案會被跳過。"
+        "impact": "只處理固定的系統記錄檔資料夾和記錄檔類型；使用中或目前帳號無權存取的檔案會被跳過。 Windows 即時追蹤備份 WMI\\RtBackup 會保留。"
       },
       "special.windows-internet-cache": {
         "name": "Internet 暫存檔案",

@@ -1806,7 +1806,8 @@
       "required": "Kontrol edilmedi",
       "sizePending": "Yönetici erişimi gerekli",
       "action": "Yönetici kontrolü",
-      "checking": "Kontrol ediliyor…"
+      "checking": "Kontrol ediliyor…",
+      "restartHint": "MangoDisk’i yönetici olarak yeniden başlatıp tekrar tarayın"
     },
     "categoryItemCount": "{count} öğe | {count} öğe",
     "categoryTitles": {
@@ -3633,7 +3634,7 @@
       "special.windows-system-logs": {
         "name": "Windows günlük dosyaları",
         "description": "Windows dizinindeki Panther, Logs ve System32\\LogFiles altında bulunan üç günden eski kurulum, yükseltme ve tanılama günlükleri.",
-        "impact": "Yalnızca sabit Windows günlük konumları ve desteklenen günlük türleri dahil edilir. Kullanımda olan veya hesabınızın erişemediği dosyalar atlanır."
+        "impact": "Yalnızca sabit Windows günlük konumları ve desteklenen günlük türleri dahil edilir. Kullanımda olan veya hesabınızın erişemediği dosyalar atlanır. WMI\\RtBackup konumundaki Windows izleme yedekleri korunur."
       },
       "special.windows-internet-cache": {
         "name": "Geçici internet dosyaları",

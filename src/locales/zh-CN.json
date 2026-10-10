@@ -1806,7 +1806,8 @@
       "required": "尚未检查",
       "sizePending": "需要管理员权限",
       "action": "管理员检查",
-      "checking": "检查中…"
+      "checking": "检查中…",
+      "restartHint": "以管理员身份重新启动 MangoDisk 后再次扫描"
     },
     "categoryItemCount": "{count} 个项目",
     "categoryTitles": {
@@ -3633,7 +3634,7 @@
       "special.windows-system-logs": {
         "name": "Windows 日志文件",
         "description": "Windows 目录下 Panther、Logs 和 System32\\LogFiles 中超过 3 天的安装、升级和诊断日志",
-        "impact": "只处理固定系统日志目录和日志类型；占用中或当前账户无权访问的文件会被跳过。"
+        "impact": "只处理固定系统日志目录和日志类型；占用中或当前账户无权访问的文件会被跳过。 Windows 实时跟踪备份 WMI\\RtBackup 会保留。"
       },
       "special.windows-internet-cache": {
         "name": "Internet 临时文件",

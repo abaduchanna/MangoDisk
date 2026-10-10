@@ -1806,7 +1806,8 @@
       "required": "미확인",
       "sizePending": "관리자 권한 필요",
       "action": "관리자 확인",
-      "checking": "확인 중…"
+      "checking": "확인 중…",
+      "restartHint": "MangoDisk를 관리자 권한으로 다시 실행한 후 스캔하세요"
     },
     "categoryItemCount": "{count}개 항목",
     "categoryTitles": {
@@ -3633,7 +3634,7 @@
       "special.windows-system-logs": {
         "name": "Windows 로그 파일",
         "description": "Windows 디렉터리의 Panther, Logs 및 System32\\LogFiles 아래에 있는 3일이 지난 설치, 업그레이드 및 진단 로그입니다.",
-        "impact": "고정된 Windows 로그 위치와 로그 유형만 포함됩니다. 사용 중이거나 계정에서 접근할 수 없는 파일은 건너뜁니다."
+        "impact": "고정된 Windows 로그 위치와 로그 유형만 포함됩니다. 사용 중이거나 계정에서 접근할 수 없는 파일은 건너뜁니다. WMI\\RtBackup의 Windows 실시간 추적 백업은 유지됩니다."
       },
       "special.windows-internet-cache": {
         "name": "인터넷 임시 파일",

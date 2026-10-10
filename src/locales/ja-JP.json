@@ -1806,7 +1806,8 @@
       "required": "未確認",
       "sizePending": "管理者権限が必要です",
       "action": "管理者として確認",
-      "checking": "確認中…"
+      "checking": "確認中…",
+      "restartHint": "MangoDisk を管理者として起動し直し、再スキャンしてください"
     },
     "categoryItemCount": "{count} 項目 | {count} 項目",
     "categoryTitles": {
@@ -3633,7 +3634,7 @@
       "special.windows-system-logs": {
         "name": "Windowsログファイル",
         "description": "Panther、Logs、WindowsディレクトリのSystem32\\LogFiles内の3日以上前のセットアップ、アップグレード、および診断ログ。",
-        "impact": "固定されたWindowsログの場所とログタイプのみが含まれています。使用中またはアカウントがアクセスできないファイルはスキップされます。"
+        "impact": "固定されたWindowsログの場所とログタイプのみが含まれています。使用中またはアカウントがアクセスできないファイルはスキップされます。 WMI\\RtBackup の Windows リアルタイムトレースバックアップは保持されます。"
       },
       "special.windows-internet-cache": {
         "name": "インターネット一時ファイル",

@@ -1806,7 +1806,8 @@
       "required": "Not checked",
       "sizePending": "Administrator access required",
       "action": "Admin check",
-      "checking": "Checking…"
+      "checking": "Checking…",
+      "restartHint": "Restart MangoDisk as administrator and scan again"
     },
     "categoryItemCount": "{count} item | {count} items",
     "categoryTitles": {
@@ -3633,7 +3634,7 @@
       "special.windows-system-logs": {
         "name": "Windows log files",
         "description": "Setup, upgrade, and diagnostic logs older than three days under Panther, Logs, and System32\\LogFiles in the Windows directory.",
-        "impact": "Only fixed Windows log locations and log types are included. Files in use or unavailable to your account are skipped."
+        "impact": "Only fixed Windows log locations and log types are included. Files in use or unavailable to your account are skipped. Windows trace backups in WMI\\RtBackup are preserved."
       },
       "special.windows-internet-cache": {
         "name": "Internet temporary files",

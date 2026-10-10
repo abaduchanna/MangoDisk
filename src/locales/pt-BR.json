@@ -1806,7 +1806,8 @@
       "required": "Não verificado",
       "sizePending": "Acesso de administrador necessário",
       "action": "Verificação como administrador",
-      "checking": "Verificando…"
+      "checking": "Verificando…",
+      "restartHint": "Reinicie o MangoDisk como administrador e faça uma nova verificação"
     },
     "categoryItemCount": "{count} item | {count} itens",
     "categoryTitles": {
@@ -3633,7 +3634,7 @@
       "special.windows-system-logs": {
         "name": "Arquivos de log do Windows",
         "description": "Logs de instalação, atualização e diagnóstico com mais de três dias em Panther, Logs e System32LogFiles no diretório do Windows.",
-        "impact": "Apenas locais e tipos de logs do Windows fixos estão incluídos. Arquivos em uso ou indisponíveis para sua conta são ignorados."
+        "impact": "Apenas locais e tipos de logs do Windows fixos estão incluídos. Arquivos em uso ou indisponíveis para sua conta são ignorados. Os backups de rastreamento do Windows em WMI\\RtBackup são preservados."
       },
       "special.windows-internet-cache": {
         "name": "Arquivos temporários da internet",
