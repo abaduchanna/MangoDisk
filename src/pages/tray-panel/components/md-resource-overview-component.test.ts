@@ -46,6 +46,41 @@ describe('resource details', () => {
     wrapper.unmount();
   });
 
+  it.each(['macos', 'windows'] as const)('shows identified GPU temperature in the %s overview', async platform => {
+    vi.spyOn(OperatingSystemService, 'currentPlatform').mockReturnValue(platform);
+    const reading = emptyReadings();
+    reading.observedAtMs = 2000;
+    reading.gpu = {
+      status: 'ready',
+      sampledAtMs: 2000,
+      value: { usedPercent: 0, adapterId: 'gpu-1', adapterName: 'GPU', details: null },
+    };
+    reading.gpuTemperature = {
+      status: 'ready',
+      sampledAtMs: 2000,
+      value: {
+        adapterId: 'gpu-1',
+        adapterName: 'GPU',
+        celsius: 42.5,
+        kind: 'device',
+        source: 'driver',
+        sensorCount: 1,
+      },
+    };
+    const wrapper = mount(Overview, {
+      props: { metric: 'gpu', reading, interactive: true },
+      global: { plugins: [createI18n({ legacy: false, locale: 'en', messages: { en } })] },
+    });
+    expect(wrapper.get('.temperature-value').text()).toBe('43°C');
+    await wrapper.get('.temperature-value').trigger('click');
+    expect(wrapper.emitted('gpu')).toHaveLength(1);
+    await wrapper.setProps({
+      reading: { ...reading, gpuTemperature: { status: 'unsupported', sampledAtMs: null, value: null } },
+    });
+    expect(wrapper.find('.temperature-value').exists()).toBe(false);
+    wrapper.unmount();
+  });
+
   it('opens CPU details when the temperature target is clicked', async () => {
     const reading = emptyReadings();
     reading.observedAtMs = 1000;

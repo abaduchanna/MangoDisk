@@ -12,6 +12,48 @@ afterEach(() => {
 });
 
 describe('resource trend rendering', () => {
+  it.each([
+    [0, 100],
+    [100, 100],
+    [100.1, 120],
+    [120, 120],
+    [120.1, 140],
+    [150, 160],
+  ])('keeps the temperature range and unclipped curve consistent at %s degrees', (temperature, upperBound) => {
+    const wrapper = mount(Trend, {
+      props: {
+        metric: 'temperature',
+        label: 'Temperature',
+        active: false,
+        observedAtMs: 60000,
+        history: [{ sampledAtMs: 60000, primary: temperature!, secondary: null }],
+      },
+    });
+    expect(wrapper.text()).not.toContain('°C');
+    const ordinate = Number(
+      wrapper
+        .get('path[stroke]')
+        .attributes('d')!
+        .match(/^M[^,]+,([\d.]+)/)?.[1]
+    );
+    expect(ordinate).toBeCloseTo(98 - (temperature! / upperBound!) * 96);
+    wrapper.unmount();
+  });
+
+  it('retains the temperature range while an earlier peak remains in the scrolling history', async () => {
+    const hot = { sampledAtMs: 60000, primary: 110, secondary: null };
+    const wrapper = mount(Trend, {
+      props: { metric: 'temperature', label: 'Temperature', active: false, observedAtMs: 60000, history: [hot] },
+    });
+    await wrapper.setProps({ observedAtMs: 64000, history: [{ sampledAtMs: 64000, primary: 60, secondary: null }] });
+    expect(wrapper.get('path[stroke]').attributes('d')).toMatch(/ L[^,]+,50$/);
+    await wrapper.setProps({ history: [] });
+    await wrapper.setProps({ history: [{ sampledAtMs: 64000, primary: 60, secondary: null }] });
+    const ordinate = Number(wrapper.get('path[stroke]').attributes('d')!.match(/^M[^,]+,([\d.]+)/)?.[1]);
+    expect(ordinate).toBeCloseTo(40.4);
+    wrapper.unmount();
+  });
+
   it('bounds frame callbacks on high-refresh displays while preserving live scrolling', async () => {
     vi.useFakeTimers();
     let clock = 0;

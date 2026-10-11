@@ -4016,6 +4016,8 @@
     }
   },
   "systemStatus": {
+    "cpuUsage": "CPU 使用率",
+    "gpuUsage": "GPU 使用率",
     "appearanceTitle": "顯示樣式",
     "usageColors": "顏色提示",
     "usageWarning": "橘色 ≥",
@@ -4169,7 +4171,10 @@
   },
   "gpuTemperature": {
     "label": "GPU 溫度",
-    "unsupportedHint": "此裝置不支援讀取 GPU 溫度"
+    "sensorAverageHint": "{count} 個 GPU 溫度感測器的平均值",
+    "deviceHint": "裝置回報的 GPU 溫度",
+    "unsupportedHint": "此裝置不支援讀取 GPU 溫度",
+    "trend": "最近 1 分鐘 GPU 溫度"
   },
   "cpuTemperature": {
     "label": "CPU 溫度",

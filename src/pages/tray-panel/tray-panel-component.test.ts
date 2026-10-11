@@ -315,8 +315,8 @@ describe('monitoring panel interactions', () => {
     await wrapper.get('#metric-tab-memory').trigger('click');
     expect(wrapper.get('.detail-summary').classes()).toContain('memory-overview');
     await wrapper.get('#metric-tab-cpu').trigger('click');
-    expect(wrapper.get('.detail-summary').classes()).toContain('resource-overview');
-    expect(wrapper.find('.detail-summary .cpu-scope').exists()).toBe(false);
+    expect(wrapper.get('.cpu-summary').classes()).toContain('resource-overview');
+    expect(wrapper.find('.cpu-summary .cpu-scope').exists()).toBe(false);
     expect(wrapper.find('.list-empty').exists()).toBe(false);
     const visibility = vi.mocked(ResidentService.onPanelVisibility).mock.calls[0]![0];
     visibility(false);

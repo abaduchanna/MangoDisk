@@ -135,8 +135,10 @@ function sync() {
   const clock = performance.now();
   timeline.accept(props.history, props.observedAtMs || props.history.at(-1)?.sampledAtMs || 0, clock, interval.value);
   points.value = timeline.points;
-  if (!bidirectional.value) ceiling.value = props.metric === 'temperature' ? 150 : 100;
-  else {
+  if (!bidirectional.value) {
+    const peak = Math.max(100, ...points.value.map(point => point.primary).filter(Number.isFinite));
+    ceiling.value = props.metric === 'temperature' ? Math.ceil(peak / 20) * 20 : 100;
+  } else {
     const peak = Math.max(
       1,
       ...points.value.flatMap(point => [point.primary, point.secondary ?? 0]).filter(Number.isFinite)

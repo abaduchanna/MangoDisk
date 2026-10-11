@@ -1,13 +1,15 @@
 // @vitest-environment happy-dom
 import { mount } from '@vue/test-utils';
 import { createI18n } from 'vue-i18n';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import MdCpuDetails from './md-cpu-details.vue';
 import MdTooltip from '@/components/custom/md-tooltip.vue';
 import MdIconTrend from '@/components/icons/md-icon-trend.vue';
 import enUS from '@/locales/en-US.json';
 import type { ResourceReadings } from '@/lib/models/system-resources';
 import { emptyReadings } from '@/lib/utils/system-resources';
+vi.mock('@/lib/services/operating-system-service', () => ({ OperatingSystemService: { isMacOs: () => true } }));
+
 const render = (reading: ResourceReadings, temperatureEnabled = true, temperatureSupported = true) =>
   mount(MdCpuDetails, {
     props: { reading, temperatureEnabled, temperatureSupported },
@@ -57,7 +59,7 @@ describe('CPU detail observations', () => {
       { sampledAtMs: 70_000, primary: 60, secondary: null },
     ];
     const wrapper = render(reading);
-    expect(wrapper.findComponent(MdIconTrend).props('series')[0].line).toContain(' L');
+    expect(wrapper.get('.temperature-details').findComponent(MdIconTrend).props('series')[0].line).toContain(' L');
     await wrapper.setProps({
       reading: {
         ...reading,
@@ -70,7 +72,7 @@ describe('CPU detail observations', () => {
         cpuTemperatureHistory: [{ sampledAtMs: 74_000, primary: 65, secondary: null }],
       },
     });
-    const line = wrapper.findComponent(MdIconTrend).props('series')[0].line as string;
+    const line = wrapper.get('.temperature-details').findComponent(MdIconTrend).props('series')[0].line as string;
     expect(line).not.toContain(' L');
     expect(line).toContain(' l0.001,0');
     wrapper.unmount();
@@ -82,7 +84,7 @@ describe('CPU detail observations', () => {
     expect(facts[0].text()).toContain('4.86GHz');
     expect(facts[1].text()).toContain('1 min average30%');
     expect(facts[2].text()).toContain('1 min peak60%');
-    expect(wrapper.text()).not.toContain('3.70');
+    expect(facts.map(fact => fact.text()).join(' ')).not.toContain('3.70');
     expect(facts.every(fact => !fact.findComponent(MdTooltip).exists())).toBe(true);
     await facts[0].trigger('mouseenter');
     expect(wrapper.find('[role="tooltip"]').exists()).toBe(false);

@@ -4016,6 +4016,8 @@
     }
   },
   "systemStatus": {
+    "cpuUsage": "Загрузка CPU",
+    "gpuUsage": "Загрузка GPU",
     "appearanceTitle": "Внешний вид",
     "usageColors": "Цветовые индикаторы",
     "usageWarning": "Оранжевый ≥",
@@ -4169,7 +4171,10 @@
   },
   "gpuTemperature": {
     "label": "Температура GPU",
-    "unsupportedHint": "На этом устройстве недоступны датчики температуры GPU"
+    "sensorAverageHint": "Среднее значение {count} датчиков температуры GPU",
+    "deviceHint": "Температура GPU по данным устройства",
+    "unsupportedHint": "На этом устройстве недоступны датчики температуры GPU",
+    "trend": "Температура GPU за последнюю минуту"
   },
   "cpuTemperature": {
     "label": "Температура CPU",

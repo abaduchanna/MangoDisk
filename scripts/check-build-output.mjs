@@ -14,8 +14,9 @@ const maximumLocaleGzipBytes = 60 * 1024;
 // Optional Windows setup adds 32 localized status and action strings. Japanese
 // measures 319,339 raw bytes; Russian measures 67,914 gzip bytes. Keep their
 // measured margins local instead of increasing every locale or application budget.
+// GPU temperature adds six strings; Japanese now measures 320,937 raw bytes.
 const localeChunkLimitOverrides = new Map([
-  ['ja-jp', { bytes: 313 * 1024, gzipBytes: 60 * 1024 }],
+  ['ja-jp', { bytes: 314 * 1024, gzipBytes: 60 * 1024 }],
   ['ru-ru', { bytes: 380 * 1024, gzipBytes: 67 * 1024 }],
 ]);
 

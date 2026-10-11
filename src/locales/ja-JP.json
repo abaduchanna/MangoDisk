@@ -4016,6 +4016,8 @@
     }
   },
   "systemStatus": {
+    "cpuUsage": "CPU 使用率",
+    "gpuUsage": "GPU 使用率",
     "appearanceTitle": "表示スタイル",
     "usageColors": "色でお知らせ",
     "usageWarning": "オレンジ ≥",
@@ -4169,7 +4171,10 @@
   },
   "gpuTemperature": {
     "label": "GPU 温度",
-    "unsupportedHint": "このデバイスでは GPU 温度を取得できません"
+    "sensorAverageHint": "GPU 温度センサー {count} 個の平均値",
+    "deviceHint": "デバイスが報告する GPU 温度",
+    "unsupportedHint": "このデバイスでは GPU 温度を取得できません",
+    "trend": "直近 1 分間の GPU 温度"
   },
   "cpuTemperature": {
     "label": "CPU 温度",

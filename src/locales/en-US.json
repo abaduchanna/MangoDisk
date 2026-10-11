@@ -4016,6 +4016,8 @@
     }
   },
   "systemStatus": {
+    "cpuUsage": "CPU utilization",
+    "gpuUsage": "GPU utilization",
     "appearanceTitle": "Appearance",
     "usageColors": "Color indicators",
     "usageWarning": "Orange ≥",
@@ -4169,7 +4171,10 @@
   },
   "gpuTemperature": {
     "label": "GPU temperature",
-    "unsupportedHint": "GPU temperature sensors are unavailable on this device"
+    "sensorAverageHint": "Average of {count} GPU temperature sensors",
+    "deviceHint": "GPU temperature reported by the device",
+    "unsupportedHint": "GPU temperature sensors are unavailable on this device",
+    "trend": "GPU temperature over the last minute"
   },
   "cpuTemperature": {
     "label": "CPU temperature",

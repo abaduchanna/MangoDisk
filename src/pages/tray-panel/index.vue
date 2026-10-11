@@ -314,13 +314,6 @@ onBeforeUnmount(() => {
         role="tabpanel"
         aria-labelledby="metric-tab-cpu"
       >
-        <MdResourceOverview
-          class="detail-summary"
-          metric="cpu"
-          :show-cpu-temperature="false"
-          :reading="store.reading"
-          :active="panelVisible"
-        />
         <MdCpuDetails
           :reading="store.reading"
           :active="panelVisible"
@@ -421,8 +414,10 @@ onBeforeUnmount(() => {
 .resource-cards {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  grid-template-rows: 104px 104px minmax(104px, 1fr) minmax(104px, 1fr);
-  gap: 8px;
+  grid-template-rows:
+    var(--resource-summary-height) var(--resource-summary-height)
+    minmax(var(--resource-summary-height), 1fr) minmax(var(--resource-summary-height), 1fr);
+  gap: var(--resource-card-gap);
   min-height: 0;
   flex: 1;
   overflow-y: auto;
@@ -472,6 +467,8 @@ onBeforeUnmount(() => {
   font-size: 11px;
 }
 .monitor-panel {
+  --resource-summary-height: 104px;
+  --resource-card-gap: 8px;
   @apply bg-background text-foreground;
   display: flex;
   flex-direction: column;
@@ -521,13 +518,13 @@ button:disabled {
 .resource-details {
   display: flex;
   flex-direction: column;
-  gap: 14px;
+  gap: var(--resource-card-gap);
   min-height: 0;
   flex: 1;
 }
 .monitor-panel .detail-summary {
   /* Keep summary geometry consistent across overview and detail tabs. */
-  height: 104px;
+  height: var(--resource-summary-height);
   box-sizing: border-box;
   display: flex;
   flex-direction: column;
@@ -538,7 +535,7 @@ button:disabled {
   grid-column: 1 / -1;
   /* CPU and GPU share a row; full-width capacity and activity cards retain their geometry. */
   height: auto;
-  min-height: 104px;
+  min-height: var(--resource-summary-height);
   flex: 1;
 }
 .resource-cards:not(:has([data-metric='gpu'])) > [data-metric='cpu'] {

@@ -4016,6 +4016,8 @@
     }
   },
   "systemStatus": {
+    "cpuUsage": "CPU 사용률",
+    "gpuUsage": "GPU 사용률",
     "appearanceTitle": "표시 스타일",
     "usageColors": "색상 표시",
     "usageWarning": "주황색 ≥",
@@ -4169,7 +4171,10 @@
   },
   "gpuTemperature": {
     "label": "GPU 온도",
-    "unsupportedHint": "이 기기에서는 GPU 온도를 읽을 수 없습니다"
+    "sensorAverageHint": "GPU 온도 센서 {count}개의 평균값",
+    "deviceHint": "기기에서 보고한 GPU 온도",
+    "unsupportedHint": "이 기기에서는 GPU 온도를 읽을 수 없습니다",
+    "trend": "최근 1분간 GPU 온도"
   },
   "cpuTemperature": {
     "label": "CPU 온도",

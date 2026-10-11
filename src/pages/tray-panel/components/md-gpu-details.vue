@@ -17,10 +17,18 @@ import { METRIC_STATUS_KEYS, type ResourceReadings } from '@/lib/models/system-r
 import { ByteSizeService } from '@/lib/services/byte-size-service';
 import { useResidentSettingsStore } from '@/stores/resident-settings-store';
 import MdResourceTrend from './md-resource-trend.vue';
+import MdTemperatureDetails from './md-temperature-details.vue';
+import MdResourceTemperature from './md-resource-temperature.vue';
 const props = defineProps<{ reading: ResourceReadings; active: boolean }>();
 const { t } = useI18n({ useScope: 'global' });
 const settings = useResidentSettingsStore();
 const deviceMenuOpen = ref(false);
+const temperatureMatches = computed(
+  () =>
+    !selectedId.value ||
+    !props.reading.gpuTemperature.value ||
+    props.reading.gpuTemperature.value.adapterId === selectedId.value
+);
 const selectedId = computed(() => settings.draft?.gpuAdapter ?? null);
 const missing = computed(
   () => selectedId.value && !props.reading.gpuAdapters.some(adapter => adapter.id === selectedId.value)
@@ -67,9 +75,7 @@ const deviceTooltip = computed(() => {
 });
 const facts = computed(() => {
   const telemetry = details.value?.telemetry;
-  const temperature = telemetry?.temperatureCelsius;
-  const hasTemperature = temperature != null && Number.isFinite(temperature);
-  // Prefer live clock measurements and reserve the last slot for temperature.
+  // Prefer live clock measurements; temperature has its own shared history.
   const selected = [
     { key: 'engineClock', value: telemetry?.engineClockMhz, unit: 'MHz' },
     { key: 'coreClock', value: telemetry?.coreClockMhz, unit: 'MHz' },
@@ -80,8 +86,7 @@ const facts = computed(() => {
     { key: 'fanSpeed', value: telemetry?.fanPercent, unit: '%' },
   ]
     .filter(fact => fact.value != null && Number.isFinite(fact.value))
-    .slice(0, hasTemperature ? 2 : 3);
-  if (hasTemperature) selected.push({ key: 'temperature', value: temperature, unit: '°C' });
+    .slice(0, 3);
   return selected.map(fact => ({
     key: fact.key,
     label: t(GPU_FACT_LABEL_KEYS[fact.key as keyof typeof GPU_FACT_LABEL_KEYS]),
@@ -124,60 +129,73 @@ onMounted(() => {
 <template>
   <div class="gpu-details">
     <section class="gpu-summary">
-      <header>
-        <Select
-          v-model:open="deviceMenuOpen"
-          :model-value="selectedId ?? 'automatic'"
-          :disabled="!settings.draft || settings.loading || settings.saving"
-          @update:model-value="settings.change({ gpuAdapter: $event === 'automatic' ? null : String($event) })"
-        >
-          <SelectTrigger class="device-trigger" :aria-label="`${t('systemStatus.gpu')} · ${selectedLabel}`">
-            <span>{{ t('systemStatus.gpu') }}</span>
-            <MdIcon :name="ICON_NAMES.chevronDown" :size="12" />
-          </SelectTrigger>
-          <SelectContent class="z-60 max-w-[calc(100vw-2rem)]" align="start">
-            <SelectItem value="automatic">{{ t('systemStatus.automatic') }}</SelectItem>
-            <SelectItem
-              v-for="adapter in reading.gpuAdapters"
-              :key="adapter.id"
-              :value="adapter.id"
-              class="break-all"
-              >{{ adapter.name }}</SelectItem
-            >
-            <SelectItem v-if="missing" :value="selectedId!">{{ t('systemStatus.savedDisconnected') }}</SelectItem>
-          </SelectContent>
-        </Select>
-        <strong>{{ value ? value.usedPercent.toFixed(0) : '—' }}<small v-if="value">%</small></strong>
-      </header>
-      <MdResourceTrend
-        :key="value?.adapterId ?? 'unavailable'"
-        metric="gpu"
-        :history="history"
-        :observed-at-ms="reading.observedAtMs"
-        :active="active"
-        :label="t('systemStatus.lastMinute')"
-      />
-      <p v-if="value" class="detail-note device-caption">
-        <MdTooltip :text="deviceTooltip">
-          <span class="device-name">{{ value.adapterName }}</span>
-        </MdTooltip>
-        <span
-          v-if="cached"
-          class="cache-notice"
-          role="status"
-          :aria-label="`${t('gpuDetails.cached')} · ${t(METRIC_STATUS_KEYS[cacheStatus])}`"
-          >{{ t('gpuDetails.cachedLabel') }}</span
-        >
-      </p>
-      <p v-else class="detail-note" role="status">
-        {{ t(METRIC_STATUS_KEYS[reading.gpuDetails.status === 'ready' ? 'loading' : reading.gpuDetails.status]) }}
-      </p>
+      <div class="gpu-usage">
+        <header>
+          <Select
+            v-model:open="deviceMenuOpen"
+            :model-value="selectedId ?? 'automatic'"
+            :disabled="!settings.draft || settings.loading || settings.saving"
+            @update:model-value="settings.change({ gpuAdapter: $event === 'automatic' ? null : String($event) })"
+          >
+            <SelectTrigger class="device-trigger" :aria-label="`${t('systemStatus.gpu')} · ${selectedLabel}`">
+              <span>{{ t('systemStatus.gpuUsage') }}</span>
+              <MdIcon :name="ICON_NAMES.chevronDown" :size="12" />
+            </SelectTrigger>
+            <SelectContent class="z-60 max-w-[calc(100vw-2rem)]" align="start">
+              <SelectItem value="automatic">{{ t('systemStatus.automatic') }}</SelectItem>
+              <SelectItem
+                v-for="adapter in reading.gpuAdapters"
+                :key="adapter.id"
+                :value="adapter.id"
+                class="break-all"
+                >{{ adapter.name }}</SelectItem
+              >
+              <SelectItem v-if="missing" :value="selectedId!">{{ t('systemStatus.savedDisconnected') }}</SelectItem>
+            </SelectContent>
+          </Select>
+          <strong>{{ value ? value.usedPercent.toFixed(0) : '—' }}<small v-if="value">%</small></strong>
+        </header>
+        <MdResourceTrend
+          :key="value?.adapterId ?? 'unavailable'"
+          metric="gpu"
+          :history="history"
+          :observed-at-ms="reading.observedAtMs"
+          :active="active"
+          :label="t('systemStatus.lastMinute')"
+        />
+        <p v-if="value" class="detail-note device-caption">
+          <MdTooltip :text="deviceTooltip">
+            <span class="device-name">{{ value.adapterName }}</span>
+          </MdTooltip>
+          <span
+            v-if="cached"
+            class="cache-notice"
+            role="status"
+            :aria-label="`${t('gpuDetails.cached')} · ${t(METRIC_STATUS_KEYS[cacheStatus])}`"
+            >{{ t('gpuDetails.cachedLabel') }}</span
+          >
+        </p>
+        <p v-else class="detail-note" role="status">
+          {{ t(METRIC_STATUS_KEYS[reading.gpuDetails.status === 'ready' ? 'loading' : reading.gpuDetails.status]) }}
+        </p>
+      </div>
     </section>
+    <MdTemperatureDetails
+      v-if="temperatureMatches && reading.gpuTemperature.status !== 'unsupported'"
+      :history="reading.gpuTemperatureHistory"
+      :observed-at-ms="reading.observedAtMs"
+      :active="active"
+      :label="t('gpuTemperature.trend')"
+      :aria-label="t('gpuTemperature.label')"
+      :identity="`${reading.gpuTemperature.value?.adapterId}:${reading.gpuTemperature.value?.source}:${reading.gpuTemperature.value?.kind}:${reading.gpuTemperature.value?.sensorCount}`"
+    >
+      <MdResourceTemperature metric="gpu" :reading="reading.gpuTemperature" :observed-at-ms="reading.observedAtMs" />
+    </MdTemperatureDetails>
+    <MdResourceFacts v-if="value" :facts="facts" class="gpu-facts" />
     <div class="gpu-details-body scrollbar-stable-end">
       <div v-if="settings.error" class="detail-note" role="alert">
         {{ t('monitoring.unavailable') }} <button @click="settings.load()">{{ t('monitoring.refresh') }}</button>
       </div>
-      <MdResourceFacts v-if="value" :facts="facts" class="gpu-facts" />
       <template v-if="details">
         <section v-if="memoryRows.length || details.memoryStatus === 'failed'" class="memory-section">
           <h3>
@@ -289,7 +307,7 @@ onMounted(() => {
 .gpu-details {
   display: flex;
   flex-direction: column;
-  gap: 14px;
+  gap: var(--resource-card-gap, 8px);
   min-height: 0;
   flex: 1;
 }
@@ -322,15 +340,20 @@ onMounted(() => {
 }
 .gpu-summary {
   @apply border border-border rounded-xl bg-card;
-  /* Match the CPU and memory summaries so tab changes keep the same geometry. */
-  height: 104px;
+  height: var(--resource-summary-height, 104px);
   box-sizing: border-box;
   flex: none;
   display: flex;
   flex-direction: column;
-  justify-content: space-between;
   min-width: 0;
   padding: 10px 12px;
+}
+.gpu-usage {
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  flex: 1;
+  min-height: 0;
 }
 header {
   display: flex;

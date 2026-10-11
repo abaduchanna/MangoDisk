@@ -4016,6 +4016,8 @@
     }
   },
   "systemStatus": {
+    "cpuUsage": "CPU kullanımı",
+    "gpuUsage": "GPU kullanımı",
     "appearanceTitle": "Görünüm",
     "usageColors": "Renk göstergeleri",
     "usageWarning": "Turuncu ≥",
@@ -4169,7 +4171,10 @@
   },
   "gpuTemperature": {
     "label": "GPU sıcaklığı",
-    "unsupportedHint": "Bu cihazda GPU sıcaklık sensörleri kullanılamıyor"
+    "sensorAverageHint": "{count} GPU sıcaklık sensörünün ortalaması",
+    "deviceHint": "Cihazın bildirdiği GPU sıcaklığı",
+    "unsupportedHint": "Bu cihazda GPU sıcaklık sensörleri kullanılamıyor",
+    "trend": "Son dakikadaki GPU sıcaklığı"
   },
   "cpuTemperature": {
     "label": "CPU sıcaklığı",

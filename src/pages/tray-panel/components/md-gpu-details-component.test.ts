@@ -237,7 +237,7 @@ describe('GPU detail capabilities and selection', () => {
     expect(wrapper.findAll('.memory-row')).toHaveLength(0);
     expect(wrapper.find('.custom-activities').exists()).toBe(false);
   });
-  it('prioritizes clock measurements and reserves the third card for temperature', async () => {
+  it('prioritizes clock measurements without duplicating the temperature curve', async () => {
     const value = reading();
     const telemetry = value.gpuDetails.value!.details!.telemetry;
     telemetry.engineClockMhz = 210;
@@ -247,12 +247,12 @@ describe('GPU detail capabilities and selection', () => {
     const { wrapper } = render(value);
     await flushPromises();
     const labels = () => wrapper.findAll('.gpu-facts dt').map(row => row.text());
-    expect(labels()).toEqual([enUS.gpuDetails.engineClock, enUS.gpuDetails.memoryClock, enUS.gpuDetails.temperature]);
-    expect(wrapper.findAll('.gpu-facts dd').map(row => row.text())).toEqual(['210MHz', '405MHz', '41°C']);
+    expect(labels()).toEqual([enUS.gpuDetails.engineClock, enUS.gpuDetails.memoryClock, enUS.gpuDetails.average]);
+    expect(wrapper.findAll('.gpu-facts dd').map(row => row.text())).toEqual(['210MHz', '405MHz', '3%']);
     const next = structuredClone(value);
     next.gpuDetails.value!.details!.telemetry.coreClockMhz = 180;
     await wrapper.setProps({ reading: next });
-    expect(labels()).toEqual([enUS.gpuDetails.engineClock, enUS.gpuDetails.coreClock, enUS.gpuDetails.temperature]);
+    expect(labels()).toEqual([enUS.gpuDetails.engineClock, enUS.gpuDetails.coreClock, enUS.gpuDetails.memoryClock]);
   });
   it('uses available history as a fallback without inventing unavailable telemetry', async () => {
     const value = reading();
@@ -449,4 +449,61 @@ describe('GPU detail capabilities and selection', () => {
       expect(wrapper.findAll('h3')).toHaveLength(2);
     });
   }
+});
+
+describe('shared GPU temperature history', () => {
+  it.each(Object.keys(messages))('uses the CPU temperature layout and localized sensor hint in %s', async locale => {
+    const value = reading();
+    value.gpuTemperature = {
+      status: 'ready',
+      sampledAtMs: 2000,
+      value: {
+        adapterId: 'a',
+        adapterName: 'Apple M3 Max',
+        celsius: 48.5,
+        kind: 'sensorAverage',
+        source: 'appleSmc',
+        sensorCount: 8,
+      },
+    };
+    value.gpuTemperatureHistory = [{ sampledAtMs: 2000, primary: 48.5, secondary: null }];
+    const { wrapper } = render(value, locale);
+    await flushPromises();
+    const card = wrapper.getComponent({ name: 'MdTemperatureDetails' });
+    expect(card.get('.temperature-heading strong').text()).toBe('49°C');
+    expect(card.get('.temperature-heading').text()).toContain(
+      messages[locale as keyof typeof messages].gpuTemperature.label
+    );
+    expect(card.getComponent({ name: 'MdResourceTrend' }).props('history')).toEqual(value.gpuTemperatureHistory);
+    expect(card.getComponent({ name: 'MdTooltip' }).props('text')).toBe(
+      messages[locale as keyof typeof messages].gpuTemperature.sensorAverageHint.replace('{count}', '8')
+    );
+    expect(wrapper.findAll('.gpu-facts .resource-fact').some(fact => fact.text().includes('°C'))).toBe(false);
+  });
+  it('hides unsupported temperature cards and old-device curves, but preserves transient history', async () => {
+    const value = reading();
+    value.gpuTemperature = { status: 'unsupported', sampledAtMs: null, value: null };
+    const { wrapper, settings } = render(value);
+    await flushPromises();
+    expect(wrapper.find('.temperature-details').exists()).toBe(false);
+    value.gpuTemperature = {
+      status: 'failed',
+      sampledAtMs: 2000,
+      value: {
+        adapterId: 'a',
+        adapterName: 'Intel UHD',
+        celsius: 51,
+        kind: 'device',
+        source: 'appleSmc',
+        sensorCount: 1,
+      },
+    };
+    value.gpuTemperatureHistory = [{ sampledAtMs: 2000, primary: 51, secondary: null }];
+    await wrapper.setProps({ reading: { ...value } });
+    expect(wrapper.get('.temperature-details strong').text()).toBe('—');
+    expect(wrapper.find('.temperature-chart').exists()).toBe(true);
+    settings.draft!.gpuAdapter = 'b';
+    await flushPromises();
+    expect(wrapper.find('.temperature-details').exists()).toBe(false);
+  });
 });

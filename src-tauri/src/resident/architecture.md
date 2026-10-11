@@ -785,9 +785,10 @@ monitoring or the optional Windows collection service is enabled. Display choice
 and panel visibility do not interrupt collection. Stopping collection drops native
 sensor handles; resuming starts a fresh observation.
 Failed queries retry after 30 seconds. Values expire after ten seconds, and the
-frontend checks sample age before displaying a number. The Celsius trend uses
-a separate fixed 0–150 degree scale and bounded Core history; this range is not
-a health threshold. Failures and changed sensor sets clear temperature history.
+frontend checks sample age before displaying a number. The Celsius trend defaults
+to 0–100 degrees and expands in twenty-degree steps when retained samples exceed
+100 degrees; this range is not a health threshold. Failures and changed sensor
+sets clear temperature history.
 
 macOS reads only mapped CPU SMC keys, caches their metadata, and requires all
 selected sensors to be valid before publishing a reading. Apple Silicon
@@ -863,3 +864,11 @@ driver readings remain unsupported, native query failures remain failed, and
 utilization counter failures do not stop temperature sampling. Temperature is
 sampled every four seconds while resident monitoring is enabled; failed driver
 queries use the existing thirty-second backoff and transition diagnostics.
+
+### Resource detail card layout
+
+CPU and GPU details show utilization and temperature in separate adjacent cards.
+Device identity appears only in the utilization card. Both charts share typography,
+padding, and chart height without axis labels or grid lines. Overview and detail
+summary cards share a 104-DIP height and eight-DIP vertical card spacing. GPU facts
+remain outside the scrolling memory and engine detail sections, matching CPU facts.

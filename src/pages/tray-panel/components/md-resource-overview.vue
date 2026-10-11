@@ -7,6 +7,7 @@ import { computed } from 'vue';
 import MdResourceTrend from './md-resource-trend.vue';
 import MdMemoryPressure from './md-memory-pressure.vue';
 import MdCpuTemperature from './md-cpu-temperature.vue';
+import MdResourceTemperature from './md-resource-temperature.vue';
 import { useI18n } from 'vue-i18n';
 import {
   METRIC_LABEL_KEYS,
@@ -24,11 +25,13 @@ const props = withDefaults(
     active?: boolean;
     interactive?: boolean;
     showCpuTemperature?: boolean;
+    heading?: string;
   }>(),
   {
     active: true,
     interactive: false,
     showCpuTemperature: true,
+    heading: undefined,
   }
 );
 defineEmits<{ cleanup: []; memory: []; cpu: []; gpu: [] }>();
@@ -102,7 +105,7 @@ const rates = computed(() =>
 </script>
 
 <template>
-  <section class="resource-overview" :data-metric="metric" :aria-label="t(METRIC_LABEL_KEYS[metric])">
+  <section class="resource-overview" :data-metric="metric" :aria-label="heading ?? t(METRIC_LABEL_KEYS[metric])">
     <button
       v-if="interactive && (metric === 'cpu' || metric === 'gpu' || metric === 'memory')"
       type="button"
@@ -114,7 +117,7 @@ const rates = computed(() =>
     />
     <header>
       <span class="resource-label">
-        {{ t(METRIC_LABEL_KEYS[metric]) }}
+        {{ heading ?? t(METRIC_LABEL_KEYS[metric]) }}
         <MdIcon v-if="interactive" :name="ICON_NAMES.chevronRight" :size="12" aria-hidden="true" />
         <span v-if="metric === 'disk'" class="resource-source">{{ source }}</span>
       </span>
@@ -177,6 +180,19 @@ const rates = computed(() =>
           :observed-at-ms="reading.observedAtMs"
           @activate="$emit('cpu')"
         />
+        <MdResourceTemperature
+          v-if="
+            metric === 'gpu' &&
+            reading.gpuTemperature.status !== 'unsupported' &&
+            (!reading.gpu.value || reading.gpu.value.adapterId === reading.gpuTemperature.value?.adapterId)
+          "
+          metric="gpu"
+          compact
+          :interactive="interactive"
+          :reading="reading.gpuTemperature"
+          :observed-at-ms="reading.observedAtMs"
+          @activate="$emit('gpu')"
+        />
       </template>
       <template v-else-if="metric === 'memory'">
         <span v-if="ready && memory">
@@ -225,7 +241,6 @@ const rates = computed(() =>
         t(METRIC_STATUS_KEYS[reading.diskIo.status])
       }}</span>
     </div>
-    <slot name="details" />
   </section>
 </template>
 
@@ -233,6 +248,11 @@ const rates = computed(() =>
 @reference "@assets/main.css";
 .resource-overview {
   @apply rounded-xl border border-border bg-card;
+  height: var(--resource-summary-height, 104px);
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
   position: relative;
   padding: 10px 12px;
   min-width: 0;

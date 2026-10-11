@@ -4016,6 +4016,8 @@
     }
   },
   "systemStatus": {
+    "cpuUsage": "Uso da CPU",
+    "gpuUsage": "Uso da GPU",
     "appearanceTitle": "Aparência",
     "usageColors": "Indicadores de cor",
     "usageWarning": "Laranja ≥",
@@ -4169,7 +4171,10 @@
   },
   "gpuTemperature": {
     "label": "Temperatura da GPU",
-    "unsupportedHint": "Os sensores de temperatura da GPU não estão disponíveis neste dispositivo"
+    "sensorAverageHint": "Média de {count} sensores de temperatura da GPU",
+    "deviceHint": "Temperatura da GPU informada pelo dispositivo",
+    "unsupportedHint": "Os sensores de temperatura da GPU não estão disponíveis neste dispositivo",
+    "trend": "Temperatura da GPU no último minuto"
   },
   "cpuTemperature": {
     "label": "Temperatura da CPU",

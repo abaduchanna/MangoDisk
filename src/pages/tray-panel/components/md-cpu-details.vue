@@ -3,7 +3,8 @@ import { computed } from 'vue';
 import { Button } from '@/components/ui/button';
 import MdResourceFacts from './md-resource-facts.vue';
 import MdCpuTemperature from './md-cpu-temperature.vue';
-import MdResourceTrend from './md-resource-trend.vue';
+import MdTemperatureDetails from './md-temperature-details.vue';
+import MdResourceOverview from './md-resource-overview.vue';
 import { useI18n } from 'vue-i18n';
 import { summarizeUtilizationHistory } from '@/lib/utils/utilization-history-summary';
 import type { ResourceReadings } from '@/lib/models/system-resources';
@@ -62,10 +63,21 @@ const facts = computed(() => {
 });
 </script>
 <template>
-  <MdResourceFacts :facts="facts" class="cpu-details" :aria-label="t('cpuDetails.summary')" />
-  <section
+  <MdResourceOverview
+    class="cpu-summary"
+    metric="cpu"
+    :heading="t('systemStatus.cpuUsage')"
+    :show-cpu-temperature="false"
+    :reading="reading"
+    :active="active"
+  />
+  <MdTemperatureDetails
     v-if="temperatureSupported && reading.cpuTemperature.status !== 'unsupported'"
-    class="temperature-details"
+    :history="temperatureEnabled ? reading.cpuTemperatureHistory : []"
+    :observed-at-ms="reading.observedAtMs"
+    :active="active"
+    :label="t('cpuTemperature.trend')"
+    :identity="`${reading.cpuTemperature.value?.source}:${reading.cpuTemperature.value?.kind}:${reading.cpuTemperature.value?.sensorCount}`"
     :aria-label="t('cpuTemperature.label')"
   >
     <template v-if="!temperatureEnabled">
@@ -75,37 +87,11 @@ const facts = computed(() => {
       }}</Button>
     </template>
     <MdCpuTemperature v-else :reading="reading.cpuTemperature" :observed-at-ms="reading.observedAtMs" />
-    <div v-if="temperatureEnabled && reading.cpuTemperatureHistory.length" class="temperature-chart">
-      <div class="temperature-axis" aria-hidden="true"><span>150°C</span><span>0°C</span></div>
-      <MdResourceTrend
-        :key="`${reading.cpuTemperature.value?.source}:${reading.cpuTemperature.value?.kind}:${reading.cpuTemperature.value?.sensorCount}`"
-        metric="temperature"
-        :history="reading.cpuTemperatureHistory"
-        :observed-at-ms="reading.observedAtMs"
-        :active="active"
-        :label="t('cpuTemperature.trend')"
-      />
-    </div>
-  </section>
+  </MdTemperatureDetails>
+  <MdResourceFacts :facts="facts" class="cpu-details" :aria-label="t('cpuDetails.summary')" />
 </template>
 <style scoped>
-@reference "@assets/main.css";
-.temperature-details {
-  @apply rounded-lg bg-muted/40;
-  padding: 8px;
-  flex: none;
-}
-.temperature-axis {
-  @apply text-muted-foreground;
-  display: flex;
-  flex-direction: column;
-  justify-content: space-between;
-  font-size: 9px;
-  padding-top: 4px;
-}
-.temperature-chart {
-  display: grid;
-  grid-template-columns: auto minmax(0, 1fr);
-  gap: 6px;
+.cpu-summary :deep(.resource-trend.cpu) {
+  height: 28px;
 }
 </style>
