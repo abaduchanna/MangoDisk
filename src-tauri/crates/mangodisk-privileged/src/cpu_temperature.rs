@@ -5,6 +5,7 @@ pub enum CpuTemperatureSensor {
     AmdZen { tdie_offset: u8 },
 }
 
+#[cfg(any(all(windows, target_arch = "x86_64"), test))]
 pub(crate) fn identify(
     vendor: [u32; 3],
     signature: u32,
