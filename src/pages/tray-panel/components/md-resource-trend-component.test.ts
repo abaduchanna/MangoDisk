@@ -49,7 +49,12 @@ describe('resource trend rendering', () => {
     expect(wrapper.get('path[stroke]').attributes('d')).toMatch(/ L[^,]+,50$/);
     await wrapper.setProps({ history: [] });
     await wrapper.setProps({ history: [{ sampledAtMs: 64000, primary: 60, secondary: null }] });
-    const ordinate = Number(wrapper.get('path[stroke]').attributes('d')!.match(/^M[^,]+,([\d.]+)/)?.[1]);
+    const ordinate = Number(
+      wrapper
+        .get('path[stroke]')
+        .attributes('d')!
+        .match(/^M[^,]+,([\d.]+)/)?.[1]
+    );
     expect(ordinate).toBeCloseTo(40.4);
     wrapper.unmount();
   });
