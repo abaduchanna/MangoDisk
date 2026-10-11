@@ -4,6 +4,9 @@ use crate::{PlatformError, PlatformErrorCode, PlatformResult};
 use serde::Serialize;
 use std::time::{Duration, Instant};
 
+#[path = "temperature/diagnostics.rs"]
+mod temperature_diagnostics;
+
 #[cfg(all(target_os = "macos", target_arch = "aarch64"))]
 mod macos;
 #[cfg(windows)]
@@ -42,6 +45,7 @@ pub struct CpuDetailsReader {
     identity: Option<CpuIdentity>,
     temperature: Option<CpuTemperatureReader>,
     temperature_due: Option<Instant>,
+    temperature_diagnostics: temperature_diagnostics::Diagnostics,
     #[cfg(windows)]
     frequency: Option<windows::FrequencyReader>,
     #[cfg(all(target_os = "macos", target_arch = "aarch64"))]
@@ -77,6 +81,7 @@ impl CpuDetailsReader {
         if !requested {
             self.temperature = None;
             self.temperature_due = None;
+            self.temperature_diagnostics = Default::default();
             return None;
         }
         let now = Instant::now();
@@ -92,12 +97,10 @@ impl CpuDetailsReader {
                 .expect("temperature reader initialized")
                 .read()
         })();
-        let delay = if result.is_ok() {
-            TEMPERATURE_INTERVAL_MS
-        } else {
-            30_000
-        };
-        self.temperature_due = Some(now + Duration::from_millis(delay));
+        if let Ok(value) = &result {
+            self.temperature_diagnostics.observe(value, now);
+        }
+        self.temperature_due = temperature_deadline(now, result.is_ok());
         if let Err(error) = &result {
             self.temperature = None;
             if error.code() != PlatformErrorCode::Unsupported {
@@ -119,6 +122,18 @@ impl CpuDetailsReader {
                 reader.pause();
             }
         }
+    }
+}
+fn temperature_deadline(now: Instant, successful: bool) -> Option<Instant> {
+    if !successful {
+        return Some(now + Duration::from_secs(30));
+    }
+    // Windows shares a service-owned hardware cadence. Delaying a cached reply
+    // again can postpone the next real sample beyond the history gap boundary.
+    if cfg!(windows) {
+        None
+    } else {
+        Some(now + Duration::from_millis(TEMPERATURE_INTERVAL_MS))
     }
 }
 fn unsupported() -> PlatformError {
@@ -193,6 +208,22 @@ fn identity() -> CpuIdentity {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn service_cached_observations_do_not_add_a_second_sampling_delay() {
+        let now = Instant::now();
+        assert_eq!(
+            temperature_deadline(now, true),
+            if cfg!(windows) {
+                None
+            } else {
+                Some(now + Duration::from_millis(TEMPERATURE_INTERVAL_MS))
+            }
+        );
+        assert_eq!(
+            temperature_deadline(now, false),
+            Some(now + Duration::from_secs(30))
+        );
+    }
     #[test]
     fn resetting_detail_baselines_preserves_temperature_cadence_and_backoff() {
         for delay in [TEMPERATURE_INTERVAL_MS, 30_000] {
