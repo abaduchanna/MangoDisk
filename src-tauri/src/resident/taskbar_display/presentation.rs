@@ -103,10 +103,14 @@ pub fn columns(
                     DisplayId::CpuTemperature | DisplayId::GpuTemperature
                 ) {
                     // Three digits plus Celsius fit at every supported DPI.
-                    44
+                    if compact {
+                        38
+                    } else {
+                        44
+                    }
                 } else {
                     match (compact, network) {
-                        (true, true) => 55,
+                        (true, true) => 53,
                         (true, false) => 34,
                         (false, true) => 81,
                         (false, false) => 38,
@@ -216,7 +220,8 @@ mod tests {
                             format!("{digits}°C")
                         }
                     );
-                    assert_eq!(result[0].width, (44 * dpi / 96) as i32);
+                    let width = if compact { 38 } else { 44 };
+                    assert_eq!(result[0].width, (width * dpi / 96) as i32);
                 }
             }
         }
@@ -257,7 +262,7 @@ mod tests {
             let compact = columns(&entries, dpi, true);
             assert_eq!(
                 compact.iter().map(|c| c.width).sum::<i32>(),
-                (3 * (34 * dpi / 96) + 55 * dpi / 96) as i32
+                (3 * (34 * dpi / 96) + 53 * dpi / 96) as i32
             );
             for (full, small) in standard.iter().zip(&compact) {
                 assert!(small.width < full.width);

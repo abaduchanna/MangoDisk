@@ -16,9 +16,6 @@ use objc2_app_kit::{
 };
 use objc2_foundation::{NSData, NSDictionary, NSPoint, NSRect, NSSize, NSString};
 
-const RATE_VALUE_WIDTH: f64 = 24.0;
-const RATE_UNIT_WIDTH: f64 = 32.0;
-
 #[derive(Default)]
 pub struct Cache {
     columns: Vec<Column>,
@@ -86,6 +83,7 @@ fn image(columns: Vec<Column>, icon: bool, dark: bool, compact: bool) -> Retaine
         }
         for column in &columns {
             if column.id == super::format::DisplayId::Upload {
+                let rate = macos_presentation::rate_layout(compact);
                 // Direction remains explicit for users who cannot distinguish the colors.
                 text(
                     "↑",
@@ -109,7 +107,12 @@ fn image(columns: Vec<Column>, icon: bool, dark: bool, compact: bool) -> Retaine
                 ] {
                     text(
                         value,
-                        rect(x + 11.0, y, RATE_VALUE_WIDTH, 11.0),
+                        rect(
+                            x + f64::from(rate.value_offset),
+                            y,
+                            f64::from(rate.value_width),
+                            11.0,
+                        ),
                         10.0,
                         0.0,
                         &foreground,
@@ -118,9 +121,9 @@ fn image(columns: Vec<Column>, icon: bool, dark: bool, compact: bool) -> Retaine
                     text(
                         unit,
                         rect(
-                            x + (if compact { 12.0 } else { 14.0 }) + RATE_VALUE_WIDTH,
+                            x + f64::from(rate.unit_offset),
                             y,
-                            if compact { 18.0 } else { RATE_UNIT_WIDTH },
+                            f64::from(rate.unit_width),
                             11.0,
                         ),
                         10.0,
@@ -240,22 +243,27 @@ mod tests {
                     .width
             }
         }
-        let column = macos_presentation::columns(
-            &[DisplayEntry {
-                tone: Default::default(),
-                color_value: None,
-                id: super::super::format::DisplayId::Cpu,
-                digits: "100".into(),
-                marker: "C".into(),
-                text: String::new(),
-                tooltip: String::new(),
-            }],
-            false,
-        );
+        let entry = DisplayEntry {
+            tone: Default::default(),
+            color_value: None,
+            id: super::super::format::DisplayId::Cpu,
+            digits: "100".into(),
+            marker: "C".into(),
+            text: String::new(),
+            tooltip: String::new(),
+        };
+        let column = macos_presentation::columns(std::slice::from_ref(&entry), false);
         let percentage_width = column[0].width as f64;
         for compact in [false, true] {
             let size = if compact { 11.0 } else { 12.0 };
-            let width = if compact { 43.0 } else { 46.0 };
+            let width = macos_presentation::columns(
+                &[DisplayEntry {
+                    id: super::super::format::DisplayId::CpuTemperature,
+                    ..entry.clone()
+                }],
+                compact,
+            )[0]
+            .width as f64;
             for value in 1..=150 {
                 assert!(
                     measured(&format!("{value}°C"), size, 0.3) <= width,
@@ -274,17 +282,25 @@ mod tests {
                 "percentage {value} overflows"
             );
         }
-        for value in 0..=999 {
-            assert!(
-                measured(&value.to_string(), 10.0, 0.0) <= RATE_VALUE_WIDTH,
-                "rate {value} overflows"
-            );
-        }
-        for unit in ["B/s", "KB/s", "MB/s", "GB/s", "TB/s"] {
-            assert!(
-                measured(unit, 10.0, 0.0) <= RATE_UNIT_WIDTH,
-                "unit {unit} overflows"
-            );
+        for compact in [false, true] {
+            let rate = macos_presentation::rate_layout(compact);
+            for value in 0..=999 {
+                assert!(
+                    measured(&value.to_string(), 10.0, 0.0) <= f64::from(rate.value_width),
+                    "rate {value} overflows with compact={compact}"
+                );
+            }
+            let units = if compact {
+                ["B", "K", "M", "G", "T"]
+            } else {
+                ["B/s", "KB/s", "MB/s", "GB/s", "TB/s"]
+            };
+            for unit in units {
+                assert!(
+                    measured(unit, 10.0, 0.0) <= f64::from(rate.unit_width),
+                    "unit {unit} overflows with compact={compact}"
+                );
+            }
         }
     }
 }

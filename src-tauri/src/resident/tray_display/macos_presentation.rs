@@ -7,9 +7,34 @@ pub const HEIGHT: u32 = 22;
 #[cfg(any(target_os = "macos", test))]
 pub fn gap(compact: bool) -> u32 {
     if compact {
-        3
+        2
     } else {
         6
+    }
+}
+
+pub struct RateLayout {
+    pub value_offset: u32,
+    pub value_width: u32,
+    pub unit_offset: u32,
+    pub unit_width: u32,
+}
+
+pub fn rate_layout(compact: bool) -> RateLayout {
+    if compact {
+        RateLayout {
+            value_offset: 10,
+            value_width: 21,
+            unit_offset: 32,
+            unit_width: 10,
+        }
+    } else {
+        RateLayout {
+            value_offset: 11,
+            value_width: 24,
+            unit_offset: 38,
+            unit_width: 32,
+        }
     }
 }
 
@@ -49,6 +74,7 @@ fn rate_unit(entry: &DisplayEntry, compact: bool) -> String {
 }
 
 pub fn columns(entries: &[DisplayEntry], compact: bool) -> Vec<Column> {
+    let rate = rate_layout(compact);
     entries
         .iter()
         .filter_map(|entry| {
@@ -60,7 +86,7 @@ pub fn columns(entries: &[DisplayEntry], compact: bool) -> Vec<Column> {
                         .find(|e| e.id == DisplayId::Download)
                         .map(|entry| entry.digits.clone())
                         .unwrap_or_else(|| "—".into()),
-                    if compact { 54 } else { 70 },
+                    rate.unit_offset + rate.unit_width,
                 ),
                 DisplayId::Download | DisplayId::App => return None,
                 DisplayId::CpuTemperature | DisplayId::GpuTemperature => (
@@ -75,7 +101,7 @@ pub fn columns(entries: &[DisplayEntry], compact: bool) -> Vec<Column> {
                     } else {
                         format!("{}°C", entry.digits)
                     },
-                    if compact { 43 } else { 46 },
+                    if compact { 37 } else { 46 },
                 ),
                 id => (
                     match id {
@@ -173,7 +199,7 @@ mod tests {
         ];
         let standard = columns(&entries, false);
         let compact = columns(&entries, true);
-        assert_eq!(width(&compact, true, true), 186);
+        assert_eq!(width(&compact, true, true), 170);
         assert_eq!(width(&standard, true, false), 220);
         assert_eq!(compact[0].bottom, "100%");
         assert_eq!(compact[2].top, "DISK");
@@ -184,11 +210,15 @@ mod tests {
         let unavailable = columns(&entries, true);
         assert_eq!(unavailable[0].bottom, "—");
         assert!(unavailable[3].top_unit.is_empty());
-        assert_eq!(width(&unavailable, true, true), 186);
+        assert_eq!(width(&unavailable, true, true), 170);
     }
 
     #[test]
     fn two_rows_preserve_order_and_pair_network_directions_without_width_jitter() {
+        for compact in [false, true] {
+            let rate = rate_layout(compact);
+            assert!(rate.value_offset + rate.value_width < rate.unit_offset);
+        }
         let mut entries = vec![
             entry(DisplayId::Upload, "9", "↑K"),
             entry(DisplayId::Download, "5", "↓K"),
@@ -211,19 +241,23 @@ mod tests {
         assert!(columns(&entries, false)[0].top_unit.is_empty());
     }
     #[test]
-    fn all_metrics_and_logo_fit_in_262_points() {
-        let columns = columns(
-            &[
-                entry(DisplayId::Cpu, "100", "C"),
-                entry(DisplayId::Gpu, "100", "G"),
-                entry(DisplayId::Memory, "100", "M"),
-                entry(DisplayId::Upload, "999", "↑K"),
-                entry(DisplayId::Download, "999", "↓G"),
-                entry(DisplayId::Disk, "100", "D"),
-            ],
-            false,
-        );
+    fn all_metrics_and_logo_have_stable_compact_widths() {
+        let mut entries = vec![
+            entry(DisplayId::Cpu, "100", "C"),
+            entry(DisplayId::Gpu, "100", "G"),
+            entry(DisplayId::Memory, "100", "M"),
+            entry(DisplayId::Upload, "999", "↑K"),
+            entry(DisplayId::Download, "999", "↓G"),
+            entry(DisplayId::Disk, "100", "D"),
+        ];
+        let columns = columns(&entries, false);
         assert_eq!(width(&columns, true, false), 262);
+        entries.extend([
+            entry(DisplayId::CpuTemperature, "150", "°C"),
+            entry(DisplayId::GpuTemperature, "150", "°C"),
+        ]);
+        assert_eq!(width(&super::columns(&entries, false), true, false), 366);
+        assert_eq!(width(&super::columns(&entries, true), true, true), 284);
         assert_eq!(width(&[], true, false), 18);
         assert_eq!(width(&[], false, false), 0);
         assert_eq!(HEIGHT, 22);

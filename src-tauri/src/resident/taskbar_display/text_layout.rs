@@ -93,16 +93,17 @@ pub fn runs<'a>(columns: &'a [Column], surface: &Surface, dpi: u32) -> Vec<Run<'
                     let padding = scale(if compact { 1 } else { 3 });
                     let unit_width = scale(if compact { 12 } else { 33 });
                     let spacing = scale(if compact { 1 } else { 2 });
+                    let arrow_width = scale(if compact { 8 } else { 10 });
                     let unit_left = cell.right - padding - unit_width;
                     (
                         Bounds {
                             left: cell.left + padding,
                             top,
-                            right: cell.left + padding + scale(10),
+                            right: cell.left + padding + arrow_width,
                             bottom,
                         },
                         Bounds {
-                            left: cell.left + padding + scale(10),
+                            left: cell.left + padding + arrow_width,
                             top,
                             right: unit_left - spacing,
                             bottom,

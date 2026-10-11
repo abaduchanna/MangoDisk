@@ -175,7 +175,7 @@ mod tests {
     use crate::resident::taskbar_display::{layout::Bounds, text_layout::Ink};
 
     #[test]
-    fn compact_text_fits_native_font_at_percentage_and_rate_boundaries() {
+    fn compact_text_fits_native_font_at_metric_and_rate_boundaries() {
         use crate::resident::{
             taskbar_display::{presentation, surface::Surface},
             tray_display::format::{DisplayEntry, DisplayId},
@@ -183,7 +183,7 @@ mod tests {
         unsafe {
             let dc = CreateCompatibleDC(std::ptr::null_mut());
             assert!(!dc.is_null());
-            for dpi in [96, 120, 144, 192, 240, 288] {
+            for dpi in [96, 120, 144, 168, 192, 240, 288] {
                 let fonts = [
                     font(TextStyle::Label, dpi, CLEARTYPE_QUALITY),
                     font(TextStyle::Value, dpi, CLEARTYPE_QUALITY),
@@ -192,6 +192,9 @@ mod tests {
                 let previous = SelectObject(dc, fonts[0]);
                 for (id, text, digits) in [
                     (DisplayId::Cpu, "CPU 100%", "100"),
+                    (DisplayId::CpuTemperature, "CPU 150°C", "150"),
+                    (DisplayId::GpuTemperature, "GPU 150°C", "150"),
+                    (DisplayId::CpuTemperature, "CPU —", "—"),
                     (DisplayId::Memory, "MEM 0%", "0"),
                     (DisplayId::Disk, "DISK —", "—"),
                     (DisplayId::Upload, "↑999.9 TB/s", "999.9"),
