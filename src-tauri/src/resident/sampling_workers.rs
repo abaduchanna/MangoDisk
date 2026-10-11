@@ -30,6 +30,11 @@ pub enum Observation {
     },
     GpuCatalogue(Vec<GpuAdapter>),
     Gpu {
+        temperature: Option<
+            mangodisk_platform::PlatformResult<
+                Vec<mangodisk_platform::system_resources::gpu::temperature::GpuTemperatureSample>,
+            >,
+        >,
         sample: mangodisk_platform::PlatformResult<GpuSample>,
         adapters: Vec<GpuAdapter>,
     },
@@ -188,7 +193,12 @@ impl Sensor {
                 } else {
                     reader.read()
                 };
+                let temperature = demand
+                    .temperature
+                    .then(|| reader.read_temperatures())
+                    .flatten();
                 Observation::Gpu {
+                    temperature,
                     sample,
                     adapters: reader.adapters(),
                 }

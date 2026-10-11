@@ -146,6 +146,25 @@ fn temperature_celsius(deci_celsius: u32) -> Option<f64> {
 }
 
 impl TelemetryReader {
+    pub(super) fn read_temperature(
+        &mut self,
+        physical: u32,
+        id: &str,
+    ) -> crate::PlatformResult<f64> {
+        if let Some(celsius) = self.read(physical, id, None).temperature_celsius {
+            return Ok(celsius);
+        }
+        match self.observations.get(physical as usize).copied().flatten() {
+            Some(Err(error)) if !matches!(error.code, 0xc000000d | 0xc00000bb) => {
+                Err(super::failed(error.stage, format!("{:#x}", error.code)))
+            }
+            _ => Err(crate::PlatformError::new(
+                crate::PlatformErrorCode::Unsupported,
+                "GPU driver does not expose a valid WDDM temperature",
+            )),
+        }
+    }
+
     pub(super) fn read(
         &mut self,
         physical: u32,

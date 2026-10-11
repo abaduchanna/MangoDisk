@@ -14,3 +14,5 @@ pub mod readings;
 pub mod release;
 pub mod release_policy;
 pub mod service;
+
+mod gpu_temperature;

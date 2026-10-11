@@ -31,6 +31,9 @@ pub struct ResourceReadings {
     pub cpu_frequency: MetricReading<CpuFrequency>,
     pub cpu_temperature: MetricReading<CpuTemperature>,
     pub cpu_temperature_history: Vec<TrendPoint>,
+    pub gpu_temperature:
+        MetricReading<mangodisk_platform::system_resources::gpu::temperature::GpuTemperature>,
+    pub gpu_temperature_history: Vec<TrendPoint>,
     pub gpu: MetricReading<GpuUsage>,
     pub gpu_details: MetricReading<GpuUsage>,
     pub gpu_detail_history: Vec<TrendPoint>,
@@ -56,13 +59,15 @@ pub struct ResourceReadings {
 impl Default for ResourceReadings {
     fn default() -> Self {
         Self {
-            schema_version: 16,
+            schema_version: 17,
             observed_at_ms: 0,
             cpu: MetricReading::default(),
             cpu_identity: None,
             cpu_frequency: MetricReading::default(),
             cpu_temperature: MetricReading::default(),
             cpu_temperature_history: Vec::new(),
+            gpu_temperature: MetricReading::default(),
+            gpu_temperature_history: Vec::new(),
             gpu: MetricReading::default(),
             gpu_details: MetricReading::default(),
             gpu_detail_history: Vec::new(),
@@ -95,6 +100,7 @@ pub struct ResourceCache {
     disk_io_delta: DiskIoDelta,
     cpu_history: Trend,
     cpu_temperature_history: Trend,
+    gpu_temperature: super::gpu_temperature::GpuTemperatureCache,
     gpu_history: Trend,
     gpu_detail_history: Trend,
     gpu_detail_device: Option<String>,
@@ -227,6 +233,29 @@ impl ResourceCache {
         }
     }
 
+    pub fn gpu_temperatures(
+        &mut self,
+        samples: mangodisk_platform::PlatformResult<
+            Vec<mangodisk_platform::system_resources::gpu::temperature::GpuTemperatureSample>,
+        >,
+        selected: Option<&str>,
+        timestamp_ms: u64,
+    ) {
+        let automatic = self
+            .readings
+            .gpu
+            .value
+            .as_ref()
+            .filter(|_| self.readings.gpu.status == MetricStatus::Ready)
+            .map(|value| value.adapter_id.as_str());
+        match samples {
+            Ok(samples) => self
+                .gpu_temperature
+                .apply(samples, selected, automatic, timestamp_ms),
+            Err(error) => self.gpu_temperature.error(&error),
+        }
+    }
+
     pub fn gpu(
         &mut self,
         sample: mangodisk_platform::system_resources::gpu::GpuSample,
@@ -248,6 +277,7 @@ impl ResourceCache {
                         self.readings.gpu_details = MetricReading::default();
                         self.gpu_detail_device = Some(value.adapter_id.clone());
                     }
+                    self.gpu_temperature.select(Some(&value.adapter_id));
                     // The panel summary uses every real sample for this device,
                     // including lightweight background observations while details pause.
                     self.gpu_detail_history.push(TrendPoint {
@@ -483,6 +513,7 @@ impl ResourceCache {
                 self.readings.network = MetricReading::default();
             }
             MetricId::Gpu => {
+                self.gpu_temperature.clear();
                 self.gpu_history.clear();
                 self.gpu_detail_history.clear();
                 self.gpu_renderer_history.clear();
@@ -498,6 +529,8 @@ impl ResourceCache {
     /// Update freshness without copying application identities or rebuilding histories.
     pub fn expire(&mut self, now_ms: u64) -> bool {
         let before = self.statuses();
+        self.gpu_temperature.expire(now_ms);
+        self.readings.gpu_temperature = self.gpu_temperature.reading.clone();
         self.readings.observed_at_ms = now_ms;
         self.readings
             .cpu
@@ -533,11 +566,12 @@ impl ResourceCache {
         before != self.statuses()
     }
 
-    fn statuses(&self) -> [MetricStatus; 11] {
+    fn statuses(&self) -> [MetricStatus; 12] {
         [
             self.readings.cpu.status,
             self.readings.cpu_frequency.status,
             self.readings.cpu_temperature.status,
+            self.readings.gpu_temperature.status,
             self.readings.gpu.status,
             self.readings.gpu_details.status,
             self.readings.memory.status,
@@ -551,6 +585,7 @@ impl ResourceCache {
 
     pub fn snapshot(&mut self, now_ms: u64) -> ResourceReadings {
         self.expire(now_ms);
+        self.readings.gpu_temperature_history = self.gpu_temperature.history(now_ms);
         self.readings.memory_history = self.memory_history.snapshot(now_ms);
         self.readings.disk_io_history = self.disk_io_history.snapshot(now_ms);
         self.readings.cpu_history = self.cpu_history.snapshot(now_ms);
@@ -934,7 +969,7 @@ mod tests {
             second.cpu_processes.value.as_ref().unwrap()
         ));
         let wire = serde_json::to_value(&second).unwrap();
-        assert_eq!(wire["schemaVersion"], 16);
+        assert_eq!(wire["schemaVersion"], 17);
         assert_eq!(wire["cpuProcesses"]["value"]["readableProcessCount"], 12);
         assert!(!cache.expire(2000));
         assert!(cache.expire(6001));
@@ -1056,7 +1091,7 @@ mod tests {
             },
             1000,
         ));
-        assert_eq!(cache.snapshot(1000).schema_version, 16);
+        assert_eq!(cache.snapshot(1000).schema_version, 17);
         assert_eq!(
             cache.snapshot(6001).cpu_processes.status,
             MetricStatus::Stale

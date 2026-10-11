@@ -98,17 +98,21 @@ impl ResidentState {
             .lock()
             .unwrap_or_else(|error| error.into_inner());
         let catalogue = self.catalogue.load(Ordering::Relaxed);
-        // macOS usage and engine statistics share one cheap property read. Keep
-        // real history warm independently of the menu-bar display selection.
-        // Windows PDH initialization remains demand-driven because it is costly.
+        // Keep usage and temperature histories continuous while resident monitoring
+        // is enabled. Display choices and panel visibility only affect presentation.
         let gpu_sampling = preferences.enabled
-            && (cfg!(target_os = "macos") || preferences.shows(MetricId::Gpu) || panel_open);
+            && (cfg!(any(target_os = "macos", windows))
+                || preferences.shows(MetricId::Gpu)
+                || panel_open);
         // Display selection must not interrupt real temperature history. Windows
         // requires explicit capability consent even when resident display is hidden.
         let temperature_sampling = (cfg!(windows) && preferences.windows_cpu_temperature_enabled)
             || (cfg!(target_os = "macos") && preferences.enabled);
         MetricId::ALL.map(|metric| Demand {
-            temperature: temperature_sampling && metric == MetricId::Cpu,
+            temperature: (temperature_sampling && metric == MetricId::Cpu)
+                || (gpu_sampling
+                    && cfg!(any(target_os = "macos", windows))
+                    && metric == MetricId::Gpu),
             active: (preferences.enabled && metric != MetricId::Gpu)
                 || (metric == MetricId::Cpu && temperature_sampling)
                 || (metric == MetricId::Gpu && gpu_sampling)
@@ -199,7 +203,7 @@ pub fn start(app: &tauri::AppHandle, preferences: ResidentPreferences) -> Arc<Re
         let mut display_updated = Instant::now() - Duration::from_secs(1);
         log::info!(
             "resident_gpu_sampling_policy keep_history_when_hidden={} interval_ms={}",
-            cfg!(target_os = "macos"),
+            cfg!(any(target_os = "macos", windows)),
             MetricId::Gpu.interval_ms()
         );
         loop {
@@ -449,7 +453,11 @@ pub fn start(app: &tauri::AppHandle, preferences: ResidentPreferences) -> Arc<Re
                                 cache.gpu_adapters(adapters);
                                 worker.catalogue.fetch_and(!4, Ordering::Relaxed);
                             }
-                            Ok(Observation::Gpu { sample, adapters }) => {
+                            Ok(Observation::Gpu {
+                                sample,
+                                adapters,
+                                temperature,
+                            }) => {
                                 let missing_selection =
                                     slots[index].demand.selection.as_deref().is_some_and(|id| {
                                         !adapters.iter().any(|adapter| adapter.id == id)
@@ -492,6 +500,13 @@ pub fn start(app: &tauri::AppHandle, preferences: ResidentPreferences) -> Arc<Re
                                         cache.fail(MetricId::Gpu, status);
                                         worker.catalogue.fetch_and(!4, Ordering::Relaxed);
                                     }
+                                }
+                                if let Some(temperature) = temperature {
+                                    cache.gpu_temperatures(
+                                        temperature,
+                                        slots[index].demand.selection.as_deref(),
+                                        completion.timestamp_ms,
+                                    );
                                 }
                             }
                             Ok(Observation::Memory(snapshot)) => {
@@ -720,6 +735,25 @@ mod overview_tests {
             .all(|demand| !demand.active && !demand.temperature));
     }
 
+    #[test]
+    fn gpu_temperature_demand_survives_hidden_items_and_tab_changes() {
+        let state = test_state();
+        for panel_open in [true, false] {
+            state.panel_open.store(panel_open, Ordering::Relaxed);
+            for selected in MetricId::ALL {
+                *state.panel_metric.lock().unwrap() = selected;
+                let gpu = state.demands(false)[1].clone();
+                assert_eq!(gpu.temperature, cfg!(any(target_os = "macos", windows)));
+                assert_eq!(
+                    gpu.active,
+                    cfg!(any(target_os = "macos", windows)) || panel_open
+                );
+            }
+        }
+        state.preferences.lock().unwrap().enabled = false;
+        assert!(!state.demands(false)[1].temperature);
+    }
+
     fn test_state() -> ResidentState {
         let (wake, _) = mpsc::sync_channel(1);
         let mut preferences = ResidentPreferences::default();
@@ -793,7 +827,8 @@ mod overview_tests {
                 assert!(demand.active);
                 assert_eq!(
                     demand.temperature,
-                    metric == MetricId::Cpu && cfg!(any(windows, target_os = "macos"))
+                    (metric == MetricId::Cpu && cfg!(any(windows, target_os = "macos")))
+                        || (metric == MetricId::Gpu && cfg!(any(target_os = "macos", windows)))
                 );
                 assert_eq!(
                     demand.detailed,
@@ -810,12 +845,13 @@ mod overview_tests {
         for (metric, demand) in MetricId::ALL.into_iter().zip(state.demands(false)) {
             assert_eq!(
                 demand.active,
-                metric != MetricId::Gpu || cfg!(target_os = "macos")
+                metric != MetricId::Gpu || cfg!(any(target_os = "macos", windows))
             );
             assert!(!demand.detailed);
             assert_eq!(
                 demand.temperature,
-                metric == MetricId::Cpu && cfg!(any(windows, target_os = "macos"))
+                (metric == MetricId::Cpu && cfg!(any(windows, target_os = "macos")))
+                    || (metric == MetricId::Gpu && cfg!(any(target_os = "macos", windows)))
             );
         }
         assert!(state.disk_activity_demand().active);
@@ -872,7 +908,7 @@ mod overview_tests {
         assert!(!state.demands(false)[0].temperature);
     }
 
-    #[cfg(not(target_os = "macos"))]
+    #[cfg(not(any(target_os = "macos", windows)))]
     #[test]
     fn gpu_catalogue_can_be_requested_without_enabling_its_native_display() {
         let state = test_state();
@@ -902,9 +938,9 @@ mod overview_tests {
                 .active
         );
     }
-    #[cfg(target_os = "macos")]
+    #[cfg(any(target_os = "macos", windows))]
     #[test]
-    fn macos_gpu_history_remains_active_across_hidden_panels_with_display_disabled() {
+    fn gpu_history_remains_active_across_hidden_panels_with_display_disabled() {
         let state = test_state();
         let gpu = MetricId::ALL
             .iter()
@@ -924,7 +960,7 @@ mod overview_tests {
     }
 
     #[test]
-    fn gpu_background_demand_respects_platform_cost_and_global_disable() {
+    fn gpu_background_demand_retains_history_until_global_disable() {
         let state = test_state();
         let gpu = MetricId::ALL
             .iter()
@@ -932,7 +968,10 @@ mod overview_tests {
             .unwrap();
         assert!(state.demands(false)[gpu].active);
         state.panel_open.store(false, Ordering::Relaxed);
-        assert_eq!(state.demands(false)[gpu].active, cfg!(target_os = "macos"));
+        assert_eq!(
+            state.demands(false)[gpu].active,
+            cfg!(any(target_os = "macos", windows))
+        );
         state
             .preferences
             .lock()

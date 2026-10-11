@@ -53,12 +53,120 @@ struct Adapter {
     name: String,
     unified: bool,
     core_count: Option<u32>,
+    class: String,
+    temperature: Option<super::macos_temperature::Reader>,
+    temperature_error: Option<(crate::PlatformError, Instant)>,
+    temperature_diagnostic: Option<String>,
+}
+
+impl Adapter {
+    fn read_temperature(
+        &mut self,
+        statistics_key: &CFString,
+        unambiguous: bool,
+    ) -> super::temperature::GpuTemperatureSample {
+        use super::temperature::{
+            GpuTemperature, GpuTemperatureKind, GpuTemperatureSample, GpuTemperatureSource,
+        };
+        let driver = property(self.object.0, statistics_key)
+            .map(|value| details(&value, self.unified, self.core_count));
+        let reading =
+            (|| {
+                if let Some(celsius) = driver
+                    .and_then(|value| value.telemetry.temperature_celsius)
+                    .filter(|value| *value != 128.0)
+                {
+                    Ok(GpuTemperature {
+                        adapter_id: self.id.clone(),
+                        adapter_name: self.name.clone(),
+                        celsius,
+                        kind: GpuTemperatureKind::Device,
+                        source: GpuTemperatureSource::Driver,
+                        sensor_count: 1,
+                    })
+                } else {
+                    if let Some((error, retry_at)) = &self.temperature_error {
+                        if Instant::now() < *retry_at {
+                            return Err(error.clone());
+                        }
+                    }
+                    if self.temperature.is_none() {
+                        self.temperature = Some(super::macos_temperature::Reader::new(
+                            &self.name,
+                            &self.class,
+                            unambiguous,
+                        )?);
+                    }
+                    self.temperature.as_ref().unwrap().read().map(
+                        |(celsius, sensor_count, kind)| GpuTemperature {
+                            adapter_id: self.id.clone(),
+                            adapter_name: self.name.clone(),
+                            celsius,
+                            sensor_count,
+                            kind,
+                            source: GpuTemperatureSource::AppleSmc,
+                        },
+                    )
+                }
+            })();
+        let diagnostic = match &reading {
+            Ok(value) => {
+                self.temperature_error = None;
+                format!(
+                    "ready:{:?}:{:?}:{}",
+                    value.source, value.kind, value.sensor_count
+                )
+            }
+            Err(error) => {
+                self.temperature = None;
+                if self
+                    .temperature_error
+                    .as_ref()
+                    .is_none_or(|(_, at)| Instant::now() >= *at)
+                {
+                    self.temperature_error =
+                        Some((error.clone(), Instant::now() + Duration::from_secs(30)));
+                }
+                format!("{:?}:{}", error.code(), error)
+            }
+        };
+        if self.temperature_diagnostic.as_ref() != Some(&diagnostic) {
+            match &reading {
+                Ok(value) => {
+                    log::info!(
+                        "gpu_temperature_ready adapter={} name={} source={:?} kind={:?} sensor_count={}",
+                        text(&self.id), text(&self.name), value.source, value.kind, value.sensor_count
+                    );
+                }
+                Err(error) if error.code() == crate::PlatformErrorCode::Unsupported => {
+                    log::info!(
+                        "gpu_temperature_unsupported adapter={} name={} reason={}",
+                        text(&self.id),
+                        text(&self.name),
+                        text(error)
+                    );
+                }
+                Err(error) => {
+                    log::warn!(
+                        "gpu_temperature_read_failed adapter={} name={} code={:?} error={} retry_after_ms=30000",
+                        text(&self.id), text(&self.name), error.code(), text(error)
+                    );
+                }
+            }
+            self.temperature_diagnostic = Some(diagnostic);
+        }
+        GpuTemperatureSample {
+            adapter_id: self.id.clone(),
+            reading,
+        }
+    }
 }
 
 pub struct GpuReader {
     adapters: Vec<Adapter>,
     discovered_at: Option<Instant>,
     statistics_key: CFString,
+    temperature_due: Option<Instant>,
     diagnostics: ObservationDiagnostics,
     discovery_failure: Option<(&'static str, String)>,
 }
@@ -68,6 +176,7 @@ impl Default for GpuReader {
             adapters: Vec::new(),
             discovered_at: None,
             statistics_key: CFString::new("PerformanceStatistics"),
+            temperature_due: None,
             diagnostics: ObservationDiagnostics::default(),
             discovery_failure: None,
         }
@@ -236,9 +345,11 @@ impl GpuReader {
                 .into_owned();
             let name = adapter_model(object.0, &model_key)
                 .unwrap_or_else(|| format!("GPU {}", adapters.len()));
-            let unified = property(object.0, &CFString::new("IOClass"))
+            let class = property(object.0, &CFString::new("IOClass"))
                 .and_then(|value| value.downcast::<CFString>())
-                .is_some_and(|value| value.to_string().to_ascii_lowercase().contains("agx"));
+                .map(|value| value.to_string().to_ascii_lowercase())
+                .unwrap_or_default();
+            let unified = class.contains("agx");
             let core_count = property(object.0, &CFString::new("gpu-core-count"))
                 .and_then(|value| value.downcast::<CFNumber>())
                 .and_then(|value| value.to_i64())
@@ -250,6 +361,10 @@ impl GpuReader {
                 name,
                 unified,
                 core_count,
+                class,
+                temperature: None,
+                temperature_error: None,
+                temperature_diagnostic: None,
             });
         }
         if self.discovered_at.is_none() || adapters.len() != self.adapters.len() {
@@ -281,6 +396,23 @@ impl GpuReader {
             .retain(|id| adapters.iter().any(|adapter| adapter.id == id));
         if self.discovery_failure.take().is_some() {
             log::info!("gpu_inventory_recovered source=ioreg_ioaccelerator");
+        }
+        // Retain read-only SMC connections across inventory refreshes only when
+        // the accelerator inventory is unchanged, preserving sensor identity.
+        if adapters.len() == self.adapters.len()
+            && adapters.iter().all(|adapter| {
+                self.adapters.iter().any(|old| {
+                    old.id == adapter.id && old.name == adapter.name && old.class == adapter.class
+                })
+            })
+        {
+            for adapter in &mut adapters {
+                if let Some(previous) = self.adapters.iter_mut().find(|old| old.id == adapter.id) {
+                    adapter.temperature = previous.temperature.take();
+                    adapter.temperature_error = previous.temperature_error.take();
+                    adapter.temperature_diagnostic = previous.temperature_diagnostic.take();
+                }
+            }
         }
         self.adapters = adapters;
         self.discovered_at = Some(Instant::now());
@@ -321,6 +453,36 @@ impl GpuReader {
     }
     pub fn read_detailed(&mut self) -> PlatformResult<GpuSample> {
         self.read()
+    }
+    pub fn read_temperatures(
+        &mut self,
+    ) -> Option<PlatformResult<Vec<super::temperature::GpuTemperatureSample>>> {
+        use super::temperature::GPU_TEMPERATURE_INTERVAL_MS;
+        if self.temperature_due.is_some_and(|due| Instant::now() < due) {
+            return None;
+        }
+        self.temperature_due =
+            Some(Instant::now() + Duration::from_millis(GPU_TEMPERATURE_INTERVAL_MS));
+        if let Err(error) = self.refresh() {
+            return Some(Err(error));
+        }
+        let counts = |vendor: &str| {
+            self.adapters
+                .iter()
+                .filter(|adapter| adapter.class.contains(vendor))
+                .count()
+        };
+        let apple_count = counts("agx");
+        let intel_count = counts("intel");
+        Some(Ok(self
+            .adapters
+            .iter_mut()
+            .map(|adapter| {
+                let unambiguous = (adapter.class.contains("agx") && apple_count == 1)
+                    || (adapter.class.contains("intel") && intel_count == 1);
+                adapter.read_temperature(&self.statistics_key, unambiguous)
+            })
+            .collect()))
     }
     fn sample(&mut self) -> PlatformResult<GpuSample> {
         self.refresh()?;

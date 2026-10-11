@@ -88,7 +88,7 @@ pub(super) fn unsupported() -> PlatformError {
 
 // This only rejects invalid transport values and disabled-sensor sentinels;
 // it is not a hardware-specific safe operating range or an alert threshold.
-#[cfg(any(test, target_os = "macos", target_os = "linux"))]
+#[cfg(any(test, target_os = "linux"))]
 pub(super) fn valid_celsius(value: f64) -> bool {
     value.is_finite() && value > 0.0 && value <= 150.0
 }

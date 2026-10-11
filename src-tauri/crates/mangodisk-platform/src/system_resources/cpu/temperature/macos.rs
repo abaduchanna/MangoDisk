@@ -1,197 +1,26 @@
-//! Read-only SMC queries. Only documented community CPU key mappings are selected.
+//! Identified CPU temperature sensors; SMC transport is shared with GPU sampling.
 //! Key identities: https://github.com/exelban/stats/blob/master/Modules/Sensors/values.swift
-use super::{unsupported, valid_celsius, CpuTemperature, CpuTemperatureKind, CpuTemperatureSource};
-use crate::{PlatformError, PlatformErrorCode, PlatformResult};
-use core_foundation::dictionary::CFMutableDictionaryRef;
-use std::{ffi::c_void, mem::size_of};
-
-#[link(name = "IOKit", kind = "framework")]
-unsafe extern "C" {
-    fn IOServiceMatching(name: *const std::ffi::c_char) -> CFMutableDictionaryRef;
-    fn IOServiceGetMatchingServices(
-        port: u32,
-        matching: CFMutableDictionaryRef,
-        iterator: *mut u32,
-    ) -> i32;
-    fn IOIteratorNext(iterator: u32) -> u32;
-    fn IORegistryEntryGetName(entry: u32, name: *mut std::ffi::c_char) -> i32;
-    fn IOObjectRelease(object: u32) -> i32;
-    fn IOServiceOpen(service: u32, task: u32, kind: u32, connection: *mut u32) -> i32;
-    fn IOServiceClose(connection: u32) -> i32;
-    fn IOConnectCallStructMethod(
-        connection: u32,
-        selector: u32,
-        input: *const c_void,
-        input_size: usize,
-        output: *mut c_void,
-        output_size: *mut usize,
-    ) -> i32;
-}
-unsafe extern "C" {
-    fn mach_task_self() -> u32;
-}
-
-#[repr(C)]
-#[derive(Default)]
-struct Version {
-    major: u8,
-    minor: u8,
-    build: u8,
-    reserved: u8,
-    release: u16,
-}
-#[repr(C)]
-#[derive(Default)]
-struct Limits {
-    version: u16,
-    length: u16,
-    cpu: u32,
-    gpu: u32,
-    memory: u32,
-}
-#[repr(C)]
-#[derive(Default, Clone, Copy)]
-struct KeyInfo {
-    size: u32,
-    kind: u32,
-    attributes: u8,
-}
-#[repr(C)]
-#[derive(Default)]
-struct Packet {
-    key: u32,
-    version: Version,
-    limits: Limits,
-    info: KeyInfo,
-    result: u8,
-    status: u8,
-    command: u8,
-    index: u32,
-    bytes: [u8; 32],
-}
-struct Object(u32);
-impl Drop for Object {
-    fn drop(&mut self) {
-        if self.0 != 0 {
-            unsafe {
-                IOObjectRelease(self.0);
-            }
-        }
-    }
-}
-struct Connection(u32);
-impl Drop for Connection {
-    fn drop(&mut self) {
-        unsafe {
-            IOServiceClose(self.0);
-        }
-    }
-}
-impl Connection {
-    fn open() -> PlatformResult<Self> {
-        let mut iterator = 0;
-        // Matching consumes the dictionary; the iterator and each service are owned.
-        let code = unsafe {
-            IOServiceGetMatchingServices(0, IOServiceMatching(c"AppleSMC".as_ptr()), &mut iterator)
-        };
-        let iterator = Object(iterator);
-        if code != 0 {
-            return Err(native_error("enumerate", code));
-        }
-        loop {
-            let service = Object(unsafe { IOIteratorNext(iterator.0) });
-            if service.0 == 0 {
-                return Err(unsupported());
-            }
-            let mut name = [0i8; 128];
-            if unsafe { IORegistryEntryGetName(service.0, name.as_mut_ptr()) } != 0 {
-                continue;
-            }
-            let name = name
-                .into_iter()
-                .take_while(|byte| *byte != 0)
-                .map(|byte| byte as u8)
-                .collect::<Vec<_>>();
-            let expected = if cfg!(target_arch = "aarch64") {
-                b"AppleSMCKeysEndpoint".as_slice()
-            } else {
-                b"AppleSMC".as_slice()
-            };
-            if name != expected {
-                continue;
-            }
-            let mut connection = 0;
-            let code = unsafe { IOServiceOpen(service.0, mach_task_self(), 0, &mut connection) };
-            if code != 0 {
-                return Err(native_error("open", code));
-            }
-            if connection == 0 {
-                return Err(unsupported());
-            }
-            return Ok(Self(connection));
-        }
-    }
-    fn query(&self, input: Packet) -> PlatformResult<Option<Packet>> {
-        let mut output = Packet::default();
-        let mut size = size_of::<Packet>();
-        // Packet is the fixed C ABI and both buffers stay alive throughout the call.
-        let code = unsafe {
-            IOConnectCallStructMethod(
-                self.0,
-                2,
-                (&input as *const Packet).cast(),
-                size_of::<Packet>(),
-                (&mut output as *mut Packet).cast(),
-                &mut size,
-            )
-        };
-        if code != 0 {
-            return Err(native_error("read", code));
-        }
-        if size != size_of::<Packet>() {
-            return Err(PlatformError::new(
-                PlatformErrorCode::InvalidData,
-                format!("SMC response size={size}"),
-            ));
-        }
-        if output.result == 132 {
-            return Ok(None);
-        }
-        if output.result != 0 {
-            return Err(PlatformError::new(
-                PlatformErrorCode::OperationFailed,
-                format!(
-                    "SMC read key={:08x} result={} status={}",
-                    input.key, output.result, output.status
-                ),
-            ));
-        }
-        Ok(Some(output))
-    }
-}
-fn native_error(stage: &str, code: i32) -> PlatformError {
-    PlatformError::new(
-        PlatformErrorCode::OperationFailed,
-        format!("SMC {stage} native_code=0x{:08x}", code as u32),
-    )
-}
+use super::{unsupported, CpuTemperature, CpuTemperatureKind, CpuTemperatureSource};
+use crate::{system_resources::macos_smc::TemperatureSensors, PlatformResult};
+#[cfg(target_arch = "x86_64")]
+use crate::{PlatformError, PlatformErrorCode};
+#[cfg(target_arch = "x86_64")]
+use std::mem::size_of;
 
 pub(super) struct Reader {
-    connection: Connection,
-    sensors: Vec<(u32, KeyInfo)>,
+    sensors: TemperatureSensors,
     kind: CpuTemperatureKind,
 }
 impl Reader {
     pub(super) fn new(model: Option<&str>) -> PlatformResult<Self> {
         let (keys, kind) = cpu_keys(model).ok_or_else(unsupported)?;
-        let connection = Connection::open()?;
-        let sensors = discover(&connection, keys)?;
+        let sensors = TemperatureSensors::new(keys)?;
         #[cfg(target_arch = "x86_64")]
-        let (sensors, kind) = if sensors.is_empty() {
+        let (sensors, kind) = if sensors.len() == 0 {
+            let mut sensors = sensors;
             let keys = intel_core_keys(intel_physical_cores()?).ok_or_else(unsupported)?;
-            let sensors = discover(&connection, keys)?;
-            // Intel exposes unused core slots with plausible-looking sentinel
-            // values. Use only the actual physical cores and require the full set.
+            sensors.select(keys)?;
+            // Unused Intel core slots can expose plausible sentinel values.
             if sensors.len() != keys.len() {
                 return Err(unsupported());
             }
@@ -199,78 +28,26 @@ impl Reader {
         } else {
             (sensors, kind)
         };
-        if sensors.is_empty() {
+        if sensors.len() == 0 {
             return Err(unsupported());
         }
-        Ok(Self {
-            connection,
-            sensors,
-            kind,
-        })
+        Ok(Self { sensors, kind })
     }
     pub(super) fn read(&mut self) -> PlatformResult<CpuTemperature> {
-        let mut sum = 0.0;
-        let mut maximum = f64::NEG_INFINITY;
-        // Missing known sensors are excluded during discovery. Once selected, every
-        // sensor must be readable: silently changing the denominator changes meaning.
-        for &(key, info) in &self.sensors {
-            let packet = self
-                .connection
-                .query(Packet {
-                    key,
-                    info,
-                    command: 5,
-                    ..Default::default()
-                })?
-                .ok_or_else(|| {
-                    PlatformError::new(
-                        PlatformErrorCode::OperationFailed,
-                        format!("SMC CPU sensor disappeared key={key:08x}"),
-                    )
-                })?;
-            let value = decode(info, &packet.bytes)
-                .filter(|value| valid_celsius(*value))
-                .ok_or_else(|| {
-                    PlatformError::new(
-                        PlatformErrorCode::InvalidData,
-                        format!("SMC CPU sensor invalid key={key:08x}"),
-                    )
-                })?;
-            sum += value;
-            maximum = maximum.max(value);
-        }
+        let values = self.sensors.read()?;
         Ok(CpuTemperature {
             celsius: if self.kind == CpuTemperatureKind::CoreMaximum {
-                maximum
+                values.iter().copied().fold(f64::NEG_INFINITY, f64::max)
             } else {
-                sum / self.sensors.len() as f64
+                values.iter().sum::<f64>() / values.len() as f64
             },
-            sensor_count: self.sensors.len() as u32,
+            sensor_count: values.len() as u32,
             sampled_at_ms: None,
             kind: self.kind,
             source: CpuTemperatureSource::AppleSmc,
         })
     }
 }
-fn discover(connection: &Connection, keys: &[[u8; 4]]) -> PlatformResult<Vec<(u32, KeyInfo)>> {
-    let mut sensors = Vec::new();
-    for key in keys {
-        let key = u32::from_be_bytes(*key);
-        let Some(packet) = connection.query(Packet {
-            key,
-            command: 9,
-            ..Default::default()
-        })?
-        else {
-            continue;
-        };
-        if supported_encoding(packet.info) {
-            sensors.push((key, packet.info));
-        }
-    }
-    Ok(sensors)
-}
-
 #[cfg(target_arch = "x86_64")]
 fn intel_physical_cores() -> PlatformResult<usize> {
     let mut count = 0u32;
@@ -305,21 +82,6 @@ fn intel_core_keys(count: usize) -> Option<&'static [[u8; 4]]> {
     ];
     (1..=KEYS.len()).contains(&count).then(|| &KEYS[..count])
 }
-fn supported_encoding(info: KeyInfo) -> bool {
-    (info.kind == u32::from_be_bytes(*b"flt ") && info.size == 4)
-        || (info.kind == u32::from_be_bytes(*b"sp78") && info.size == 2)
-}
-fn decode(info: KeyInfo, bytes: &[u8; 32]) -> Option<f64> {
-    if !supported_encoding(info) {
-        return None;
-    }
-    if info.size == 4 {
-        Some(f64::from(f32::from_le_bytes(bytes[..4].try_into().ok()?)))
-    } else {
-        Some(f64::from(i16::from_be_bytes(bytes[..2].try_into().ok()?)) / 256.0)
-    }
-}
-
 fn cpu_keys(model: Option<&str>) -> Option<(&'static [[u8; 4]], CpuTemperatureKind)> {
     #[cfg(target_arch = "x86_64")]
     {
@@ -400,44 +162,6 @@ mod tests {
         assert!(intel_core_keys(0).is_none());
         assert!(intel_core_keys(9).is_none());
         assert_eq!(cpu_keys(None).unwrap().1, CpuTemperatureKind::Package);
-    }
-    #[test]
-    fn smc_abi_and_signed_decoding_are_checked() {
-        assert_eq!(size_of::<Packet>(), 80);
-        let mut bytes = [0; 32];
-        bytes[..2].copy_from_slice(&(-128i16).to_be_bytes());
-        assert_eq!(
-            decode(
-                KeyInfo {
-                    kind: u32::from_be_bytes(*b"sp78"),
-                    size: 2,
-                    ..Default::default()
-                },
-                &bytes
-            ),
-            Some(-0.5)
-        );
-        bytes[..4].copy_from_slice(&48.5f32.to_le_bytes());
-        assert_eq!(
-            decode(
-                KeyInfo {
-                    kind: u32::from_be_bytes(*b"flt "),
-                    size: 4,
-                    ..Default::default()
-                },
-                &bytes
-            ),
-            Some(48.5)
-        );
-        assert!(decode(
-            KeyInfo {
-                kind: u32::from_be_bytes(*b"flt "),
-                size: 32,
-                ..Default::default()
-            },
-            &bytes
-        )
-        .is_none());
     }
     #[cfg(target_arch = "aarch64")]
     #[test]

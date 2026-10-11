@@ -88,6 +88,15 @@ export interface CpuTemperature {
   source: 'appleSmc' | 'linuxHwmon' | 'intelDtsPawnIo';
   sensorCount: number;
 }
+export const GPU_TEMPERATURE_FRESHNESS_MS = 10_000;
+export interface GpuTemperature {
+  adapterId: string;
+  adapterName: string;
+  celsius: number;
+  kind: 'sensorAverage' | 'device';
+  source: 'appleSmc' | 'driver';
+  sensorCount: number;
+}
 export interface GpuUsage {
   usedPercent: number;
   adapterId: string;
@@ -130,13 +139,15 @@ export interface DiskIoRate {
   writtenBytesPerSecond: number;
 }
 export interface ResourceReadings {
-  schemaVersion: 16;
+  schemaVersion: 17;
   observedAtMs: number;
   cpu: MetricReading<CpuUsage>;
   cpuIdentity: CpuIdentity | null;
   cpuFrequency: MetricReading<CpuFrequency>;
   cpuTemperature: MetricReading<CpuTemperature>;
   cpuTemperatureHistory: TrendPoint[];
+  gpuTemperature: MetricReading<GpuTemperature>;
+  gpuTemperatureHistory: TrendPoint[];
   gpu: MetricReading<GpuUsage>;
   gpuDetails: MetricReading<GpuUsage>;
   gpuDetailHistory: TrendPoint[];

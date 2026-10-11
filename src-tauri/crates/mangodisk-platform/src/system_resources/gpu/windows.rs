@@ -98,6 +98,8 @@ pub(super) fn check(stage: &'static str, code: u32) -> Result<(), Failure> {
 #[derive(Default)]
 pub struct GpuReader {
     query: Option<Query>,
+    temperature_due: Option<Instant>,
+    temperature_diagnostics: HashMap<String, String>,
     retry_at: Option<Instant>,
     failure: Option<Failure>,
     names: HashMap<(u32, u32), Metadata>,
@@ -284,6 +286,72 @@ impl GpuReader {
             .collect();
         values.sort_by(|a, b| a.id.cmp(&b.id));
         values
+    }
+
+    pub fn read_temperatures(
+        &mut self,
+    ) -> Option<PlatformResult<Vec<super::temperature::GpuTemperatureSample>>> {
+        use super::temperature::{
+            GpuTemperature, GpuTemperatureKind, GpuTemperatureSample, GpuTemperatureSource,
+            GPU_TEMPERATURE_INTERVAL_MS,
+        };
+        if self.temperature_due.is_some_and(|due| Instant::now() < due) {
+            return None;
+        }
+        self.temperature_due =
+            Some(Instant::now() + Duration::from_millis(GPU_TEMPERATURE_INTERVAL_MS));
+        self.discover();
+        if self.names.is_empty() {
+            if let Some(code) = self.metadata_failure {
+                return Some(Err(failed("temperature_discovery", format!("{code:#x}"))));
+            }
+            if let Some((_, error)) = self.enumeration_failure {
+                return Some(Err(failed(error.stage, format!("{:#x}", error.code))));
+            }
+        }
+        let diagnostics = &mut self.temperature_diagnostics;
+        let samples: Vec<_> = self
+            .names
+            .values_mut()
+            .flat_map(|adapter| {
+                (0..adapter.physical_count)
+                    .map(|physical| {
+                        let id = format!("{}:{physical}", adapter.id);
+                        let reading =
+                            adapter
+                                .telemetry
+                                .read_temperature(physical, &id)
+                                .map(|celsius| GpuTemperature {
+                                    adapter_id: id.clone(),
+                                    adapter_name: adapter.name.clone(),
+                                    celsius,
+                                    kind: GpuTemperatureKind::Device,
+                                    source: GpuTemperatureSource::Driver,
+                                    sensor_count: 1,
+                                });
+                        let diagnostic = match &reading {
+                            Ok(_) => "ready".to_owned(),
+                            Err(error) => format!("{:?}:{}", error.code(), error),
+                        };
+                        if diagnostics.get(&id) != Some(&diagnostic) {
+                            match &reading {
+                                Ok(value) => log::info!("gpu_temperature_ready adapter={} name={} source=wddm_adapter_perfdata kind={:?} sensor_count={} interval_ms={}",
+                                    text(&id), text(&adapter.name), value.kind, value.sensor_count, GPU_TEMPERATURE_INTERVAL_MS),
+                                Err(error) if error.code() == crate::PlatformErrorCode::Unsupported => log::info!("gpu_temperature_unsupported adapter={} name={} source=wddm_adapter_perfdata reason={}", text(&id), text(&adapter.name), text(error)),
+                                Err(error) => log::warn!("gpu_temperature_read_failed adapter={} name={} source=wddm_adapter_perfdata code={:?} error={} retry_after_ms=30000", text(&id), text(&adapter.name), error.code(), text(error)),
+                            }
+                            diagnostics.insert(id.clone(), diagnostic);
+                        }
+                        GpuTemperatureSample {
+                            adapter_id: id,
+                            reading,
+                        }
+                    })
+                    .collect::<Vec<_>>()
+            })
+            .collect();
+        diagnostics.retain(|id, _| samples.iter().any(|sample| &sample.adapter_id == id));
+        Some(Ok(samples))
     }
 
     pub fn read(&mut self) -> PlatformResult<GpuSample> {

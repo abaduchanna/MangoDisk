@@ -1,8 +1,11 @@
 //! System-wide GPU activity. Unavailable counters never imply an idle device.
 use crate::{PlatformError, PlatformErrorCode, PlatformResult};
 pub mod details;
+#[cfg(target_os = "macos")]
+mod macos_temperature;
 #[cfg(any(target_os = "macos", windows))]
 mod observation_diagnostics;
+pub mod temperature;
 
 #[cfg(target_os = "macos")]
 mod macos;
@@ -53,6 +56,11 @@ impl GpuReader {
     }
     pub fn read_detailed(&mut self) -> PlatformResult<GpuSample> {
         Err(unsupported())
+    }
+    pub fn read_temperatures(
+        &mut self,
+    ) -> Option<PlatformResult<Vec<temperature::GpuTemperatureSample>>> {
+        Some(Err(unsupported()))
     }
     pub fn reset(&mut self) {}
     pub fn catalogue(&mut self) -> PlatformResult<Vec<GpuAdapter>> {
