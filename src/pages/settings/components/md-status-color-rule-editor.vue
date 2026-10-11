@@ -21,7 +21,6 @@ import type { ColorRule, DisplayColor, MetricColorRule } from '@/lib/models/resi
 const props = defineProps<{
   rule: MetricColorRule;
   name: string;
-  globalEnabled: boolean;
   saving: boolean;
   error?: string;
 }>();
@@ -135,9 +134,6 @@ const conditions = {
         >
           <MdSwitch :id="`color-enabled-${rule.id}`" v-model="enabled" :disabled="saving" />
         </MdSettingsRow>
-        <p v-if="!globalEnabled" class="mb-2 text-content-secondary text-muted-foreground">
-          {{ t('systemStatus.colorsInactive') }}
-        </p>
         <DialogDescription class="mb-3 text-content-secondary text-muted-foreground"
           >{{ t('systemStatus.colorFallback') }} {{ t('systemStatus.colorRangeHint') }}</DialogDescription
         >
@@ -213,14 +209,14 @@ const conditions = {
                   size="sm"
                   class="ml-auto w-40"
                   :aria-label="t('systemStatus.colorRuleColor', { index: index + 1 })"
-                  ><SelectValue
-                /></SelectTrigger>
+                  ><SelectValue class="min-w-0 truncate"
+                    ><span :data-color="item.color">{{ t(colorLabelKeys[item.color]) }}</span></SelectValue
+                  ></SelectTrigger
+                >
                 <SelectContent>
                   <SelectItem v-for="color in DISPLAY_COLORS" :key="color" :value="color"
-                    ><span class="inline-flex items-center gap-2"
-                      ><span class="color-swatch" :data-color="color" aria-hidden="true" />{{
-                        t(colorLabelKeys[color])
-                      }}</span
+                    ><span class="inline-flex items-center gap-2" :data-color="color"
+                      ><span class="color-swatch" aria-hidden="true" />{{ t(colorLabelKeys[color]) }}</span
                     ></SelectItem
                   >
                 </SelectContent>
@@ -243,15 +239,15 @@ const conditions = {
         <p v-if="error" role="alert" class="mt-3 text-content-secondary text-destructive-text">{{ error }}</p>
       </div>
       <MdDialogFooter class="flex items-center gap-2">
-        <Button variant="ghost" size="sm" class="mr-auto text-content-body" :disabled="saving" @click="restore">{{
-          t('systemStatus.colorRestore')
-        }}</Button>
-        <Button variant="outline" size="sm" class="text-content-body" :disabled="saving" @click="emit('cancel')">{{
-          t('common.cancel')
-        }}</Button>
-        <Button size="sm" class="text-content-body" :disabled="saving || !!validation" @click="save">{{
-          t('common.save')
-        }}</Button>
+        <Button variant="ghost" size="sm" class="mr-auto" :disabled="saving" @click="restore">
+          <span class="text-content-body">{{ t('systemStatus.colorRestore') }}</span>
+        </Button>
+        <Button variant="outline" size="sm" :disabled="saving" @click="emit('cancel')">
+          <span class="text-content-body">{{ t('common.cancel') }}</span>
+        </Button>
+        <Button size="sm" :disabled="saving || !!validation" @click="save">
+          <span class="text-content-body">{{ t('common.save') }}</span>
+        </Button>
       </MdDialogFooter>
     </MdDialogContent>
   </Dialog>
@@ -260,7 +256,7 @@ const conditions = {
 <style scoped>
 :global(.color-rule-editor) {
   --layout-dialog-wide-width: 640px;
-  --layout-dialog-tall-height: 480px;
+  --layout-dialog-tall-height: 520px;
   --layout-dialog-header-height: 56px;
   --layout-dialog-header-padding: 12px 48px 12px 16px;
   --layout-dialog-footer-height: 48px;

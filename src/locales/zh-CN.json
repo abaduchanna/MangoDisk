@@ -4086,7 +4086,6 @@
     "colorAction": "颜色",
     "colorConfigure": "配置{name}的颜色",
     "colorEnabled": "启用颜色规则",
-    "colorsInactive": "开启“颜色提示”后，这些规则才会生效",
     "colorBelow": "低于",
     "colorRemove": "删除",
     "colorInvalid": "请输入 0 至 {max}{unit} 的整数，范围终点须大于起点",

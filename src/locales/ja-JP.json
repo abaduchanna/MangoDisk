@@ -4086,7 +4086,6 @@
     "colorAction": "色",
     "colorConfigure": "{name}の色を設定",
     "colorEnabled": "色のルールを有効にする",
-    "colorsInactive": "「色でお知らせ」を有効にすると適用されます",
     "colorBelow": "未満",
     "colorRemove": "削除",
     "colorInvalid": "0～{max}{unit} の整数を入力してください。範囲の終点は始点より大きくしてください",

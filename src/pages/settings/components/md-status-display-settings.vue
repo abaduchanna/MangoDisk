@@ -747,7 +747,6 @@ onBeforeUnmount(() => {
       :key="activeColor"
       :name="t(displayLabelKeys[activeColor])"
       :rule="settings.draft.colorRules.find(rule => rule.id === activeColor)!"
-      :global-enabled="settings.draft.usageColors"
       :saving="settings.saving"
       :error="settings.error ? t('systemStatus.saveFailed') : undefined"
       @save="saveColor"

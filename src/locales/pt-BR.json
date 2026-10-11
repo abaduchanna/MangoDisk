@@ -4086,7 +4086,6 @@
     "colorAction": "Cores",
     "colorConfigure": "Configurar cores de {name}",
     "colorEnabled": "Usar regras de cores",
-    "colorsInactive": "Ative os indicadores de cor para aplicar estas regras",
     "colorBelow": "Abaixo de",
     "colorRemove": "Excluir",
     "colorInvalid": "Use inteiros de 0 a {max}{unit}; o fim do intervalo deve exceder o início",

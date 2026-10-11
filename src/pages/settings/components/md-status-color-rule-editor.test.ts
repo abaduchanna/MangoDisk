@@ -23,7 +23,7 @@ afterEach(() => {
 async function editor(locale: keyof typeof locales = 'en', rule = defaultColorRule('cpuTemperature')) {
   const wrapper = mount(Editor, {
     attachTo: document.body,
-    props: { rule, name: 'CPU', globalEnabled: true, saving: false },
+    props: { rule, name: 'CPU', saving: false },
     global: {
       renderStubDefaultSlot: true,
       stubs: { teleport: true },

@@ -4086,7 +4086,6 @@
     "colorAction": "Colors",
     "colorConfigure": "Configure colors for {name}",
     "colorEnabled": "Use color rules",
-    "colorsInactive": "Turn on Color indicators to apply these rules",
     "colorBelow": "Below",
     "colorRemove": "Delete",
     "colorInvalid": "Enter whole numbers from 0 to {max}{unit}; range end must exceed its start",

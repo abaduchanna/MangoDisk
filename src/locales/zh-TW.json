@@ -4086,7 +4086,6 @@
     "colorAction": "顏色",
     "colorConfigure": "設定{name}的顏色",
     "colorEnabled": "啟用顏色規則",
-    "colorsInactive": "開啟「顏色提示」後，這些規則才會生效",
     "colorBelow": "低於",
     "colorRemove": "刪除",
     "colorInvalid": "請輸入 0 至 {max}{unit} 的整數，範圍終點須大於起點",

@@ -4086,7 +4086,6 @@
     "colorAction": "Renkler",
     "colorConfigure": "{name} renklerini ayarla",
     "colorEnabled": "Renk kurallarını kullan",
-    "colorsInactive": "Bu kuralları uygulamak için renk göstergelerini açın",
     "colorBelow": "Altında",
     "colorRemove": "Sil",
     "colorInvalid": "0 ile {max}{unit} arasında tam sayı girin; aralık sonu başlangıçtan büyük olmalıdır",
