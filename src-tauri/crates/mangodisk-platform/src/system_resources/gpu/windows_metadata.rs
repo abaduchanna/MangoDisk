@@ -289,6 +289,7 @@ impl Metadata {
     pub(super) fn read(
         description: &windows::Win32::Graphics::Dxgi::DXGI_ADAPTER_DESC1,
         ordinal: u32,
+        previous: Option<&Self>,
     ) -> Result<Option<Self>, Failure> {
         let handle = AdapterHandle::open(LUID {
             HighPart: description.AdapterLuid.HighPart,
@@ -393,7 +394,18 @@ impl Metadata {
             .position(|unit| *unit == 0)
             .unwrap_or(description.Description.len());
         let memory_capacities = (0..count.Count)
-            .map(|physical| super::windows_memory::read(&handle, &id, physical, count.Count))
+            .map(|physical| {
+                super::windows_memory::read(
+                    &handle,
+                    &id,
+                    physical,
+                    count.Count,
+                    previous
+                        .filter(|old| old.id == id)
+                        .and_then(|old| old.memory_capacities.get(physical as usize))
+                        .copied(),
+                )
+            })
             .collect();
         Ok(Some(Self {
             id,

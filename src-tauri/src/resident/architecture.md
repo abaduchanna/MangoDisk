@@ -772,6 +772,12 @@ them. The engine mask uses Graphics=1, Copy=2, Decode=4, Encode=8, Processing=16
 Other=32, Renderer=64 and Tiler=128. Diagnostic entries are pruned as devices leave.
 Windows temperature query failures retain their native stage/code at Info level,
 with unsupported retries and diagnostic state preserved across metadata refreshes.
+Windows GPU utilization retains its PDH query for the first three transient data
+failures, retrying after 1, 2, and 4 seconds. Persistent or structural failures
+reopen the query after 30 seconds. A new rate-counter baseline does not establish
+recovery; the first valid sample records the prior native error, attempt count,
+and outage duration. Unchanged failures are summarized rather than logged every
+sample, and unchanged memory-capacity diagnostics remain at Debug level.
 `gpu_usage_probe <seconds> --details --diagnostics` enables the same diagnostics
 on stderr without mixing them into its JSON observation protocol. Combining
 `--lifecycle --details --diagnostics` also exercises detail demand transitions

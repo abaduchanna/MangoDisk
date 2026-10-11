@@ -8,6 +8,13 @@ pub(super) struct Capacities {
     pub dedicated: Option<u64>,
     pub dedicated_source: Option<GpuMemoryCapacitySource>,
     pub shared: Option<u64>,
+    // Retain diagnostic facts too: a new native failure must not be suppressed
+    // merely because the resulting capacity is unchanged.
+    reported: Option<u64>,
+    allocatable: Option<u64>,
+    segment_native_code: u32,
+    registry_native_code: u32,
+    registry_status: D3DDDI_QUERYREGISTRY_STATUS,
 }
 
 fn registry_capacity(value: &D3DDDI_QUERYREGISTRY_INFO) -> Option<u64> {
@@ -41,6 +48,7 @@ pub(super) fn read(
     id: &str,
     physical: u32,
     physical_count: u32,
+    previous: Option<Capacities>,
 ) -> Capacities {
     let mut groups = D3DKMT_SEGMENTGROUPSIZEINFO {
         PhysicalAdapterIndex: physical,
@@ -97,6 +105,11 @@ pub(super) fn read(
         dedicated,
         dedicated_source,
         shared: segments.map(|sizes| sizes.SharedSystemMemorySize),
+        reported,
+        allocatable,
+        segment_native_code: group_result.err().map_or(0, |error| error.code),
+        registry_native_code: registry_result.err().map_or(0, |error| error.code),
+        registry_status: registry.Status,
     };
     // Older drivers may only expose allocatable segments, excluding hardware
     // reservations. Retain those reported sizes without guessing missing bytes.
@@ -107,7 +120,7 @@ pub(super) fn read(
     } else {
         "unavailable"
     };
-    log::info!("gpu_memory_capacity adapter={} physical={physical} source={source} dedicated_total_bytes={:?} shared_total_bytes={:?} reported_dedicated_bytes={reported:?} allocatable_dedicated_bytes={allocatable:?} segment_native_code={:#x} registry_native_code={:#x} registry_status={} policy=prefer_reported_fallback_allocatable", text(id), capacity.dedicated, capacity.shared, group_result.err().map_or(0, |error| error.code), registry_result.err().map_or(0, |error| error.code), registry.Status);
+    log::log!(if previous == Some(capacity) { log::Level::Debug } else { log::Level::Info }, "gpu_memory_capacity adapter={} physical={physical} source={source} dedicated_total_bytes={:?} shared_total_bytes={:?} reported_dedicated_bytes={reported:?} allocatable_dedicated_bytes={allocatable:?} segment_native_code={:#x} registry_native_code={:#x} registry_status={} policy=prefer_reported_fallback_allocatable", text(id), capacity.dedicated, capacity.shared, group_result.err().map_or(0, |error| error.code), registry_result.err().map_or(0, |error| error.code), registry.Status);
     capacity
 }
 

@@ -2,6 +2,7 @@
 use super::observation_diagnostics::ObservationDiagnostics;
 use super::windows_counter::Query;
 use super::windows_metadata::Metadata;
+use super::windows_retry::{native_name, RetryState};
 use super::{failed, unsupported, GpuAdapter, GpuAdapterUsage, GpuSample, PlatformResult};
 #[cfg(test)]
 use super::{
@@ -100,8 +101,7 @@ pub struct GpuReader {
     query: Option<Query>,
     temperature_due: Option<Instant>,
     temperature_diagnostics: HashMap<String, String>,
-    retry_at: Option<Instant>,
-    failure: Option<Failure>,
+    retry: RetryState,
     names: HashMap<(u32, u32), Metadata>,
     named_at: Option<Instant>,
     software: HashSet<(u32, u32)>,
@@ -189,7 +189,7 @@ impl GpuReader {
                 software.insert(identity);
                 continue;
             }
-            match Metadata::read(&description, names.len() as u32) {
+            match Metadata::read(&description, names.len() as u32, self.names.get(&identity)) {
                 Ok(None) => {
                     if !self.indirect_displays.contains(&identity) {
                         log::info!("gpu_adapter_excluded source=wddm_adapter_type adapter_luid={:08x}:{:08x} reason=indirect_display_device outcome=excluded", identity.0, identity.1);
@@ -366,8 +366,8 @@ impl GpuReader {
             self.query = None;
             return Err(unsupported());
         }
-        if self.retry_at.is_some_and(|at| Instant::now() < at) {
-            return Err(self.error(self.failure.expect("retry retains native failure")));
+        if let Some(failure) = self.retry.pending(Instant::now()) {
+            return Err(self.error(failure));
         }
         let result = (|| {
             if self.query.is_none() {
@@ -391,13 +391,13 @@ impl GpuReader {
         })();
         match result {
             Ok(values) => {
-                if self.failure.take().is_some() {
-                    log::info!("gpu_source_recovered source=pdh_gpu_engine");
-                }
-                self.retry_at = None;
                 let Some(values) = values else {
+                    self.retry.baseline();
                     return Ok(GpuSample::Baseline);
                 };
+                if let Some(recovery) = self.retry.recovered(Instant::now()) {
+                    log::info!("gpu_source_recovered source=pdh_gpu_engine previous_stage={} previous_native_code={:#x} previous_native_name={} failed_attempts={} elapsed_ms={} outcome=valid_sample", recovery.failure.stage, recovery.failure.code, native_name(recovery.failure.code), recovery.attempts, recovery.elapsed.as_millis());
+                }
                 let memory = detailed.then(|| {
                     if self.memory_retry_at.is_some_and(|at| Instant::now() < at) {
                         return Err(self.memory_failure.expect("memory backoff retains failure"));
@@ -440,12 +440,13 @@ impl GpuReader {
                 Ok(GpuSample::Usage(readings))
             }
             Err(error) => {
-                if self.failure != Some(error) {
-                    log::warn!("gpu_source_unavailable source=pdh_gpu_engine stage={} native_code={:#x} retry_seconds=30", error.stage, error.code);
+                let decision = self.retry.failed(error, Instant::now());
+                if decision.log {
+                    log::warn!("gpu_source_unavailable source=pdh_gpu_engine stage={} native_code={:#x} native_name={} failed_attempts={} retry_after_ms={} action={}", error.stage, error.code, native_name(error.code), decision.attempts, decision.delay.as_millis(), if decision.retain_query { "retain_query" } else { "reopen_query" });
                 }
-                self.failure = Some(error);
-                self.query = None;
-                self.retry_at = Some(Instant::now() + Duration::from_secs(30));
+                if !decision.retain_query {
+                    self.query = None;
+                }
                 Err(self.error(error))
             }
         }

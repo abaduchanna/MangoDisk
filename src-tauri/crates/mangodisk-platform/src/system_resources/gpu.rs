@@ -22,6 +22,8 @@ mod windows_memory;
 #[cfg(windows)]
 mod windows_metadata;
 #[cfg(windows)]
+mod windows_retry;
+#[cfg(windows)]
 pub use windows::GpuReader;
 
 #[derive(Debug, Clone, serde::Serialize)]
