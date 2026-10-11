@@ -138,7 +138,7 @@ pub fn width(columns: &[Column], icon: bool, compact: bool) -> u32 {
 mod tests {
     use super::*;
     #[test]
-    fn temperature_columns_keep_celsius_and_fixed_width_without_percentage_colors() {
+    fn temperature_columns_keep_celsius_and_fixed_width() {
         for compact in [false, true] {
             let maximum = columns(&[entry(DisplayId::CpuTemperature, "150", "°C")], compact);
             assert_eq!(maximum[0].top, "CPU");
@@ -154,7 +154,7 @@ mod tests {
     fn entry(id: DisplayId, digits: &str, marker: &str) -> DisplayEntry {
         DisplayEntry {
             tone: Default::default(),
-            usage_percent: None,
+            color_value: None,
             id,
             digits: digits.into(),
             marker: marker.into(),

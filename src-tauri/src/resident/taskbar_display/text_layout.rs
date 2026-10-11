@@ -193,7 +193,7 @@ mod tests {
                     &[DisplayEntry {
                         id,
                         tone,
-                        usage_percent: Some(90),
+                        color_value: Some(90),
                         digits: "90".into(),
                         marker: String::new(),
                         text: String::new(),
@@ -248,7 +248,7 @@ mod tests {
                     let columns = super::super::presentation::columns(
                         &[DisplayEntry {
                             tone: Default::default(),
-                            usage_percent: None,
+                            color_value: None,
                             id: DisplayId::Upload,
                             text: title.into(),
                             marker: String::new(),

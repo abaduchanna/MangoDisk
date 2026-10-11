@@ -1,5 +1,6 @@
 mod application_icons;
 pub mod autostart;
+mod color_rules;
 mod diagnostics;
 pub mod main_window;
 mod memory_automatic;

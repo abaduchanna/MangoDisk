@@ -37,7 +37,7 @@ pub fn load(app: &tauri::AppHandle) -> ResidentPreferences {
 }
 
 fn save(app: &tauri::AppHandle, preferences: &ResidentPreferences) -> Result<(), Failure> {
-    if preferences.schema_version != 14 {
+    if preferences.schema_version != 16 {
         return Err(Failure::state("preferences_version"));
     }
     let store = app
@@ -153,7 +153,7 @@ pub fn apply(
     }
     state.wake();
     log::info!(
-        "resident_preferences_saved enabled={} revision={} show_icon={} metrics={:?} position={:?} background={} compact={} menu_bar_compact={} usage_colors={} warning_percent={} critical_percent={} network_manual={} disk_manual={} elapsed_ms={}",
+        "resident_preferences_saved enabled={} revision={} show_icon={} metrics={:?} position={:?} background={} compact={} menu_bar_compact={} usage_colors={} color_rules={:?} network_manual={} disk_manual={} elapsed_ms={}",
         preferences.enabled,
         preferences.revision,
         preferences.effective_icon(),
@@ -168,8 +168,7 @@ pub fn apply(
         preferences.taskbar_compact,
         preferences.menu_bar_compact,
         preferences.usage_colors,
-        preferences.usage_warning_percent,
-        preferences.usage_critical_percent,
+        preferences.color_rules,
         preferences.network_interface.is_some(),
         preferences.disk_volume.is_some(),
         started.elapsed().as_millis()

@@ -1,9 +1,10 @@
+import { defaultColorRules } from '@/lib/models/resident-color-rules';
 import type { ResidentPreferences, ResidentReading } from '@/lib/models/resident';
 import { emptyReadings } from '@/lib/utils/system-resources';
 
 export function preferencesFixture(): ResidentPreferences {
   return {
-    schemaVersion: 14,
+    schemaVersion: 16,
     windowsCpuTemperatureEnabled: false,
     revision: 0,
     enabled: true,
@@ -13,8 +14,7 @@ export function preferencesFixture(): ResidentPreferences {
     taskbarCompact: false,
     menuBarCompact: false,
     usageColors: true,
-    usageWarningPercent: 70,
-    usageCriticalPercent: 90,
+    colorRules: defaultColorRules(),
     metrics: [
       { id: 'cpu', enabled: false },
       { id: 'memory', enabled: true },

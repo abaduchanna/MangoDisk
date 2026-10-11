@@ -243,7 +243,7 @@ mod tests {
         let column = macos_presentation::columns(
             &[DisplayEntry {
                 tone: Default::default(),
-                usage_percent: None,
+                color_value: None,
                 id: super::super::format::DisplayId::Cpu,
                 digits: "100".into(),
                 marker: "C".into(),

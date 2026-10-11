@@ -37,9 +37,11 @@ pub struct DisplayState {
     #[cfg(target_os = "linux")]
     indicator_title: Option<String>,
     failed: bool,
-    color_rules: Option<(bool, u8, u8)>,
+    color_rules: Option<(bool, Vec<super::color_rules::MetricColorRule>)>,
     color_disk_volume: Option<String>,
-    color_tones: HashMap<DisplayId, usage_color::UsageTone>,
+    color_gpu_adapter: Option<String>,
+    color_gpu_temperature_adapter: Option<String>,
+    color_matches: HashMap<DisplayId, Option<usize>>,
 }
 
 impl DisplayState {
@@ -50,31 +52,59 @@ impl DisplayState {
         entries: &mut [DisplayEntry],
         preferences: &ResidentPreferences,
         disk_volume: Option<&str>,
+        gpu_adapter: Option<&str>,
+        gpu_temperature_adapter: Option<&str>,
     ) {
         let color_rules = (
             preferences.usage_colors && preferences.enabled,
-            preferences.usage_warning_percent,
-            preferences.usage_critical_percent,
+            preferences.color_rules.clone(),
         );
         for entry in entries.iter_mut() {
-            let same_source =
-                entry.id != DisplayId::Disk || self.color_disk_volume.as_deref() == disk_volume;
-            let previous = if self.color_rules == Some(color_rules) && same_source {
-                self.color_tones.get(&entry.id).copied().unwrap_or_default()
-            } else {
-                usage_color::UsageTone::Normal
+            let id = match entry.id {
+                DisplayId::Cpu => super::preference_schema::DisplayMetricId::Cpu,
+                DisplayId::CpuTemperature => {
+                    super::preference_schema::DisplayMetricId::CpuTemperature
+                }
+                DisplayId::Gpu => super::preference_schema::DisplayMetricId::Gpu,
+                DisplayId::GpuTemperature => {
+                    super::preference_schema::DisplayMetricId::GpuTemperature
+                }
+                DisplayId::Memory => super::preference_schema::DisplayMetricId::Memory,
+                DisplayId::Disk => super::preference_schema::DisplayMetricId::Disk,
+                _ => {
+                    entry.tone = Default::default();
+                    continue;
+                }
             };
-            entry.tone = if color_rules.0 {
-                previous.next(entry.usage_percent, color_rules.1, color_rules.2)
-            } else {
-                usage_color::UsageTone::Normal
+            let same_source = match entry.id {
+                DisplayId::Disk => self.color_disk_volume.as_deref() == disk_volume,
+                DisplayId::Gpu => self.color_gpu_adapter.as_deref() == gpu_adapter,
+                DisplayId::GpuTemperature => {
+                    self.color_gpu_temperature_adapter.as_deref() == gpu_temperature_adapter
+                }
+                _ => true,
             };
+            let previous = if self.color_rules.as_ref() == Some(&color_rules) && same_source {
+                self.color_matches.get(&entry.id).copied().flatten()
+            } else {
+                None
+            };
+            let rule = color_rules.1.iter().find(|rule| rule.id == id);
+            let matched = rule
+                .filter(|_| color_rules.0)
+                .and_then(|rule| usage_color::next_rule(previous, entry.color_value, rule));
+            entry.tone = matched
+                .and_then(|index| rule.map(|rule| rule.rules[index].color().into()))
+                .unwrap_or_default();
+            self.color_matches.insert(entry.id, matched);
         }
-        // Keep classification separate from the successful-paint cache: native
-        // presentation failures must not restore tones from an older rule/source.
-        self.color_tones = entries.iter().map(|entry| (entry.id, entry.tone)).collect();
+        // Unavailable or hidden entries must not retain an older match.
+        self.color_matches
+            .retain(|id, _| entries.iter().any(|entry| entry.id == *id));
         self.color_rules = Some(color_rules);
         self.color_disk_volume = disk_volume.map(str::to_owned);
+        self.color_gpu_adapter = gpu_adapter.map(str::to_owned);
+        self.color_gpu_temperature_adapter = gpu_temperature_adapter.map(str::to_owned);
     }
 }
 
@@ -332,6 +362,8 @@ struct DisplayRequest {
     labels: labels::Labels,
     entries: Vec<DisplayEntry>,
     disk_volume: Option<String>,
+    gpu_adapter: Option<String>,
+    gpu_temperature_adapter: Option<String>,
 }
 
 impl DisplayRequest {
@@ -351,6 +383,18 @@ impl DisplayRequest {
             preferences: preferences.clone(),
             labels,
             entries,
+            gpu_adapter: reading
+                .resources
+                .gpu
+                .value
+                .as_ref()
+                .map(|gpu| gpu.adapter_id.clone()),
+            gpu_temperature_adapter: reading
+                .resources
+                .gpu_temperature
+                .value
+                .as_ref()
+                .map(|gpu| gpu.adapter_id.clone()),
             disk_volume: reading
                 .resources
                 .disk
@@ -373,11 +417,19 @@ fn render(
         labels,
         mut entries,
         disk_volume,
+        gpu_adapter,
+        gpu_temperature_adapter,
     } = request;
     let preferences = &preferences;
     #[cfg(not(target_os = "macos"))]
     let changed_locale = state.locale != labels.locale;
-    state.apply_colors(&mut entries, preferences, disk_volume.as_deref());
+    state.apply_colors(
+        &mut entries,
+        preferences,
+        disk_volume.as_deref(),
+        gpu_adapter.as_deref(),
+        gpu_temperature_adapter.as_deref(),
+    );
     #[cfg(not(windows))]
     let all_desired = format::desired(preferences);
     #[cfg(windows)]
@@ -507,6 +559,43 @@ mod tests {
     use usage_color::UsageTone;
 
     #[test]
+    fn temperature_and_percentage_rules_are_independent_and_unavailable_is_neutral() {
+        let mut state = DisplayState::default();
+        let preferences = ResidentPreferences::default();
+        let mut entries: Vec<_> = [
+            DisplayId::Cpu,
+            DisplayId::CpuTemperature,
+            DisplayId::GpuTemperature,
+        ]
+        .into_iter()
+        .map(|id| DisplayEntry {
+            id,
+            tone: Default::default(),
+            color_value: Some(65),
+            marker: String::new(),
+            digits: String::new(),
+            text: String::new(),
+            tooltip: String::new(),
+        })
+        .collect();
+        state.apply_colors(&mut entries, &preferences, None, Some("a"), Some("a"));
+        assert_eq!(entries[0].tone, UsageTone::Green);
+        assert_eq!(entries[1].tone, UsageTone::Warning);
+        assert_eq!(entries[2].tone, UsageTone::Warning);
+        entries[2].color_value = Some(80);
+        state.apply_colors(&mut entries, &preferences, None, Some("a"), Some("a"));
+        assert_eq!(entries[2].tone, UsageTone::Critical);
+        entries[2].color_value = Some(79);
+        state.apply_colors(&mut entries, &preferences, None, Some("a"), Some("a"));
+        assert_eq!(entries[2].tone, UsageTone::Critical);
+        state.apply_colors(&mut entries, &preferences, None, Some("b"), Some("b"));
+        assert_eq!(entries[2].tone, UsageTone::Warning);
+        entries[1].color_value = None;
+        state.apply_colors(&mut entries, &preferences, None, Some("b"), Some("b"));
+        assert_eq!(entries[1].tone, UsageTone::Normal);
+    }
+
+    #[test]
     fn switching_disks_resets_hysteresis_without_resetting_cpu() {
         let mut state = DisplayState::default();
         let preferences = ResidentPreferences::default();
@@ -515,14 +604,14 @@ mod tests {
             .map(|id| DisplayEntry {
                 id,
                 tone: UsageTone::Normal,
-                usage_percent: Some(95),
+                color_value: Some(95),
                 marker: String::new(),
                 digits: String::new(),
                 text: String::new(),
                 tooltip: String::new(),
             })
             .collect();
-        state.apply_colors(&mut entries, &preferences, Some("disk-a"));
+        state.apply_colors(&mut entries, &preferences, Some("disk-a"), None, None);
         assert!(entries
             .iter()
             .all(|entry| entry.tone == UsageTone::Critical));
@@ -532,24 +621,28 @@ mod tests {
             .map(|entry| (entry.id, entry))
             .collect();
         for entry in &mut entries {
-            entry.usage_percent = Some(89);
+            entry.color_value = Some(89);
         }
-        state.apply_colors(&mut entries, &preferences, Some("disk-a"));
+        state.apply_colors(&mut entries, &preferences, Some("disk-a"), None, None);
         assert!(entries
             .iter()
             .all(|entry| entry.tone == UsageTone::Critical));
-        state.apply_colors(&mut entries, &preferences, Some("disk-b"));
+        state.apply_colors(&mut entries, &preferences, Some("disk-b"), None, None);
         assert_eq!(entries[0].tone, UsageTone::Critical);
         assert_eq!(entries[1].tone, UsageTone::Warning);
         // Simulate a failed native frame by leaving the paint cache unchanged.
-        state.apply_colors(&mut entries, &preferences, Some("disk-b"));
+        state.apply_colors(&mut entries, &preferences, Some("disk-b"), None, None);
         assert_eq!(entries[1].tone, UsageTone::Warning);
-        let higher_threshold = ResidentPreferences {
-            usage_critical_percent: 91,
-            ..preferences
-        };
-        state.apply_colors(&mut entries, &higher_threshold, Some("disk-b"));
-        state.apply_colors(&mut entries, &higher_threshold, Some("disk-b"));
+        let mut higher_threshold = preferences;
+        for rule in &mut higher_threshold.color_rules {
+            rule.rules = super::super::color_rules::legacy(70, 91)
+                .into_iter()
+                .find(|updated| updated.id == rule.id)
+                .unwrap()
+                .rules;
+        }
+        state.apply_colors(&mut entries, &higher_threshold, Some("disk-b"), None, None);
+        state.apply_colors(&mut entries, &higher_threshold, Some("disk-b"), None, None);
         assert!(entries.iter().all(|entry| entry.tone == UsageTone::Warning));
     }
 }

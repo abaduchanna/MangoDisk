@@ -19,6 +19,8 @@ import { Select, SelectContent, SelectItem } from '@/components/ui/select';
 import { SelectTrigger } from 'reka-ui';
 import MdTaskbarPosition from './md-taskbar-position.vue';
 import MdStatusAppearance from './md-status-appearance.vue';
+import MdStatusColorRuleEditor from './md-status-color-rule-editor.vue';
+import type { ColorMetricId, MetricColorRule } from '@/lib/models/resident-color-rules';
 import { ICON_NAMES } from '@/lib/models/ui';
 import type { NetworkInterface, ResourceVolume } from '@/lib/models/system-resources';
 import type { ResidentPreferences, ResidentReading, ResidentDisplayMetricId } from '@/lib/models/resident';
@@ -90,6 +92,17 @@ function enableIcon(enabled: boolean) {
 const settingsOpen = ref(false);
 const temperatureSetupOpen = ref(false);
 const selectTemperatureAfterSetup = ref(false);
+const activeColor = ref<ColorMetricId | null>(null);
+function openColor(id: ColorMetricId) {
+  cancelDrag();
+  expandedSelection.value = null;
+  activeColor.value = id;
+}
+async function saveColor(rule: MetricColorRule) {
+  if (!settings.draft) return;
+  await settings.change({ colorRules: settings.draft.colorRules.map(saved => (saved.id === rule.id ? rule : saved)) });
+  if (!settings.error) activeColor.value = null;
+}
 const expandedSelection = ref<'network' | 'disk' | 'gpu' | 'gpuTemperature' | null>(null);
 // Keep the native switch and collapsed content on the committed state. Failed
 // writes must not hide the user's controls or leave a misleading enabled state.
@@ -104,6 +117,7 @@ watch(displayEnabled, enabled => {
     settingsOpen.value = false;
     cancelDrag();
     expandedSelection.value = null;
+    activeColor.value = null;
   }
 });
 watch(settingsOpen, open => {
@@ -117,6 +131,7 @@ watch(settingsOpen, open => {
     // reorder that could be committed after reopening. Saved choices stay intact.
     cancelDrag();
     expandedSelection.value = null;
+    activeColor.value = null;
   }
 });
 function handleDialogEscape(event: KeyboardEvent) {
@@ -132,8 +147,9 @@ function restoreConfigurationFocus(event: Event) {
 }
 function setSelectionOpen(id: ResidentDisplayMetricId, open: boolean) {
   if (id !== 'network' && id !== 'disk' && id !== 'gpu' && id !== 'gpuTemperature') return;
-  if (open) expandedSelection.value = id;
-  else if (expandedSelection.value === id) expandedSelection.value = null;
+  if (open) {
+    expandedSelection.value = id;
+  } else if (expandedSelection.value === id) expandedSelection.value = null;
 }
 watch(rows, value => {
   if (expandedSelection.value && !value.some(row => row.id === expandedSelection.value && row.enabled)) {
@@ -520,6 +536,7 @@ onBeforeUnmount(() => {
                     <div class="metric-heading">
                       <button
                         class="drag-handle"
+                        :disabled="activeColor !== null"
                         :aria-label="t('systemStatus.reorder', { name: t(displayLabelKeys[row.id]) })"
                         :aria-pressed="dragging === row.id"
                         @pointerdown="pointerDown($event, row.id)"
@@ -686,6 +703,20 @@ onBeforeUnmount(() => {
                           </template>
                         </SelectContent>
                       </Select>
+                      <Button
+                        v-if="row.id !== 'network'"
+                        :id="`color-configure-${row.id}`"
+                        variant="ghost"
+                        size="sm"
+                        class="color-toggle shrink-0 text-muted-foreground"
+                        aria-haspopup="dialog"
+                        :aria-controls="`color-editor-${row.id}`"
+                        :aria-label="t('systemStatus.colorConfigure', { name: t(displayLabelKeys[row.id]) })"
+                        :disabled="settings.saving"
+                        @click="openColor(row.id)"
+                      >
+                        {{ t('systemStatus.colorAction') }}
+                      </Button>
                     </div>
                   </div>
                 </TransitionGroup>
@@ -711,6 +742,17 @@ onBeforeUnmount(() => {
         </MdDialogFooter>
       </MdDialogContent>
     </Dialog>
+    <MdStatusColorRuleEditor
+      v-if="activeColor && settings.draft"
+      :key="activeColor"
+      :name="t(displayLabelKeys[activeColor])"
+      :rule="settings.draft.colorRules.find(rule => rule.id === activeColor)!"
+      :global-enabled="settings.draft.usageColors"
+      :saving="settings.saving"
+      :error="settings.error ? t('systemStatus.saveFailed') : undefined"
+      @save="saveColor"
+      @cancel="activeColor = null"
+    />
     <MdWindowsTemperatureSetup
       v-if="!isMacOs && !isLinux"
       :open="temperatureSetupOpen"
@@ -807,7 +849,8 @@ onBeforeUnmount(() => {
   min-width: 0;
   gap: 4px 8px;
 }
-.status-item label {
+.metric-heading label,
+.logo-label {
   @apply text-foreground;
   display: flex;
   align-items: center;

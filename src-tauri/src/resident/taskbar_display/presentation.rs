@@ -189,7 +189,7 @@ mod tests {
     fn entry(id: DisplayId, text: &str, digits: &str) -> DisplayEntry {
         DisplayEntry {
             tone: Default::default(),
-            usage_percent: None,
+            color_value: None,
             id,
             marker: String::new(),
             digits: digits.into(),

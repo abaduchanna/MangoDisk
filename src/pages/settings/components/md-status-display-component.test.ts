@@ -136,18 +136,25 @@ describe('status display interactions', () => {
     expect(ResidentService.savePreferences).toHaveBeenLastCalledWith(
       expect.objectContaining({ menuBarCompact: true, metrics: preferencesFixture().metrics })
     );
-    const selectors = wrapper.findAllComponents(Select);
-    selectors[0]!.vm.$emit('update:modelValue', '60');
+    await wrapper.get('[data-metric="cpu"] .color-toggle').trigger('click');
+    expect(wrapper.find('#color-editor-cpu').exists()).toBe(true);
+    const editor = wrapper.getComponent({ name: 'MdStatusColorRuleEditor' });
+    const rule = {
+      ...preferencesFixture().colorRules[0]!,
+      rules: [
+        { condition: 'below', value: 60, color: 'green' },
+        { condition: 'range', from: 60, to: 90, color: 'orange' },
+        { condition: 'atLeast', value: 90, color: 'red' },
+      ],
+    };
+    editor.vm.$emit('save', rule);
     await flushPromises();
     expect(ResidentService.savePreferences).toHaveBeenLastCalledWith(
-      expect.objectContaining({ usageWarningPercent: 60, usageCriticalPercent: 90 })
+      expect.objectContaining({ colorRules: expect.arrayContaining([rule]) })
     );
     await wrapper.get('#usage-colors').trigger('click');
     await flushPromises();
-    expect(wrapper.find('#usage-warning').exists()).toBe(false);
-    expect(ResidentService.savePreferences).toHaveBeenLastCalledWith(
-      expect.objectContaining({ usageColors: false, usageWarningPercent: 60 })
-    );
+    expect(ResidentService.savePreferences).toHaveBeenLastCalledWith(expect.objectContaining({ usageColors: false }));
   });
 
   it('offers shared usage colors on Windows without the macOS density setting', async () => {
@@ -568,7 +575,7 @@ describe('status display interactions', () => {
     await wrapper.get('input[name="taskbar-position"][value="auto"]').setValue(true);
     await flushPromises();
     expect(ResidentService.savePreferences).toHaveBeenLastCalledWith(
-      expect.objectContaining({ schemaVersion: 14, taskbarPosition: 'auto' })
+      expect.objectContaining({ schemaVersion: 16, taskbarPosition: 'auto' })
     );
   });
 
@@ -802,6 +809,42 @@ describe('status display interactions', () => {
       'システムディスク'
     );
     expect(ResidentService.savePreferences).not.toHaveBeenCalled();
+  });
+});
+
+describe('per-item color configuration', () => {
+  it('opens a separate dialog and keeps source choices independent', async () => {
+    const wrapper = mount(Settings, { props: { isMacOs: true }, global: global() });
+    wrappers.push(wrapper);
+    await flushPromises();
+    await openConfiguration(wrapper);
+    await wrapper.get('[data-metric="cpu"] .color-toggle').trigger('click');
+    expect(wrapper.find('#color-editor-cpu').exists()).toBe(true);
+    expect(wrapper.get('[data-metric="cpu"]').find('.color-rule-editor').exists()).toBe(false);
+    await wrapper.get('[data-metric="gpuTemperature"] .color-toggle').trigger('click');
+    expect(wrapper.find('#color-editor-cpu').exists()).toBe(false);
+    expect(wrapper.find('#color-editor-gpuTemperature').exists()).toBe(true);
+    expect(wrapper.find('[data-metric="gpuTemperature"] .selection-toggle').exists()).toBe(true);
+    expect(wrapper.find('[data-metric="network"] .color-toggle').exists()).toBe(false);
+    expect(ResidentService.savePreferences).not.toHaveBeenCalled();
+    wrapper.getComponent({ name: 'MdStatusColorRuleEditor' }).vm.$emit('cancel');
+    await flushPromises();
+    expect(wrapper.find('.color-rule-editor').exists()).toBe(false);
+    expect(document.activeElement).toBe(wrapper.get('#color-configure-gpuTemperature').element);
+  });
+  it('retains the editor and draft after a rejected save', async () => {
+    const wrapper = mount(Settings, { props: { isMacOs: true }, global: global() });
+    wrappers.push(wrapper);
+    await flushPromises();
+    await openConfiguration(wrapper);
+    await wrapper.get('[data-metric="cpuTemperature"] .color-toggle').trigger('click');
+    vi.mocked(ResidentService.savePreferences).mockRejectedValueOnce(new Error('write failed'));
+    const editor = wrapper.getComponent({ name: 'MdStatusColorRuleEditor' });
+    const rule = preferencesFixture().colorRules[1]!;
+    editor.vm.$emit('save', rule);
+    await flushPromises();
+    expect(wrapper.find('#color-editor-cpuTemperature').exists()).toBe(true);
+    expect(wrapper.text()).toContain('systemStatus.saveFailed');
   });
 });
 

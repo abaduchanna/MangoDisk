@@ -89,7 +89,7 @@ fn native_grayscale_preserves_alpha_colors_and_field_fit_across_dpi() {
                         }
                         _ => Default::default(),
                     },
-                    usage_percent: None,
+                    color_value: None,
                     id,
                     text: text.into(),
                     digits: digits.into(),

@@ -1,3 +1,4 @@
+import type { MetricColorRule } from '@/lib/models/resident-color-rules';
 import type { MetricId, ResourceReadings } from '@/lib/models/system-resources';
 
 export interface ResidentReading extends ResourceReadings {
@@ -6,7 +7,7 @@ export interface ResidentReading extends ResourceReadings {
 export type ResidentDisplayMetricId = MetricId | 'cpuTemperature' | 'gpuTemperature';
 
 export interface ResidentPreferences {
-  schemaVersion: 14;
+  schemaVersion: 16;
   windowsCpuTemperatureEnabled: boolean;
   revision: number;
   enabled: boolean;
@@ -16,8 +17,7 @@ export interface ResidentPreferences {
   taskbarCompact: boolean;
   menuBarCompact: boolean;
   usageColors: boolean;
-  usageWarningPercent: number;
-  usageCriticalPercent: number;
+  colorRules: MetricColorRule[];
   metrics: { id: ResidentDisplayMetricId; enabled: boolean }[];
   networkInterface: string | null;
   diskVolume: string | null;

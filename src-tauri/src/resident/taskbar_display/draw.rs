@@ -204,7 +204,7 @@ mod tests {
                     let columns = presentation::columns(
                         &[DisplayEntry {
                             tone: Default::default(),
-                            usage_percent: None,
+                            color_value: None,
                             id,
                             marker: String::new(),
                             digits: digits.into(),

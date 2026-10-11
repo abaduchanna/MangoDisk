@@ -63,7 +63,7 @@ impl DisplayId {
 pub struct DisplayEntry {
     pub id: DisplayId,
     pub tone: super::usage_color::UsageTone,
-    pub usage_percent: Option<u8>,
+    pub color_value: Option<u16>,
     pub marker: String,
     pub digits: String,
     pub text: String,
@@ -269,7 +269,7 @@ pub fn entries(
             if status != MetricStatus::Ready || value.is_none() {
                 entries.push(DisplayEntry {
                     tone: Default::default(),
-                    usage_percent: None,
+                    color_value: None,
                     id,
                     marker: marker.into(),
                     digits: "—".into(),
@@ -299,7 +299,7 @@ pub fn entries(
                     .unwrap_or("");
                 DisplayEntry {
                     tone: Default::default(),
-                    usage_percent: None,
+                    color_value: None,
                     id,
                     marker: format!("{marker}{unit}"),
                     digits,
@@ -361,7 +361,7 @@ pub fn entries(
                 };
                 DisplayEntry {
                     tone: Default::default(),
-                    usage_percent: Some(percent),
+                    color_value: Some(u16::from(percent)),
                     id,
                     marker: marker.into(),
                     text: format!("{short} {digits:>3}%"),
@@ -411,8 +411,8 @@ fn temperature_entry(values: &ResourceReadings, labels: &super::labels::Labels) 
     DisplayEntry {
         id: DisplayId::CpuTemperature,
         tone: Default::default(),
-        // Celsius is not a utilization percentage and has no generic alert threshold.
-        usage_percent: None,
+        // Rules are selected by metric ID, so Celsius keeps its own thresholds.
+        color_value: value.map(|value| value.celsius.round() as u16),
         marker: "°C".into(),
         text: if value.is_some() {
             format!("CPU {digits}°C")
@@ -461,7 +461,7 @@ fn gpu_temperature_entry(
     DisplayEntry {
         id: DisplayId::GpuTemperature,
         tone: Default::default(),
-        usage_percent: None,
+        color_value: value.map(|value| value.celsius.round() as u16),
         marker: "°C".into(),
         text: if value.is_some() {
             format!("GPU {digits}°C")
@@ -478,7 +478,7 @@ mod tests {
     use super::*;
 
     #[test]
-    fn gpu_temperature_is_independent_and_uses_celsius_without_usage_colors() {
+    fn gpu_temperature_preserves_celsius_and_rounded_color_value() {
         use mangodisk_core::system_resources::metrics::MetricReading;
         use mangodisk_platform::system_resources::gpu::temperature::{
             GpuTemperature, GpuTemperatureKind, GpuTemperatureSource,
@@ -508,7 +508,7 @@ mod tests {
         }
         let entry = gpu_temperature_entry(&readings, &labels);
         assert_eq!(entry.text, "GPU 49°C");
-        assert_eq!(entry.usage_percent, None);
+        assert_eq!(entry.color_value, Some(49));
         assert!(entry.tooltip.contains("Apple M3 Max"));
         assert_eq!(
             entries(&prefs, &readings, &labels, 1000.0).len(),
@@ -572,7 +572,7 @@ mod tests {
         let ready = temperature_entry(&readings, &labels);
         assert_eq!(ready.digits, "49");
         assert_eq!(ready.tooltip, "CPU temperature 49°C");
-        assert!(ready.usage_percent.is_none());
+        assert_eq!(ready.color_value, Some(49));
         assert_eq!(ready.tone, Default::default());
         for status in [
             MetricStatus::Stale,
@@ -678,7 +678,7 @@ mod tests {
         DisplayEntry {
             id,
             tone: Default::default(),
-            usage_percent: None,
+            color_value: None,
             marker: String::new(),
             digits: String::new(),
             text: text.to_string(),
@@ -791,7 +791,7 @@ mod tests {
                 .iter()
                 .find(|entry| entry.id == DisplayId::Disk)
                 .unwrap();
-            assert_eq!(disk.usage_percent, Some(60));
+            assert_eq!(disk.color_value, Some(60));
             assert!(disk.tooltip.contains("60.00 GB / 100.00 GB"));
             assert!(!disk.tooltip.contains(labels.text("diskCapacityHint")));
             assert!(!disk.tooltip.contains('\n'));
@@ -893,8 +893,18 @@ mod tests {
                 .find(|entry| entry.id == DisplayId::Cpu)
                 .unwrap();
             assert_eq!(cpu.digits, expected.to_string());
-            assert_eq!(cpu.usage_percent, Some(expected));
-            assert_eq!(UsageTone::Normal.next(cpu.usage_percent, 75, 85), tone);
+            assert_eq!(cpu.color_value, Some(expected));
+            let mut rule = crate::resident::color_rules::MetricColorRule::defaults(
+                crate::resident::preference_schema::DisplayMetricId::Cpu,
+            );
+            rule.rules = crate::resident::color_rules::legacy(75, 85)
+                .into_iter()
+                .find(|updated| updated.id == rule.id)
+                .unwrap()
+                .rules;
+            let matched =
+                super::super::usage_color::next_rule(None, cpu.color_value, &rule).unwrap();
+            assert_eq!(UsageTone::from(rule.rules[matched].color()), tone);
         }
     }
 

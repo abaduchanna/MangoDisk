@@ -4,7 +4,11 @@ import { ResidentService } from '@/lib/services/resident-service';
 import { LoggerService } from '@/lib/services/logger-service';
 
 function copy(value: ResidentPreferences): ResidentPreferences {
-  return { ...value, metrics: value.metrics.map(metric => ({ ...metric })) };
+  return {
+    ...value,
+    metrics: value.metrics.map(metric => ({ ...metric })),
+    colorRules: value.colorRules.map(rule => ({ ...rule, rules: rule.rules.map(condition => ({ ...condition })) })),
+  };
 }
 
 export const useResidentSettingsStore = defineStore('resident-settings', {
@@ -27,7 +31,7 @@ export const useResidentSettingsStore = defineStore('resident-settings', {
         // A retry can overlap an edit made from the retained draft. Its older
         // response must not replace the newer optimistic or committed state.
         if (revision !== this.editRevision) return;
-        if (value.schemaVersion !== 14) throw new Error('unsupported resident preferences');
+        if (value.schemaVersion !== 16) throw new Error('unsupported resident preferences');
         this.preferences = value;
         this.draft = copy(value);
       } catch (error) {
@@ -51,7 +55,7 @@ export const useResidentSettingsStore = defineStore('resident-settings', {
           const requested = copy({ ...this.draft, revision: this.preferences.revision });
           try {
             const committed = await ResidentService.savePreferences(requested);
-            if (committed.schemaVersion !== 14) throw new Error('unsupported resident preferences');
+            if (committed.schemaVersion !== 16) throw new Error('unsupported resident preferences');
             this.preferences = committed;
             if (revision === this.editRevision) {
               this.draft = copy(committed);

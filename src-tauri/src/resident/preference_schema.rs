@@ -57,8 +57,7 @@ pub struct ResidentPreferences {
     pub taskbar_compact: bool,
     pub menu_bar_compact: bool,
     pub usage_colors: bool,
-    pub usage_warning_percent: u8,
-    pub usage_critical_percent: u8,
+    pub color_rules: Vec<super::color_rules::MetricColorRule>,
     pub metrics: Vec<DisplayMetric>,
     pub network_interface: Option<String>,
     pub disk_volume: Option<String>,
@@ -78,7 +77,7 @@ const DISPLAY_ORDER: [DisplayMetricId; 7] = [
 impl Default for ResidentPreferences {
     fn default() -> Self {
         Self {
-            schema_version: 14,
+            schema_version: 16,
             revision: 0,
             windows_cpu_temperature_enabled: false,
             enabled: true,
@@ -88,8 +87,7 @@ impl Default for ResidentPreferences {
             taskbar_compact: false,
             menu_bar_compact: false,
             usage_colors: true,
-            usage_warning_percent: 70,
-            usage_critical_percent: 90,
+            color_rules: super::color_rules::defaults(),
             metrics: DISPLAY_ORDER
                 .into_iter()
                 .map(|id| DisplayMetric {
@@ -143,12 +141,10 @@ impl ResidentPreferences {
     }
 
     pub fn normalize(mut self) -> Result<Self, &'static str> {
-        if self.schema_version != 14 {
+        if self.schema_version != 16 {
             return Err("preferences_version");
         }
-        if self.usage_warning_percent < 1
-            || self.usage_warning_percent >= self.usage_critical_percent
-            || self.usage_critical_percent > 100
+        if !super::color_rules::valid(&self.color_rules)
             || self.metrics.len() > 64
             || [
                 &self.network_interface,
@@ -287,6 +283,7 @@ pub fn decode(mut value: serde_json::Value) -> Result<ResidentPreferences, &'sta
             }
             let mut migrated = ResidentPreferences {
                 enabled: previous.enabled,
+                color_rules: super::color_rules::legacy(70, 90),
                 // Preserve legacy metric and position choices. Windows now uses
                 // taskbar presentation for every supported preference version.
                 taskbar_position: TaskbarPosition::Right,
@@ -357,7 +354,26 @@ pub fn decode(mut value: serde_json::Value) -> Result<ResidentPreferences, &'sta
             value["schemaVersion"] = 14.into();
             migrate_display_destination(value)
         }
-        Some(14) => serde_json::from_value::<ResidentPreferences>(value)
+        Some(14) => {
+            if value.get("windowsDisplayMode").is_some() {
+                return Err("preferences_invalid");
+            }
+            migrate_display_destination(value)
+        }
+        Some(15) => {
+            let rules = super::color_rules::migrate_bands(
+                value
+                    .get("colorRules")
+                    .cloned()
+                    .ok_or("preferences_invalid")?,
+            )?;
+            value["colorRules"] = serde_json::to_value(rules).map_err(|_| "preferences_invalid")?;
+            value["schemaVersion"] = 16.into();
+            serde_json::from_value::<ResidentPreferences>(value)
+                .map_err(|_| "preferences_invalid")?
+                .normalize()
+        }
+        Some(16) => serde_json::from_value::<ResidentPreferences>(value)
             .map_err(|_| "preferences_invalid")?
             .normalize(),
         _ => Err("preferences_version"),
@@ -375,7 +391,32 @@ fn migrate_display_destination(
             return Err("preferences_invalid");
         }
     }
-    value["schemaVersion"] = 14.into();
+    if value.get("colorRules").is_some() {
+        return Err("preferences_invalid");
+    }
+    let warning = value
+        .get("usageWarningPercent")
+        .and_then(|v| v.as_u64())
+        .ok_or("preferences_invalid")?;
+    let critical = value
+        .get("usageCriticalPercent")
+        .and_then(|v| v.as_u64())
+        .ok_or("preferences_invalid")?;
+    if warning < 1 || warning >= critical || critical > 100 {
+        return Err("preferences_invalid");
+    }
+    value
+        .as_object_mut()
+        .ok_or("preferences_invalid")?
+        .remove("usageWarningPercent");
+    value
+        .as_object_mut()
+        .ok_or("preferences_invalid")?
+        .remove("usageCriticalPercent");
+    value["colorRules"] =
+        serde_json::to_value(super::color_rules::legacy(warning as u16, critical as u16))
+            .map_err(|_| "preferences_invalid")?;
+    value["schemaVersion"] = 16.into();
     serde_json::from_value::<ResidentPreferences>(value)
         .map_err(|_| "preferences_invalid")?
         .normalize()
@@ -385,16 +426,78 @@ fn migrate_display_destination(
 mod tests {
     use super::*;
     #[test]
+    fn version_fifteen_migrates_colors_without_changing_selections_or_boundaries() {
+        let mut old = serde_json::to_value(ResidentPreferences::default()).unwrap();
+        old["schemaVersion"] = 15.into();
+        old["colorRules"] = serde_json::Value::Array(super::super::color_rules::COLOR_METRICS.iter().map(|id| serde_json::json!({
+            "id": id, "enabled": false, "bands": [{"from": 0, "color": "blue"}, {"from": 55, "color": "yellow"}, {"from": 95, "color": "red"}]
+        })).collect());
+        let migrated = decode(old.clone()).unwrap();
+        assert_eq!(migrated.schema_version, 16);
+        assert_eq!(
+            serde_json::to_value(&migrated.metrics).unwrap(),
+            old["metrics"]
+        );
+        for rule in &migrated.color_rules {
+            assert!(!rule.enabled);
+            assert_eq!(rule.rules[0].bounds(), (0, Some(55)));
+            assert_eq!(rule.rules[1].bounds(), (55, Some(95)));
+            assert_eq!(rule.rules[2].bounds(), (95, None));
+            assert_eq!(
+                rule.rules[0].color(),
+                super::super::color_rules::DisplayColor::Blue
+            );
+        }
+        old["colorRules"][0]["bands"][1]["from"] = 0.into();
+        assert!(decode(old).is_err());
+    }
+
+    #[test]
+    fn current_rules_round_trip_empty_single_and_sparse_conditions() {
+        let mut preferences = ResidentPreferences::default();
+        preferences.color_rules[0].rules.clear();
+        preferences.color_rules[1].rules.truncate(1);
+        preferences.color_rules[2].rules.remove(1);
+        assert_eq!(
+            decode(serde_json::to_value(&preferences).unwrap()).unwrap(),
+            preferences
+        );
+        let mut malformed = serde_json::to_value(&preferences).unwrap();
+        malformed["colorRules"][1]["rules"][0]["from"] = 1.into();
+        assert!(decode(malformed).is_err());
+    }
+
+    #[test]
+    fn current_rules_reject_unknown_colors_missing_metrics_and_legacy_fields() {
+        let current = serde_json::to_value(ResidentPreferences::default()).unwrap();
+        assert_eq!(decode(current.clone()).unwrap().schema_version, 16);
+        let mut value = current.clone();
+        value["colorRules"][0]["rules"][0]["color"] = "purple".into();
+        assert!(decode(value).is_err());
+        let mut value = current.clone();
+        value["colorRules"].as_array_mut().unwrap().pop();
+        assert!(decode(value).is_err());
+        let mut value = current.clone();
+        value["usageWarningPercent"] = 70.into();
+        assert!(decode(value).is_err());
+        let mut value = current;
+        value["schemaVersion"] = 14.into();
+        value["usageWarningPercent"] = 70.into();
+        value["usageCriticalPercent"] = 90.into();
+        assert!(decode(value).is_err());
+    }
+
+    #[test]
     fn version_thirteen_removes_tray_destination_and_preserves_user_settings() {
         for mode in ["tray", "taskbar"] {
-            let mut old = serde_json::to_value(ResidentPreferences::default()).unwrap();
+            let mut old = version_fourteen_preferences();
             old["schemaVersion"] = 13.into();
             old["windowsDisplayMode"] = mode.into();
             old["gpuAdapter"] = "selected-adapter".into();
             old["enabled"] = false.into();
             old["revision"] = 47.into();
             let migrated = decode(old).unwrap();
-            assert_eq!(migrated.schema_version, 14);
+            assert_eq!(migrated.schema_version, 16);
             assert_eq!(migrated.revision, 47);
             assert!(!migrated.enabled);
             assert_eq!(migrated.gpu_adapter.as_deref(), Some("selected-adapter"));
@@ -409,7 +512,7 @@ mod tests {
 
     #[test]
     fn version_twelve_preserves_gpu_selection_and_appends_unselected_temperature() {
-        let mut value = serde_json::to_value(ResidentPreferences::default()).unwrap();
+        let mut value = version_fourteen_preferences();
         value["schemaVersion"] = 12.into();
         value["revision"] = 84.into();
         value["gpuAdapter"] = "fixed-gpu".into();
@@ -435,7 +538,7 @@ mod tests {
 
     #[test]
     fn version_eleven_never_opts_into_privileged_collection_during_migration() {
-        let mut old = serde_json::to_value(ResidentPreferences::default()).unwrap();
+        let mut old = version_fourteen_preferences();
         old["metrics"]
             .as_array_mut()
             .unwrap()
@@ -470,7 +573,7 @@ mod tests {
         old["revision"] = 42.into();
         old["metrics"].as_array_mut().unwrap().reverse();
         let migrated = decode(old.clone()).unwrap();
-        assert_eq!(migrated.schema_version, 14);
+        assert_eq!(migrated.schema_version, 16);
         assert_eq!(migrated.revision, 42);
         let mut expected = old["metrics"].clone();
         expected
@@ -527,7 +630,7 @@ mod tests {
     }
 
     fn legacy_current_preferences() -> serde_json::Value {
-        let mut value = serde_json::to_value(ResidentPreferences::default()).unwrap();
+        let mut value = version_fourteen_preferences();
         value["metrics"]
             .as_array_mut()
             .unwrap()
@@ -568,7 +671,7 @@ mod tests {
         old["networkInterface"] = "wifi".into();
         old.as_object_mut().unwrap().remove("gpuAdapter");
         let migrated = decode(old.clone()).unwrap();
-        assert_eq!(migrated.schema_version, 14);
+        assert_eq!(migrated.schema_version, 16);
         assert_eq!(migrated.network_interface.as_deref(), Some("wifi"));
         assert!(migrated.gpu_adapter.is_none());
         old["gpuAdapter"] = "unexpected".into();
@@ -602,7 +705,7 @@ mod tests {
             {"id":"network", "enabled":true}, {"id":"disk", "enabled":false}
         ]);
         let migrated = decode(old).unwrap();
-        assert_eq!(migrated.schema_version, 14);
+        assert_eq!(migrated.schema_version, 16);
         assert_eq!(migrated.revision, 42);
         assert_eq!(
             migrated
@@ -634,28 +737,37 @@ mod tests {
             selected
         );
         let mut future = serde_json::to_value(selected).unwrap();
-        future["schemaVersion"] = 15.into();
+        future["schemaVersion"] = 17.into();
         assert!(decode(future).is_err());
     }
 
     #[test]
-    fn usage_colors_default_on_without_overwriting_saved_opt_out() {
-        let defaults = ResidentPreferences::default();
-        assert!(defaults.usage_colors);
-        assert_eq!(defaults.usage_warning_percent, 70);
-        assert_eq!(defaults.usage_critical_percent, 90);
-        let saved = ResidentPreferences {
-            usage_colors: false,
-            usage_warning_percent: 55,
-            usage_critical_percent: 80,
-            ..defaults
-        };
-        let restored = decode(serde_json::to_value(&saved).unwrap()).unwrap();
-        assert_eq!(restored, saved);
+    fn old_color_rules_preserve_thresholds_and_do_not_enable_temperature() {
+        let mut saved = version_fourteen_preferences();
+        saved["usageColors"] = false.into();
+        saved["usageWarningPercent"] = 55.into();
+        saved["usageCriticalPercent"] = 80.into();
+        let restored = decode(saved).unwrap();
+        assert!(!restored.usage_colors);
+        assert_eq!(restored.color_rules[0].rules[1].bounds().0, 55);
+        assert_eq!(restored.color_rules[0].rules[2].bounds().0, 80);
         assert_eq!(
-            decode(serde_json::to_value(&restored).unwrap()).unwrap(),
-            saved
+            restored.color_rules[0].rules[0].color(),
+            super::super::color_rules::DisplayColor::Default
         );
+        assert!(!restored.color_rules[1].enabled);
+        let serialized = serde_json::to_value(&restored).unwrap();
+        assert!(serialized.get("usageWarningPercent").is_none());
+        assert_eq!(decode(serialized).unwrap(), restored);
+    }
+
+    fn version_fourteen_preferences() -> serde_json::Value {
+        let mut value = serde_json::to_value(ResidentPreferences::default()).unwrap();
+        value.as_object_mut().unwrap().remove("colorRules");
+        value["schemaVersion"] = 14.into();
+        value["usageWarningPercent"] = 70.into();
+        value["usageCriticalPercent"] = 90.into();
+        value
     }
 
     #[test]
@@ -676,7 +788,7 @@ mod tests {
             .unwrap()
             .push(serde_json::json!({"id":"gpuTemperature","enabled":false}));
         let migrated = decode(old).unwrap();
-        assert_eq!(migrated.schema_version, 14);
+        assert_eq!(migrated.schema_version, 16);
         assert!(!migrated.menu_bar_compact);
         assert!(migrated.usage_colors);
         assert_eq!(serde_json::to_value(migrated).unwrap()["metrics"], order);
@@ -715,26 +827,13 @@ mod tests {
     }
 
     #[test]
-    fn usage_thresholds_reject_invalid_ranges_and_round_trip() {
+    fn legacy_thresholds_reject_invalid_ranges() {
         for (warning, critical) in [(0, 90), (90, 90), (95, 90), (70, 101)] {
-            assert!(ResidentPreferences {
-                usage_warning_percent: warning,
-                usage_critical_percent: critical,
-                ..Default::default()
-            }
-            .normalize()
-            .is_err());
+            let mut value = version_fourteen_preferences();
+            value["usageWarningPercent"] = warning.into();
+            value["usageCriticalPercent"] = critical.into();
+            assert!(decode(value).is_err());
         }
-        let settings = ResidentPreferences {
-            menu_bar_compact: true,
-            usage_warning_percent: 60,
-            usage_critical_percent: 85,
-            ..Default::default()
-        };
-        assert_eq!(
-            decode(serde_json::to_value(&settings).unwrap()).unwrap(),
-            settings
-        );
         let mut malformed = legacy_preferences();
         malformed["usageColors"] = true.into();
         assert!(decode(malformed).is_err());
@@ -752,7 +851,7 @@ mod tests {
             old.as_object_mut().unwrap().remove("taskbarCompact");
             old["taskbarPosition"] = position.into();
             let migrated = decode(old).unwrap();
-            assert_eq!(migrated.schema_version, 14);
+            assert_eq!(migrated.schema_version, 16);
             assert_eq!(
                 serde_json::to_value(migrated).unwrap()["taskbarPosition"],
                 position
@@ -833,7 +932,7 @@ mod tests {
                 assert_eq!(migrated.shows(MetricId::Memory), memory);
                 assert!(migrated.show_icon);
                 assert!(!migrated.shows(MetricId::Cpu));
-                assert_eq!(migrated.schema_version, 14);
+                assert_eq!(migrated.schema_version, 16);
             }
         }
     }
@@ -943,7 +1042,7 @@ mod tests {
         ] {
             assert!(decode(value).is_err());
         }
-        let mut value = serde_json::to_value(ResidentPreferences::default()).unwrap();
+        let mut value = version_fourteen_preferences();
         value.as_object_mut().unwrap().remove("gpuAdapter");
         value["metrics"][0]["id"] = "npu".into();
         assert!(decode(value).is_err());

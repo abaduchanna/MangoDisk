@@ -36,7 +36,7 @@ returns that reserved slot directly, so centered buttons do not send the monitor
 to an unrelated outer gap. Unknown environments prefer right,
 and collision checks still apply. These defaults do not replace saved choices.
 
-Resident preferences use schema version 14; resource readings use version 17.
+Resident preferences use schema version 16; resource readings use version 17.
 Versions 1–8 preferences preserve every saved selection and order, appending GPU
 display disabled. New installations also leave GPU display unselected. Resource
 version 9 adds the GPU catalogue. Version 9 preferences migrate GPU selection to automatic; version 10 persists fixed selection. Frontends reject mismatched envelopes.
@@ -452,14 +452,23 @@ The separate settings window remains open when the monitor loses focus.
 
 ### Usage colors and menu-bar density
 
-CPU, memory, and disk capacity percentages share configurable warning/critical
-thresholds (70/90 by default). Coloring is enabled for new installations and
-legacy versions without this preference; an explicit saved opt-out is retained.
-Only values change color; labels retain the theme
-foreground. Tones enter higher bands at the threshold and clear three percentage
-points below it. Unavailable readings and disabled coloring reset the tone.
-Changes to color rules reset hysteresis so new thresholds apply immediately.
-Changing the sampled disk resets its tone without affecting other metrics.
+Preference version 16 stores independent color conditions for CPU/GPU
+usage, memory, disk, and CPU/GPU temperature. Each metric has an enable flag
+and zero to sixteen rules: below, inclusive-start/exclusive-end range, or
+at least. Conditions cannot overlap; gaps use the system foreground. Thresholds
+are whole percentages through 100 or Celsius values through 150. Classification
+uses the rounded displayed value; missing readings never match a rule. Native
+adapters share classification and theme-aware colors. The global switch gates
+all metric rules. Each display item opens a fixed-height editing dialog with a
+local draft, Number Field controls, explicit save/cancel, and deletion of every
+rule. Closing without saving leaves persisted preferences unchanged.
+
+Version 15 continuous bands migrate to equivalent conditions without changing
+colors, thresholds, enable flags, or selections. Older preferences retain their
+warning/critical thresholds as default/orange/red rules; temperature coloring
+remains disabled during that migration. New installations use green/orange/red
+defaults. Only adjacent descending boundaries have three-percentage-point or
+two-degree hysteresis; gaps immediately return to the system foreground.
 
 Version 8 adds these color preferences and an independent macOS compact setting.
 Legacy selections and custom order are retained. The former default sequence
