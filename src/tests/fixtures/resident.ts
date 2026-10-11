@@ -3,12 +3,11 @@ import { emptyReadings } from '@/lib/utils/system-resources';
 
 export function preferencesFixture(): ResidentPreferences {
   return {
-    schemaVersion: 12,
+    schemaVersion: 14,
     windowsCpuTemperatureEnabled: false,
     revision: 0,
     enabled: true,
     showIcon: true,
-    windowsDisplayMode: 'tray',
     taskbarPosition: 'right',
     taskbarBackground: true,
     taskbarCompact: false,
@@ -23,6 +22,7 @@ export function preferencesFixture(): ResidentPreferences {
       { id: 'disk', enabled: false },
       { id: 'gpu', enabled: false },
       { id: 'cpuTemperature', enabled: false },
+      { id: 'gpuTemperature', enabled: false },
     ],
     networkInterface: null,
     diskVolume: null,

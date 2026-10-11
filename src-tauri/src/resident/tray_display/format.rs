@@ -14,6 +14,7 @@ pub enum DisplayId {
     Cpu,
     CpuTemperature,
     Gpu,
+    GpuTemperature,
     Memory,
     Upload,
     Download,
@@ -21,11 +22,12 @@ pub enum DisplayId {
 }
 
 impl DisplayId {
-    pub const ALL: [Self; 8] = [
+    pub const ALL: [Self; 9] = [
         Self::App,
         Self::Cpu,
         Self::CpuTemperature,
         Self::Gpu,
+        Self::GpuTemperature,
         Self::Memory,
         Self::Upload,
         Self::Download,
@@ -37,6 +39,7 @@ impl DisplayId {
             Self::Cpu => "resident-cpu",
             Self::CpuTemperature => "resident-cpu-temperature",
             Self::Gpu => "resident-gpu",
+            Self::GpuTemperature => "resident-gpu-temperature",
             Self::Memory => "resident-memory",
             Self::Upload => "resident-upload",
             Self::Download => "resident-download",
@@ -47,7 +50,7 @@ impl DisplayId {
         match self {
             Self::App => None,
             Self::Cpu | Self::CpuTemperature => Some(MetricId::Cpu),
-            Self::Gpu => Some(MetricId::Gpu),
+            Self::Gpu | Self::GpuTemperature => Some(MetricId::Gpu),
             Self::Memory => Some(MetricId::Memory),
             Self::Upload | Self::Download => Some(MetricId::Network),
             Self::Disk => Some(MetricId::Disk),
@@ -84,7 +87,9 @@ pub fn indicator_title(entries: &[DisplayEntry], compact: bool) -> Option<String
                         let direction = marker.next()?;
                         format!("{direction}{}{}", entry.digits, marker.as_str())
                     }
-                    DisplayId::App | DisplayId::CpuTemperature => return None,
+                    DisplayId::App | DisplayId::CpuTemperature | DisplayId::GpuTemperature => {
+                        return None
+                    }
                 }
             } else {
                 entry.text.trim().to_string()
@@ -104,6 +109,7 @@ pub fn desired(preferences: &ResidentPreferences) -> Vec<DisplayId> {
         .into_iter()
         .filter(|id| match id {
             DisplayId::CpuTemperature => preferences.shows_cpu_temperature(),
+            DisplayId::GpuTemperature => preferences.shows_gpu_temperature(),
             id => match id.metric() {
                 Some(metric) => preferences.shows(metric),
                 None => preferences.effective_icon(),
@@ -188,6 +194,12 @@ pub fn entries(
             }
             continue;
         }
+        if metric.id == DisplayMetricId::GpuTemperature {
+            if preferences.shows_gpu_temperature() {
+                entries.push(gpu_temperature_entry(values, labels));
+            }
+            continue;
+        }
         let Some(metric_id) = metric.id.metric() else {
             continue;
         };
@@ -239,7 +251,9 @@ pub fn entries(
                         .as_ref()
                         .map(|value| value.received_bytes_per_second),
                 ),
-                DisplayId::App | DisplayId::CpuTemperature => unreachable!(),
+                DisplayId::App | DisplayId::CpuTemperature | DisplayId::GpuTemperature => {
+                    unreachable!()
+                }
             };
             // Invalid samples must not become NaN%, infinity, or a misleading
             // valid-looking rate. Keep the normal unavailable presentation.
@@ -326,19 +340,14 @@ pub fn entries(
                         .as_ref()
                         .map(|value| {
                             format!(
-                                " · {} · {} / {}{}",
+                                " · {} · {} / {}",
                                 if value.volume.system {
                                     labels.text("systemDisk")
                                 } else {
                                     &value.volume.name
                                 },
                                 byte_text_with_precision(value.used_bytes as f64, base, 2),
-                                byte_text_with_precision(value.total_bytes as f64, base, 2),
-                                if cfg!(target_os = "macos") {
-                                    format!("\n{}", labels.text("diskCapacityHint"))
-                                } else {
-                                    String::new()
-                                }
+                                byte_text_with_precision(value.total_bytes as f64, base, 2)
                             )
                         })
                         .unwrap_or_default(),
@@ -385,12 +394,8 @@ fn temperature_entry(values: &ResourceReadings, labels: &super::labels::Labels) 
         // formatting rule, which rounds ties to the nearest even integer.
         .map(|value| format!("{:.0}", value.celsius.round()))
         .unwrap_or_else(|| "—".into());
-    let tooltip = if let Some(value) = value {
-        format!(
-            "{} {digits}°C · {}",
-            labels.temperature("label"),
-            labels.temperature_scope(value)
-        )
+    let tooltip = if value.is_some() {
+        format!("{} {digits}°C", labels.temperature("label"))
     } else {
         let status = if reading.status == MetricStatus::Ready {
             MetricStatus::Stale
@@ -419,9 +424,101 @@ fn temperature_entry(values: &ResourceReadings, labels: &super::labels::Labels) 
     }
 }
 
+fn gpu_temperature_entry(
+    values: &ResourceReadings,
+    labels: &super::labels::Labels,
+) -> DisplayEntry {
+    use mangodisk_platform::system_resources::gpu::temperature::GPU_TEMPERATURE_FRESHNESS_MS;
+    let reading = &values.gpu_temperature;
+    let value = reading.value.as_ref().filter(|value| {
+        reading.status == MetricStatus::Ready
+            && reading.sampled_at_ms.is_some_and(|sampled| {
+                sampled <= values.observed_at_ms
+                    && values.observed_at_ms - sampled <= GPU_TEMPERATURE_FRESHNESS_MS
+            })
+            && value.valid()
+    });
+    let digits = value
+        .map(|v| format!("{:.0}", v.celsius.round()))
+        .unwrap_or_else(|| "—".into());
+    let tooltip = if let Some(value) = value {
+        format!(
+            "{} {digits}°C · {}",
+            labels.gpu_temperature("label"),
+            value.adapter_name
+        )
+    } else {
+        format!(
+            "{} · {}",
+            labels.gpu_temperature("label"),
+            labels.status(if reading.status == MetricStatus::Ready {
+                MetricStatus::Stale
+            } else {
+                reading.status
+            })
+        )
+    };
+    DisplayEntry {
+        id: DisplayId::GpuTemperature,
+        tone: Default::default(),
+        usage_percent: None,
+        marker: "°C".into(),
+        text: if value.is_some() {
+            format!("GPU {digits}°C")
+        } else {
+            "GPU —".into()
+        },
+        digits,
+        tooltip,
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn gpu_temperature_is_independent_and_uses_celsius_without_usage_colors() {
+        use mangodisk_core::system_resources::metrics::MetricReading;
+        use mangodisk_platform::system_resources::gpu::temperature::{
+            GpuTemperature, GpuTemperatureKind, GpuTemperatureSource,
+        };
+        let labels = super::super::labels::Labels::for_locale("en-US");
+        let mut readings = ResourceReadings {
+            observed_at_ms: 1000,
+            gpu_temperature: MetricReading::ready(
+                GpuTemperature {
+                    adapter_id: "a".into(),
+                    adapter_name: "Apple M3 Max".into(),
+                    celsius: 48.5,
+                    kind: GpuTemperatureKind::SensorAverage,
+                    source: GpuTemperatureSource::AppleSmc,
+                    sensor_count: 8,
+                },
+                1000,
+            ),
+            ..Default::default()
+        };
+        let mut prefs = ResidentPreferences {
+            show_icon: false,
+            ..Default::default()
+        };
+        for metric in &mut prefs.metrics {
+            metric.enabled = metric.id == DisplayMetricId::GpuTemperature;
+        }
+        let entry = gpu_temperature_entry(&readings, &labels);
+        assert_eq!(entry.text, "GPU 49°C");
+        assert_eq!(entry.usage_percent, None);
+        assert!(entry.tooltip.contains("Apple M3 Max"));
+        assert_eq!(
+            entries(&prefs, &readings, &labels, 1000.0).len(),
+            usize::from(cfg!(any(target_os = "macos", windows)))
+        );
+        readings.observed_at_ms = 11001;
+        assert_eq!(gpu_temperature_entry(&readings, &labels).digits, "—");
+        readings.observed_at_ms = 999;
+        assert_eq!(gpu_temperature_entry(&readings, &labels).digits, "—");
+    }
 
     #[test]
     fn temperature_rounding_matches_panel_at_half_degree_boundaries() {
@@ -474,7 +571,7 @@ mod tests {
         let labels = super::super::labels::Labels::for_locale("en-US");
         let ready = temperature_entry(&readings, &labels);
         assert_eq!(ready.digits, "49");
-        assert!(ready.tooltip.contains("16 readable CPU core sensors"));
+        assert_eq!(ready.tooltip, "CPU temperature 49°C");
         assert!(ready.usage_percent.is_none());
         assert_eq!(ready.tone, Default::default());
         for status in [
@@ -628,7 +725,7 @@ mod tests {
     }
 
     #[test]
-    fn all_sixty_four_combinations_have_unique_entries_and_paired_network_directions() {
+    fn all_display_combinations_have_unique_entries_and_paired_network_directions() {
         for bits in 0..(1 << ResidentPreferences::default().metrics.len()) {
             for show_icon in [false, true] {
                 let mut prefs = ResidentPreferences {
@@ -644,7 +741,7 @@ mod tests {
                     ids.len()
                 );
                 assert!(!ids.is_empty());
-                assert!(ids.len() <= 8);
+                assert!(ids.len() <= DisplayId::ALL.len());
                 assert_eq!(
                     ids.contains(&DisplayId::Upload),
                     prefs.shows(MetricId::Network)
@@ -661,7 +758,7 @@ mod tests {
     }
 
     #[test]
-    fn disk_tooltips_use_the_shared_capacity_basis_precision_and_localized_explanation() {
+    fn disk_tooltips_use_shared_capacity_precision_without_explanatory_text() {
         use mangodisk_core::system_resources::{disk, metrics::MetricReading};
         use mangodisk_platform::system_resources::disk::{ResourceVolume, VolumeCapacity};
         let value = disk::usage(
@@ -696,11 +793,8 @@ mod tests {
                 .unwrap();
             assert_eq!(disk.usage_percent, Some(60));
             assert!(disk.tooltip.contains("60.00 GB / 100.00 GB"));
-            assert_eq!(
-                disk.tooltip.contains(labels.text("diskCapacityHint")),
-                cfg!(target_os = "macos"),
-                "macOS reclaimable-space guidance must only appear on macOS"
-            );
+            assert!(!disk.tooltip.contains(labels.text("diskCapacityHint")));
+            assert!(!disk.tooltip.contains('\n'));
         }
     }
 
@@ -735,7 +829,11 @@ mod tests {
             desired(&prefs),
             DisplayId::ALL
                 .into_iter()
-                .filter(|id| *id != DisplayId::CpuTemperature || cfg!(target_os = "macos"))
+                .filter(|id| match id {
+                    DisplayId::CpuTemperature => cfg!(target_os = "macos"),
+                    DisplayId::GpuTemperature => cfg!(any(target_os = "macos", windows)),
+                    _ => true,
+                })
                 .collect::<Vec<_>>()
         );
         assert_eq!(DisplayId::Upload.metric(), DisplayId::Download.metric());

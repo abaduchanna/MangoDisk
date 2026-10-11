@@ -4024,7 +4024,7 @@
     "menuBarCompactHint": "缩小间距，网速单位简写为 K、M、G",
     "configureAction": "配置…",
     "menuBarSettingsTitle": "菜单栏设置",
-    "displaySettingsTitle": "任务栏与托盘设置",
+    "displaySettingsTitle": "任务栏设置",
     "autoSaveHint": "自动保存，即时生效",
     "done": "完成",
     "showIcon": "Logo",
@@ -4068,16 +4068,13 @@
     "taskbarAuto": "自动",
     "taskbarLeft": "靠左",
     "taskbarRight": "靠右",
-    "displayMode": "显示区域",
-    "trayMode": "系统托盘",
-    "taskbarMode": "任务栏",
     "taskbarNoSpace": "该位置空间不足，已暂用托盘图标。可开启紧凑模式或减少显示内容",
     "taskbarUnsupported": "当前任务栏尺寸不足，已使用托盘显示",
     "taskbarUnavailable": "正在等待任务栏就绪，暂时显示托盘图标",
     "menuBarEnabled": "在菜单栏显示",
-    "displayEnabled": "在任务栏或托盘显示",
+    "displayEnabled": "在任务栏显示",
     "menuBarHint": "查看 CPU、GPU、内存、网速与磁盘，快速释放内存",
-    "displayHint": "查看 CPU、GPU、内存、网速与磁盘，快速释放内存",
+    "displayHint": "查看 CPU、GPU 使用率与温度，以及内存、磁盘和网速",
     "linuxDisplayHint": "查看 CPU、内存、网速与磁盘使用情况",
     "overview": "概览",
     "memoryManagement": "内存",
@@ -4169,6 +4166,10 @@
     "efficiency": "能效核心",
     "performance": "性能核心",
     "cached": "缓存"
+  },
+  "gpuTemperature": {
+    "label": "GPU 温度",
+    "unsupportedHint": "此设备不支持读取 GPU 温度"
   },
   "cpuTemperature": {
     "label": "CPU 温度",

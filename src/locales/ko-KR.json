@@ -4024,7 +4024,7 @@
     "menuBarCompactHint": "간격을 줄이고 네트워크 속도 단위를 K, M, G로 축약",
     "configureAction": "설정…",
     "menuBarSettingsTitle": "메뉴 막대 설정",
-    "displaySettingsTitle": "작업 표시줄 및 시스템 트레이 설정",
+    "displaySettingsTitle": "작업 표시줄 설정",
     "autoSaveHint": "자동 저장 및 즉시 적용",
     "done": "완료",
     "showIcon": "Logo",
@@ -4068,16 +4068,13 @@
     "taskbarAuto": "자동",
     "taskbarLeft": "왼쪽",
     "taskbarRight": "오른쪽",
-    "displayMode": "표시 영역",
-    "trayMode": "시스템 트레이",
-    "taskbarMode": "작업 표시줄",
     "taskbarNoSpace": "이 위치의 공간이 부족하여 트레이 아이콘을 표시합니다. 간결하게 표시하거나 표시 항목을 줄여 보세요",
     "taskbarUnsupported": "작업 표시줄이 너무 작아 트레이 아이콘으로 표시합니다",
     "taskbarUnavailable": "작업 표시줄을 기다리는 동안 트레이 아이콘을 표시합니다",
     "menuBarEnabled": "메뉴 막대에 표시",
-    "displayEnabled": "작업 표시줄 또는 시스템 트레이에 표시",
+    "displayEnabled": "작업 표시줄에 표시",
     "menuBarHint": "CPU, GPU, 메모리, 네트워크, 디스크 확인 및 메모리 확보",
-    "displayHint": "CPU, GPU, 메모리, 네트워크, 디스크 확인 및 메모리 확보",
+    "displayHint": "CPU·GPU 사용률과 온도, 메모리, 디스크 및 네트워크 속도 확인",
     "linuxDisplayHint": "CPU, 메모리, 네트워크 속도 및 디스크 사용 현황 확인",
     "overview": "개요",
     "memoryManagement": "메모리",
@@ -4169,6 +4166,10 @@
     "efficiency": "효율 코어",
     "performance": "성능 코어",
     "cached": "캐시"
+  },
+  "gpuTemperature": {
+    "label": "GPU 온도",
+    "unsupportedHint": "이 기기에서는 GPU 온도를 읽을 수 없습니다"
   },
   "cpuTemperature": {
     "label": "CPU 온도",

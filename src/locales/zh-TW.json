@@ -4024,7 +4024,7 @@
     "menuBarCompactHint": "縮小間距，網速單位簡寫為 K、M、G",
     "configureAction": "設定…",
     "menuBarSettingsTitle": "選單列設定",
-    "displaySettingsTitle": "工作列與系統匣設定",
+    "displaySettingsTitle": "工作列設定",
     "autoSaveHint": "自動儲存，即時生效",
     "done": "完成",
     "showIcon": "Logo",
@@ -4068,16 +4068,13 @@
     "taskbarAuto": "自動",
     "taskbarLeft": "靠左",
     "taskbarRight": "靠右",
-    "displayMode": "顯示區域",
-    "trayMode": "系統匣",
-    "taskbarMode": "工作列",
     "taskbarNoSpace": "此位置空間不足，已暫用系統匣圖示。可開啟精簡模式或減少顯示內容",
     "taskbarUnsupported": "目前工作列尺寸不足，已使用系統匣顯示",
     "taskbarUnavailable": "正在等候工作列就緒，暫時顯示系統匣圖示",
     "menuBarEnabled": "在選單列顯示",
-    "displayEnabled": "在工作列或系統匣顯示",
+    "displayEnabled": "在工作列顯示",
     "menuBarHint": "查看 CPU、GPU、記憶體、網速與磁碟，快速釋放記憶體",
-    "displayHint": "查看 CPU、GPU、記憶體、網速與磁碟，快速釋放記憶體",
+    "displayHint": "查看 CPU、GPU 使用率與溫度，以及記憶體、磁碟和網速",
     "linuxDisplayHint": "查看 CPU、記憶體、網速與磁碟使用情況",
     "overview": "概覽",
     "memoryManagement": "記憶體",
@@ -4169,6 +4166,10 @@
     "efficiency": "節能核心",
     "performance": "效能核心",
     "cached": "快取"
+  },
+  "gpuTemperature": {
+    "label": "GPU 溫度",
+    "unsupportedHint": "此裝置不支援讀取 GPU 溫度"
   },
   "cpuTemperature": {
     "label": "CPU 溫度",

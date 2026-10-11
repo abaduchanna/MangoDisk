@@ -3,29 +3,13 @@ import { useI18n } from 'vue-i18n';
 import type { ResidentPreferences } from '@/lib/models/resident';
 defineProps<{ preferences: ResidentPreferences }>();
 const emit = defineEmits<{
-  change: [mode: ResidentPreferences['windowsDisplayMode']];
   position: [position: ResidentPreferences['taskbarPosition']];
 }>();
 const { t } = useI18n({ useScope: 'global' });
 </script>
 <template>
   <div class="windows-display-settings">
-    <div class="display-field">
-      <span id="windows-display-mode-label" class="field-label">{{ t('systemStatus.displayMode') }}</span>
-      <div class="segmented-choice" role="radiogroup" aria-labelledby="windows-display-mode-label">
-        <label v-for="mode in ['taskbar', 'tray'] as const" :key="mode">
-          <input
-            type="radio"
-            name="windows-display-mode"
-            :value="mode"
-            :checked="preferences.windowsDisplayMode === mode"
-            @change="emit('change', mode)"
-          />
-          <span>{{ t(mode === 'taskbar' ? 'systemStatus.taskbarMode' : 'systemStatus.trayMode') }}</span>
-        </label>
-      </div>
-    </div>
-    <div v-if="preferences.windowsDisplayMode === 'taskbar'" class="taskbar-options">
+    <div class="taskbar-options">
       <div class="display-field">
         <span id="taskbar-position-label" class="field-label">{{ t('systemStatus.taskbarPosition') }}</span>
         <div class="segmented-choice" role="radiogroup" aria-labelledby="taskbar-position-label">

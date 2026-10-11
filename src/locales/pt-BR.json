@@ -4024,7 +4024,7 @@
     "menuBarCompactHint": "Espaçamento reduzido, com as unidades de rede abreviadas para K, M e G",
     "configureAction": "Configurar…",
     "menuBarSettingsTitle": "Configurações da barra de menus",
-    "displaySettingsTitle": "Configurações da barra de tarefas e da bandeja do sistema",
+    "displaySettingsTitle": "Configurações da barra de tarefas",
     "autoSaveHint": "Salvo automaticamente e aplicado na hora",
     "done": "Concluído",
     "showIcon": "Logo",
@@ -4068,16 +4068,13 @@
     "taskbarAuto": "Automático",
     "taskbarLeft": "Esquerda",
     "taskbarRight": "Direita",
-    "displayMode": "Exibir em",
-    "trayMode": "Bandeja do sistema",
-    "taskbarMode": "Barra de tarefas",
     "taskbarNoSpace": "Não há espaço suficiente nesta posição. Usando ícones na bandeja; tente o modo compacto ou selecione menos itens",
     "taskbarUnsupported": "A barra de tarefas é muito pequena; usando ícones na bandeja",
     "taskbarUnavailable": "Aguardando a barra de tarefas. Exibindo ícones na bandeja temporariamente",
     "menuBarEnabled": "Mostrar na barra de menus",
-    "displayEnabled": "Mostrar na barra de tarefas ou na bandeja do sistema",
+    "displayEnabled": "Exibir na barra de tarefas",
     "menuBarHint": "Veja dados de CPU, GPU, memória, velocidade de rede e disco; libere memória",
-    "displayHint": "Veja dados de CPU, GPU, memória, velocidade de rede e disco; libere memória",
+    "displayHint": "Veja uso e temperaturas da CPU e GPU, memória, disco e rede",
     "linuxDisplayHint": "Veja dados de CPU, memória, velocidade de rede e disco",
     "overview": "Visão geral",
     "memoryManagement": "Memória",
@@ -4169,6 +4166,10 @@
     "efficiency": "Núcleos de eficiência",
     "performance": "Núcleos de desempenho",
     "cached": "Em cache"
+  },
+  "gpuTemperature": {
+    "label": "Temperatura da GPU",
+    "unsupportedHint": "Os sensores de temperatura da GPU não estão disponíveis neste dispositivo"
   },
   "cpuTemperature": {
     "label": "Temperatura da CPU",

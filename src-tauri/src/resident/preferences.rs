@@ -17,18 +17,27 @@ pub fn load(app: &tauri::AppHandle) -> ResidentPreferences {
     };
     match value {
         None => ResidentPreferences::default(),
-        Some(value) => match decode(value) {
-            Ok(preferences) => preferences,
-            _ => {
-                log::warn!("resident_preferences_invalid");
-                ResidentPreferences::default()
+        Some(value) => {
+            let previous_version = value.get("schemaVersion").and_then(|v| v.as_u64());
+            match decode(value) {
+                Ok(preferences) => {
+                    if previous_version != Some(u64::from(preferences.schema_version)) {
+                        log::info!("resident_preferences_migrated from_schema={previous_version:?} to_schema={} display_destination=platform_default metric_count={} enabled={}",
+                            preferences.schema_version, preferences.metrics.len(), preferences.enabled);
+                    }
+                    preferences
+                }
+                Err(reason) => {
+                    log::warn!("resident_preferences_invalid schema={previous_version:?} reason={reason} outcome=use_defaults");
+                    ResidentPreferences::default()
+                }
             }
-        },
+        }
     }
 }
 
 fn save(app: &tauri::AppHandle, preferences: &ResidentPreferences) -> Result<(), Failure> {
-    if preferences.schema_version != 12 {
+    if preferences.schema_version != 14 {
         return Err(Failure::state("preferences_version"));
     }
     let store = app
@@ -144,7 +153,7 @@ pub fn apply(
     }
     state.wake();
     log::info!(
-        "resident_preferences_saved enabled={} revision={} show_icon={} metrics={:?} mode={:?} position={:?} background={} compact={} menu_bar_compact={} usage_colors={} warning_percent={} critical_percent={} network_manual={} disk_manual={} elapsed_ms={}",
+        "resident_preferences_saved enabled={} revision={} show_icon={} metrics={:?} position={:?} background={} compact={} menu_bar_compact={} usage_colors={} warning_percent={} critical_percent={} network_manual={} disk_manual={} elapsed_ms={}",
         preferences.enabled,
         preferences.revision,
         preferences.effective_icon(),
@@ -154,7 +163,6 @@ pub fn apply(
             .filter(|metric| metric.enabled)
             .map(|metric| metric.id)
             .collect::<Vec<_>>(),
-        preferences.windows_display_mode,
         preferences.taskbar_position,
         preferences.taskbar_background,
         preferences.taskbar_compact,

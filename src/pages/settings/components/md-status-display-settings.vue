@@ -17,7 +17,7 @@ import MdWindowsDisplayFeedback from './md-windows-display-feedback.vue';
 import MdWindowsTemperatureSetup from './md-windows-temperature-setup.vue';
 import { Select, SelectContent, SelectItem } from '@/components/ui/select';
 import { SelectTrigger } from 'reka-ui';
-import MdWindowsDisplayMode from './md-windows-display-mode.vue';
+import MdTaskbarPosition from './md-taskbar-position.vue';
 import MdStatusAppearance from './md-status-appearance.vue';
 import { ICON_NAMES } from '@/lib/models/ui';
 import type { NetworkInterface, ResourceVolume } from '@/lib/models/system-resources';
@@ -50,17 +50,26 @@ const interfaces = ref<NetworkInterface[]>([]);
 const volumes = ref<ResourceVolume[]>([]);
 const gpuAdapters = ref<{ id: string; name: string }[]>([]);
 const catalogueError = ref(false);
+const gpuTemperatureStatus = ref<ResidentReading['gpuTemperature']['status']>('loading');
 const dragging = ref<ResidentDisplayMetricId | null>(null);
 const pointerDragging = ref(false);
 const dragRows = ref<ResidentPreferences['metrics'] | null>(null);
 const announcement = ref('');
 const metricRowsElement = ref<HTMLElement | null>(null);
-const canReorder = computed(() => props.isMacOs || props.isLinux || settings.draft?.windowsDisplayMode === 'taskbar');
 const rows = computed(() => dragRows.value ?? settings.draft?.metrics ?? []);
-const displayLabelKeys = { ...METRIC_LABEL_KEYS, cpuTemperature: 'cpuTemperature.label' };
+const displayLabelKeys = {
+  ...METRIC_LABEL_KEYS,
+  cpuTemperature: 'cpuTemperature.label',
+  gpuTemperature: 'gpuTemperature.label',
+};
 const visibleRows = computed(() =>
   rows.value
-    .filter(row => (!props.isLinux || row.id !== 'cpuTemperature') && (!props.isLinux || row.id !== 'gpu'))
+    .filter(
+      row =>
+        (!props.isLinux || row.id !== 'gpuTemperature') &&
+        (!props.isLinux || row.id !== 'cpuTemperature') &&
+        (!props.isLinux || row.id !== 'gpu')
+    )
     .map(row =>
       row.id === 'cpuTemperature' && !props.isMacOs && !settings.draft?.windowsCpuTemperatureEnabled
         ? { ...row, enabled: false }
@@ -81,7 +90,7 @@ function enableIcon(enabled: boolean) {
 const settingsOpen = ref(false);
 const temperatureSetupOpen = ref(false);
 const selectTemperatureAfterSetup = ref(false);
-const expandedSelection = ref<'network' | 'disk' | 'gpu' | null>(null);
+const expandedSelection = ref<'network' | 'disk' | 'gpu' | 'gpuTemperature' | null>(null);
 // Keep the native switch and collapsed content on the committed state. Failed
 // writes must not hide the user's controls or leave a misleading enabled state.
 const displayEnabled = computed(() => settings.preferences?.enabled ?? false);
@@ -99,6 +108,8 @@ watch(displayEnabled, enabled => {
 });
 watch(settingsOpen, open => {
   if (open) {
+    // The detail panel can change the shared GPU choice in another WebView.
+    void settings.load();
     void loadCatalogue();
     if (!props.isMacOs && !props.isLinux) void monitoring.load();
   } else {
@@ -120,7 +131,7 @@ function restoreConfigurationFocus(event: Event) {
   document.getElementById(displayEnabled.value ? 'resident-configure' : 'resident-enabled')?.focus();
 }
 function setSelectionOpen(id: ResidentDisplayMetricId, open: boolean) {
-  if (id !== 'network' && id !== 'disk' && id !== 'gpu') return;
+  if (id !== 'network' && id !== 'disk' && id !== 'gpu' && id !== 'gpuTemperature') return;
   if (open) expandedSelection.value = id;
   else if (expandedSelection.value === id) expandedSelection.value = null;
 }
@@ -166,8 +177,10 @@ function accept(value: ResidentReading) {
   interfaces.value = value.interfaces;
   volumes.value = value.volumes;
   gpuAdapters.value = value.gpuAdapters;
+  gpuTemperatureStatus.value = value.gpuTemperature.status;
 }
 async function enable(id: ResidentDisplayMetricId, enabled: boolean) {
+  if (id === 'gpuTemperature' && enabled && gpuTemperatureStatus.value === 'unsupported') return;
   if (id === 'cpuTemperature' && !props.isMacOs && !props.isLinux && enabled) {
     if (temperatureSelectionPending.value || monitoring.loading || monitoring.busy) return;
     temperatureSelectionPending.value = true;
@@ -192,7 +205,7 @@ async function enable(id: ResidentDisplayMetricId, enabled: boolean) {
   });
 }
 function begin(id: ResidentDisplayMetricId) {
-  if (!canReorder.value || !settings.draft) return;
+  if (!settings.draft) return;
   dragging.value = id;
   dragRows.value = settings.draft.metrics.map(metric => ({ ...metric }));
   announce();
@@ -264,7 +277,7 @@ function escapePointerDrag(event: KeyboardEvent) {
   }
 }
 function pointerDown(event: PointerEvent, id: ResidentDisplayMetricId) {
-  if (!canReorder.value || event.button !== 0) return;
+  if (event.button !== 0) return;
   cancelDrag();
   const handle = event.currentTarget as HTMLElement;
   const root = handle.closest<HTMLElement>('.metric-rows');
@@ -340,7 +353,6 @@ function commit() {
   }
 }
 function key(event: KeyboardEvent, id: ResidentDisplayMetricId) {
-  if (!canReorder.value) return;
   if (event.key === 'Escape') {
     event.preventDefault();
     cancelDrag();
@@ -456,15 +468,16 @@ onBeforeUnmount(() => {
           }}</DialogTitle>
         </MdDialogHeader>
         <div class="min-h-0 overflow-y-auto p-5">
-          <div id="resident-display-options" class="display-options">
-            <MdWindowsDisplayMode
+          <div
+            id="resident-display-options"
+            class="display-options"
+            :inert="settings.loading"
+            :aria-busy="settings.loading"
+          >
+            <MdTaskbarPosition
               v-if="!isMacOs && !isLinux && settings.draft"
               :preferences="settings.draft"
               @position="settings.change({ taskbarPosition: $event })"
-              @change="
-                cancelDrag();
-                settings.change({ windowsDisplayMode: $event });
-              "
             />
             <MdStatusAppearance
               v-if="settings.draft"
@@ -476,12 +489,12 @@ onBeforeUnmount(() => {
             <div class="status-controls">
               <div class="controls-heading">
                 <h3>{{ t('systemStatus.displayItems') }}</h3>
-                <span v-if="canReorder">{{ t('systemStatus.dragToReorder') }}</span>
+                <span>{{ t('systemStatus.dragToReorder') }}</span>
               </div>
               <div ref="metricRowsElement" @keydown.esc="cancelDrag">
                 <TransitionGroup name="metric-sort" tag="div" class="metric-rows">
                   <div key="logo" class="status-item">
-                    <span v-if="canReorder" class="logo-marker" aria-hidden="true">
+                    <span class="logo-marker" aria-hidden="true">
                       <MdIconMangodisk :size="18" />
                     </span>
                     <label class="logo-label" for="status-app-icon">
@@ -491,7 +504,6 @@ onBeforeUnmount(() => {
                         :disabled="selectionLocked(showIcon)"
                         @update:model-value="enableIcon($event === true)"
                       />
-                      <MdIconMangodisk v-if="!canReorder" :size="18" class="shrink-0" />
                       {{ t('systemStatus.showIcon') }}
                     </label>
                   </div>
@@ -507,7 +519,6 @@ onBeforeUnmount(() => {
                   >
                     <div class="metric-heading">
                       <button
-                        v-if="canReorder"
                         class="drag-handle"
                         :aria-label="t('systemStatus.reorder', { name: t(displayLabelKeys[row.id]) })"
                         :aria-pressed="dragging === row.id"
@@ -524,6 +535,7 @@ onBeforeUnmount(() => {
                             :model-value="row.enabled"
                             :disabled="
                               selectionLocked(row.enabled) ||
+                              (row.id === 'gpuTemperature' && !row.enabled && gpuTemperatureStatus === 'unsupported') ||
                               (row.id === 'cpuTemperature' &&
                                 !isMacOs &&
                                 !isLinux &&
@@ -544,6 +556,18 @@ onBeforeUnmount(() => {
                           :text="t('windowsMonitoring.displayHint')"
                         >
                           <button type="button" class="md-help-action" :aria-label="t('windowsMonitoring.displayHint')">
+                            <MdIcon :name="ICON_NAMES.info" :size="14" />
+                          </button>
+                        </MdTooltip>
+                        <MdTooltip
+                          v-if="row.id === 'gpuTemperature' && gpuTemperatureStatus === 'unsupported'"
+                          :text="t('gpuTemperature.unsupportedHint')"
+                        >
+                          <button
+                            type="button"
+                            class="md-help-action"
+                            :aria-label="t('gpuTemperature.unsupportedHint')"
+                          >
                             <MdIcon :name="ICON_NAMES.info" :size="14" />
                           </button>
                         </MdTooltip>
@@ -577,13 +601,15 @@ onBeforeUnmount(() => {
                         >{{ t('windowsMonitoring.manage') }}</Button
                       >
                       <Select
-                        v-if="row.id === 'network' || row.id === 'disk' || row.id === 'gpu'"
-                        :disabled="!row.enabled"
+                        v-if="
+                          row.id === 'network' || row.id === 'disk' || row.id === 'gpu' || row.id === 'gpuTemperature'
+                        "
+                        :disabled="row.id === 'gpuTemperature' ? !settings.draft || settings.saving : !row.enabled"
                         :open="expandedSelection === row.id"
                         :model-value="
                           row.id === 'network'
                             ? (settings.draft?.networkInterface ?? 'automatic')
-                            : row.id === 'gpu'
+                            : row.id === 'gpu' || row.id === 'gpuTemperature'
                               ? (settings.draft?.gpuAdapter ?? 'automatic')
                               : (settings.draft?.diskVolume ?? 'system')
                         "
@@ -591,7 +617,7 @@ onBeforeUnmount(() => {
                         @update:model-value="
                           row.id === 'network'
                             ? settings.change({ networkInterface: $event === 'automatic' ? null : String($event) })
-                            : row.id === 'gpu'
+                            : row.id === 'gpu' || row.id === 'gpuTemperature'
                               ? settings.change({ gpuAdapter: $event === 'automatic' ? null : String($event) })
                               : settings.change({ diskVolume: $event === 'system' ? null : String($event) })
                         "
@@ -601,7 +627,7 @@ onBeforeUnmount(() => {
                             :text="
                               row.id === 'network'
                                 ? selectedInterfaceLabel
-                                : row.id === 'gpu'
+                                : row.id === 'gpu' || row.id === 'gpuTemperature'
                                   ? selectedGpuLabel
                                   : selectedVolumeLabel
                             "
@@ -611,7 +637,7 @@ onBeforeUnmount(() => {
                               :aria-label="
                                 row.id === 'network'
                                   ? `${t('systemStatus.interface')}: ${selectedInterfaceLabel}`
-                                  : row.id === 'gpu'
+                                  : row.id === 'gpu' || row.id === 'gpuTemperature'
                                     ? `${t('systemStatus.gpu')}: ${selectedGpuLabel}`
                                     : `${t('systemStatus.volume')}: ${selectedVolumeLabel}`
                               "
@@ -619,7 +645,7 @@ onBeforeUnmount(() => {
                               <span class="truncate">{{
                                 row.id === 'network'
                                   ? selectedInterfaceLabel
-                                  : row.id === 'gpu'
+                                  : row.id === 'gpu' || row.id === 'gpuTemperature'
                                     ? selectedGpuLabel
                                     : selectedVolumeLabel
                               }}</span>
@@ -640,7 +666,7 @@ onBeforeUnmount(() => {
                               t('systemStatus.savedDisconnected')
                             }}</SelectItem>
                           </template>
-                          <template v-else-if="row.id === 'gpu'">
+                          <template v-else-if="row.id === 'gpu' || row.id === 'gpuTemperature'">
                             <SelectItem value="automatic">{{ t('systemStatus.automatic') }}</SelectItem>
                             <SelectItem v-for="item in gpuAdapters" :key="item.id" :value="item.id" class="break-all">{{
                               item.name

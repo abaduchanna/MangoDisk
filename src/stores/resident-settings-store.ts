@@ -27,13 +27,13 @@ export const useResidentSettingsStore = defineStore('resident-settings', {
         // A retry can overlap an edit made from the retained draft. Its older
         // response must not replace the newer optimistic or committed state.
         if (revision !== this.editRevision) return;
-        if (value.schemaVersion !== 12) throw new Error('unsupported resident preferences');
+        if (value.schemaVersion !== 14) throw new Error('unsupported resident preferences');
         this.preferences = value;
         this.draft = copy(value);
-      } catch {
+      } catch (error) {
         if (revision !== this.editRevision) return;
         this.error = true;
-        LoggerService.warn('resident', 'preferences_load_failed');
+        LoggerService.warn('resident', 'preferences_load_failed', { error });
       } finally {
         this.loading = false;
       }
@@ -51,7 +51,7 @@ export const useResidentSettingsStore = defineStore('resident-settings', {
           const requested = copy({ ...this.draft, revision: this.preferences.revision });
           try {
             const committed = await ResidentService.savePreferences(requested);
-            if (committed.schemaVersion !== 12) throw new Error('unsupported resident preferences');
+            if (committed.schemaVersion !== 14) throw new Error('unsupported resident preferences');
             this.preferences = committed;
             if (revision === this.editRevision) {
               this.draft = copy(committed);
@@ -59,7 +59,7 @@ export const useResidentSettingsStore = defineStore('resident-settings', {
             }
             // Merge rapid edits into the next write using the returned native
             // revision. No older request is allowed to race the latest choice.
-          } catch {
+          } catch (error) {
             this.error = true;
             try {
               this.preferences = await ResidentService.preferences();
@@ -67,7 +67,7 @@ export const useResidentSettingsStore = defineStore('resident-settings', {
               /* Keep last committed state. */
             }
             this.draft = this.preferences ? copy(this.preferences) : null;
-            LoggerService.warn('resident', 'preferences_save_rejected');
+            LoggerService.warn('resident', 'preferences_save_rejected', { revision: requested.revision, error });
             break;
           }
         }

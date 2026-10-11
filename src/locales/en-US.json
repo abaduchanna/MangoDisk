@@ -4024,7 +4024,7 @@
     "menuBarCompactHint": "Tighter spacing, with network units shortened to K, M, G",
     "configureAction": "Configure…",
     "menuBarSettingsTitle": "Menu bar settings",
-    "displaySettingsTitle": "Taskbar and system tray settings",
+    "displaySettingsTitle": "Taskbar settings",
     "autoSaveHint": "Saved automatically, applied immediately",
     "done": "Done",
     "showIcon": "Logo",
@@ -4068,16 +4068,13 @@
     "taskbarAuto": "Auto",
     "taskbarLeft": "Left",
     "taskbarRight": "Right",
-    "displayMode": "Display in",
-    "trayMode": "System tray",
-    "taskbarMode": "Taskbar",
     "taskbarNoSpace": "Not enough space at this position. Using tray icons; try compact mode or fewer items",
     "taskbarUnsupported": "The taskbar is too small; using tray icons",
     "taskbarUnavailable": "Waiting for the taskbar. Showing tray icons temporarily",
     "menuBarEnabled": "Show in menu bar",
-    "displayEnabled": "Show in the taskbar or system tray",
+    "displayEnabled": "Show in taskbar",
     "menuBarHint": "View CPU, GPU, memory, network speed and disk stats; free up memory",
-    "displayHint": "View CPU, GPU, memory, network speed and disk stats; free up memory",
+    "displayHint": "View CPU and GPU usage and temperatures, memory, disk, and network",
     "linuxDisplayHint": "View CPU, memory, network speed and disk stats",
     "overview": "Overview",
     "memoryManagement": "Memory",
@@ -4169,6 +4166,10 @@
     "efficiency": "Efficiency cores",
     "performance": "Performance cores",
     "cached": "Cached"
+  },
+  "gpuTemperature": {
+    "label": "GPU temperature",
+    "unsupportedHint": "GPU temperature sensors are unavailable on this device"
   },
   "cpuTemperature": {
     "label": "CPU temperature",

@@ -63,8 +63,13 @@ pub fn columns(entries: &[DisplayEntry], compact: bool) -> Vec<Column> {
                     if compact { 54 } else { 70 },
                 ),
                 DisplayId::Download | DisplayId::App => return None,
-                DisplayId::CpuTemperature => (
-                    "CPU".into(),
+                DisplayId::CpuTemperature | DisplayId::GpuTemperature => (
+                    if entry.id == DisplayId::GpuTemperature {
+                        "GPU"
+                    } else {
+                        "CPU"
+                    }
+                    .into(),
                     if entry.digits == "—" {
                         "—".into()
                     } else {

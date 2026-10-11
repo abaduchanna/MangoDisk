@@ -36,12 +36,12 @@ returns that reserved slot directly, so centered buttons do not send the monitor
 to an unrelated outer gap. Unknown environments prefer right,
 and collision checks still apply. These defaults do not replace saved choices.
 
-Resident preferences use schema version 11; resource readings use version 16.
+Resident preferences use schema version 14; resource readings use version 17.
 Versions 1–8 preferences preserve every saved selection and order, appending GPU
 display disabled. New installations also leave GPU display unselected. Resource
 version 9 adds the GPU catalogue. Version 9 preferences migrate GPU selection to automatic; version 10 persists fixed selection. Frontends reject mismatched envelopes.
 Version 1 preferences retain background and memory-display choices. Version 2
-preferences retain all selections and default to the original Windows tray mode.
+preferences retain all selections and migrate to taskbar presentation.
 Version 3 retains that mode and defaults the new position preference to right.
 Version 4 retains all choices and enables the new taskbar background option.
 Version 5 retains its saved left/right preference; only new installations default
@@ -324,7 +324,7 @@ A delayed UIA sample and its recovery are logged; stale helper replies are rejec
 Shell calls cannot block Tauri's event loop or resource samplers.
 Model updates replace one bounded snapshot, and GDI objects are released after
 painting. Disabled taskbar presentation stops the window timer. The shell query
-thread performs no inspection while tray mode is selected or resident display is disabled.
+thread performs no inspection while resident display is disabled.
 
 Placement stays within the parent client area and excludes occupied controls with
 a margin. During taskbar orientation changes, empty or inconsistent parent bounds
@@ -375,8 +375,8 @@ Shell menus naturally cover overlapping pixels without hiding the entire strip
 or raising the taskbar. Ordinary clicks use the existing focused detail panel,
 anchored to the clicked column; a second click toggles it closed. The product
 main window is not revealed. Right click exposes Open, Settings and Quit. Window callbacks guard
-against synchronous Win32 message reentry. Settings enable pointer/keyboard reordering only where the chosen surface
-can honor it (macOS and Windows taskbar mode).
+against synchronous Win32 message reentry. Display settings share pointer and
+keyboard reordering across platforms.
 
 
 The Windows taskbar background option defaults to opaque. Both modes stay layered
@@ -412,7 +412,7 @@ shared tray text and tooltips keep their existing precision.
 
 ### Overview history and disk activity
 
-Resource readings use schema version 16 and nested `SystemResourceSnapshot` payloads use version 4; frontend adapters reject mismatched versions. Memory history records occupancy from the existing three-second sampler. CPU, GPU and memory use a fixed 0–100% scale. Network and disk activity share a symmetric scale: upload/write above zero, download/read below it. Gaps remain blank. The frontend buffers one sampling interval plus 250 ms before revealing each completed segment from the right; numeric readings remain live. Core retains up to 80 seconds / 96 samples so a reopened chart can reconstruct the buffered minute and offscreen endpoints. The frontend retains two additional intervals at the left edge. During a brief delivery delay, the playhead waits for completed data and catches up at no more than 1.1× speed; genuinely expired data still scrolls out. Pausing demand preserves existing readings and history with their original timestamps, while source changes clear the corresponding history. Rate scales hold their range for 30 seconds before a substantial reduction, and range changes ease over 600 ms using a shared SVG group. Continuous SVG updates are capped at 30 frames per second regardless of display refresh rate, without changing sample cadence or live numeric updates. Horizontal scrolling uses that group’s native transform instead of a composited CSS bitmap, preserving vector strokes at fractional positions. Reduced-motion mode applies scale changes immediately and disables continuous scrolling; hidden or fully expired charts stop their frame loop.
+Resource readings use schema version 17 and nested `SystemResourceSnapshot` payloads use version 4; frontend adapters reject mismatched versions. Memory history records occupancy from the existing three-second sampler. CPU, GPU and memory use a fixed 0–100% scale. Network and disk activity share a symmetric scale: upload/write above zero, download/read below it. Gaps remain blank. The frontend buffers one sampling interval plus 250 ms before revealing each completed segment from the right; numeric readings remain live. Core retains up to 80 seconds / 96 samples so a reopened chart can reconstruct the buffered minute and offscreen endpoints. The frontend retains two additional intervals at the left edge. During a brief delivery delay, the playhead waits for completed data and catches up at no more than 1.1× speed; genuinely expired data still scrolls out. Pausing demand preserves existing readings and history with their original timestamps, while source changes clear the corresponding history. Rate scales hold their range for 30 seconds before a substantial reduction, and range changes ease over 600 ms using a shared SVG group. Continuous SVG updates are capped at 30 frames per second regardless of display refresh rate, without changing sample cadence or live numeric updates. Horizontal scrolling uses that group’s native transform instead of a composited CSS bitmap, preserving vector strokes at fractional positions. Reduced-motion mode applies scale changes immediately and disables continuous scrolling; hidden or fully expired charts stop their frame loop.
 
 Memory pressure is independent of occupancy. macOS reads `kern.memorystatus_vm_pressure_level` in the existing three-second memory sample and decodes dispatch flags 1/2/4 as normal/warning/critical. Unknown flags, unexpected lengths and read errors publish unavailable; Windows and Linux publish unsupported. The panel hides unsupported pressure and marks non-ready samples as not updated. Diagnostics record the first observation, transitions, failures and recovery rather than every sample.
 
@@ -709,14 +709,15 @@ linked-adapter capacity and shared capacity remain unavailable. Driver-defined
 engines are visible separately and do not change the standard-engine summary.
 Memory failures have independent backoff and cannot disable activity readings.
 Windows probes temperature through public WDDM `KMTQAITYPE_ADAPTERPERFDATA`
-queries during detail demand only. The metadata cache retains its adapter handle;
+queries independently of detail demand. The metadata cache retains its adapter handle;
 physical adapter indices keep linked GPUs separate. Temperature is converted from
-deci-Celsius, and unsupported or invalid readings are omitted with 30-second backoff.
+deci-Celsius, and unsupported or invalid readings are omitted. Wholly unavailable
+adapter telemetry queries retry after thirty seconds.
 The panel displays dedicated usage only; shared usage is withheld because its
 equivalence to Task Manager has not been validated across drivers.
-macOS probes Renderer and Tiler percentages and optional temperature, clocks and
-fan percentage from the same IOAccelerator snapshot, including background samples.
-This requires no additional native property queries. Core count is discovered
+macOS probes Renderer and Tiler percentages and optional clocks and fan percentage
+from the same IOAccelerator snapshot, including background samples. Identified GPU
+temperature has a separate four-second read described below. Core count is discovered
 from `gpu-core-count` with the adapter, outside the sampling hot path.
 Apple AGX adapters report unified memory architecture; driver allocation fields
 are not treated as physical VRAM capacity. Unsupported optional facts are omitted.
@@ -778,11 +779,11 @@ before a reader release, without injecting hardware failures.
 
 ### CPU temperature observations
 
-CPU temperature is independent of utilization and frequency. A visible overview
-or CPU detail panel requests a reading at most once every four seconds on the
-existing CPU worker. Hidden panels issue temperature queries only when macOS
-menu-bar temperature display is enabled; changing
-demand or resuming discards native sensor handles and starts a fresh observation.
+CPU temperature is independent of utilization and frequency. The existing CPU
+worker requests a reading at most once every four seconds while macOS resident
+monitoring or the optional Windows collection service is enabled. Display choices
+and panel visibility do not interrupt collection. Stopping collection drops native
+sensor handles; resuming starts a fresh observation.
 Failed queries retry after 30 seconds. Values expire after ten seconds, and the
 frontend checks sample age before displaying a number. The Celsius trend uses
 a separate fixed 0–150 degree scale and bounded Core history; this range is not
@@ -799,25 +800,66 @@ excluded because they can expose plausible-looking sentinel values. A core maxim
 is explicitly labeled as such, never as a package reading. These private
 interfaces require per-chip and OS validation; available readings do not establish
 support for every Mac. Linux recognizes coretemp package/core sensors and k10temp
-Tdie, excluding Tctl offsets and anonymous thermal zones. Windows currently has
-no verified CPU temperature provider: public ACPI zone readings are intentionally
-unsupported rather than mislabeled. No helper, driver or privilege elevation is
-installed. Unsupported overview values are hidden, while CPU details explain the
-limitation; failed or stale values display an em dash rather than a cached number.
+Tdie, excluding Tctl offsets and anonymous thermal zones. Windows uses the optional
+privileged collection service for supported Intel package sensors; public ACPI
+zone readings are intentionally unsupported rather than mislabeled. Unsupported
+devices omit the entire temperature section, while failed or stale values display
+an em dash rather than a cached number.
 
-## macOS menu-bar CPU temperature
+## CPU temperature display
 
 Preference schema 11 adds `cpuTemperature` to the ordered `metrics` display
 items. It is disabled by default and appended to migrated preferences without
 changing existing selections or relative order. macOS exposes the same checkbox
 and drag/keyboard reordering as other items, independently of CPU utilization.
-Display item IDs are separate from the five resource worker IDs. The temperature
-tooltip identifies the sensor aggregation and count; temperature does not use
-utilization warning colors.
+Display item IDs are separate from the five resource worker IDs. Detail hints
+identify the sensor aggregation and count; native hover text shows the current
+temperature without sensor explanations. Temperature does not use utilization
+warning colors.
 The column keeps a fixed width and displays `—` for unavailable or expired data.
 
-Enabling the column keeps the existing CPU worker's four-second temperature
-sampling active while the detail panel is closed. Disabling it restores
-panel-only demand; disabling resident mode releases the reader. No extra worker
-or process is created. Windows and Linux hide and ignore this macOS display item.
-Windows CPU temperature remains unsupported; no third-party driver is installed.
+The display checkbox does not control collection. macOS samples temperature every
+four seconds while resident monitoring is enabled. Windows requires explicit
+consent for its optional privileged Intel CPU collection service; once enabled,
+it continues independently of panel visibility and resident display selection.
+Linux omits the CPU temperature display item. Unsupported devices omit the entire
+temperature section in CPU details.
+
+
+### Cross-platform GPU temperature
+
+Preference schema 13 adds a separate, default-off `gpuTemperature` display item.
+Versions 1–12 retain their saved order and selections; migration appends the new
+item disabled. Resource schema 17 exposes an identified `gpuTemperature` reading
+and `gpuTemperatureHistory`, independent of utilization and detail visibility.
+GPU usage and temperature share `gpuAdapter`; device changes clear temperature
+history rather than attributing a previous GPU's samples to the new selection.
+
+The resident GPU worker reads temperature at four-second intervals while
+macOS or Windows monitoring is enabled, including when its display item or detail panel is hidden.
+The display checkbox controls presentation only. GPU and CPU cards share their
+numeric, tooltip and chart presentation; unsupported temperature sections are omitted.
+Transient failures preserve original timestamps and real history without adding
+points or replacing missing values with zero. Values expire after ten seconds.
+
+Driver temperature is preferred when available. Apple GPUs use generation-specific
+SMC thermal-zone averages; Intel integrated GPUs use `TCGC` only when a single
+Intel accelerator is identified. Arbitrary SMC prefixes and proximity sensors do
+not establish GPU identity. A shared AMD `TGDD` sensor is not assigned to arbitrary
+accelerators; AMD GPUs retain identified driver temperature support. Reads use
+ordinary process permissions and the shared read-only SMC transport; no fan
+control, helper, service or driver installation is involved.
+
+Preference schema 14 removes the Windows display destination field. Versions 1–13
+preserve metric selections, layout, and enabled state; legacy tray selections
+migrate to taskbar display. A plain tray icon remains the recovery entry when
+Explorer is unavailable or the taskbar has insufficient space.
+
+Windows uses the same identified temperature contract, cache, display column and
+GPU detail chart as macOS. Public WDDM adapter performance data supplies device
+temperature in tenths of a degree Celsius without additional driver installation
+or elevation. Adapter identity includes the physical adapter index. Unsupported
+driver readings remain unsupported, native query failures remain failed, and
+utilization counter failures do not stop temperature sampling. Temperature is
+sampled every four seconds while resident monitoring is enabled; failed driver
+queries use the existing thirty-second backoff and transition diagnostics.

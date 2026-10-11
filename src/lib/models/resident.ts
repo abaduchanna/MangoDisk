@@ -3,15 +3,14 @@ import type { MetricId, ResourceReadings } from '@/lib/models/system-resources';
 export interface ResidentReading extends ResourceReadings {
   revision: number;
 }
-export type ResidentDisplayMetricId = MetricId | 'cpuTemperature';
+export type ResidentDisplayMetricId = MetricId | 'cpuTemperature' | 'gpuTemperature';
 
 export interface ResidentPreferences {
-  schemaVersion: 12;
+  schemaVersion: 14;
   windowsCpuTemperatureEnabled: boolean;
   revision: number;
   enabled: boolean;
   showIcon: boolean;
-  windowsDisplayMode: 'tray' | 'taskbar';
   taskbarPosition: 'auto' | 'left' | 'right';
   taskbarBackground: boolean;
   taskbarCompact: boolean;

@@ -4024,7 +4024,7 @@
     "menuBarCompactHint": "Daha dar aralıklar; ağ birimleri K, M, G olarak kısaltılır",
     "configureAction": "Yapılandır…",
     "menuBarSettingsTitle": "Menü çubuğu ayarları",
-    "displaySettingsTitle": "Görev çubuğu ve sistem tepsisi ayarları",
+    "displaySettingsTitle": "Görev çubuğu ayarları",
     "autoSaveHint": "Otomatik kaydedilir, hemen uygulanır",
     "done": "Bitti",
     "showIcon": "Logo",
@@ -4068,16 +4068,13 @@
     "taskbarAuto": "Otomatik",
     "taskbarLeft": "Sol",
     "taskbarRight": "Sağ",
-    "displayMode": "Görüntüleme konumu",
-    "trayMode": "Sistem tepsisi",
-    "taskbarMode": "Görev çubuğu",
     "taskbarNoSpace": "Bu konumda yeterli alan yok. Tepsi simgeleri kullanılıyor; kompakt modu deneyin veya daha az öğe seçin",
     "taskbarUnsupported": "Görev çubuğu çok küçük; tepsi simgeleri kullanılıyor",
     "taskbarUnavailable": "Görev çubuğu bekleniyor. Geçici olarak tepsi simgeleri gösteriliyor",
     "menuBarEnabled": "Menü çubuğunda göster",
-    "displayEnabled": "Görev çubuğunda veya sistem tepsisinde göster",
+    "displayEnabled": "Görev çubuğunda göster",
     "menuBarHint": "CPU, GPU, bellek, ağ hızı ve disk verilerini görüntüleyin; belleği boşaltın",
-    "displayHint": "CPU, GPU, bellek, ağ hızı ve disk verilerini görüntüleyin; belleği boşaltın",
+    "displayHint": "CPU ve GPU kullanımı ve sıcaklıkları, bellek, disk ve ağ hızını görüntüleyin",
     "linuxDisplayHint": "CPU, bellek, ağ hızı ve disk verilerini görüntüleyin",
     "overview": "Genel bakış",
     "memoryManagement": "Bellek",
@@ -4169,6 +4166,10 @@
     "efficiency": "Verimlilik çekirdekleri",
     "performance": "Performans çekirdekleri",
     "cached": "Önbellek"
+  },
+  "gpuTemperature": {
+    "label": "GPU sıcaklığı",
+    "unsupportedHint": "Bu cihazda GPU sıcaklık sensörleri kullanılamıyor"
   },
   "cpuTemperature": {
     "label": "CPU sıcaklığı",

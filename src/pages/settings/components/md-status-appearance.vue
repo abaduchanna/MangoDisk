@@ -41,7 +41,7 @@ function changeCompact(enabled: boolean) {
 <template>
   <MdSettingsGroup plain :title="t('systemStatus.appearanceTitle')">
     <MdSettingsRow
-      v-if="!isMacOs && !isLinux && preferences.windowsDisplayMode === 'taskbar'"
+      v-if="!isMacOs && !isLinux"
       compact
       :title="t('systemStatus.taskbarBackground')"
       description=""
@@ -53,13 +53,7 @@ function changeCompact(enabled: boolean) {
         @update:model-value="emit('change', { taskbarBackground: $event })"
       />
     </MdSettingsRow>
-    <MdSettingsRow
-      v-if="isMacOs || isLinux || preferences.windowsDisplayMode === 'taskbar'"
-      compact
-      :title="t('systemStatus.taskbarCompact')"
-      description=""
-      :label-for="compactControlId"
-    >
+    <MdSettingsRow compact :title="t('systemStatus.taskbarCompact')" description="" :label-for="compactControlId">
       <template #help>
         <MdTooltip :text="t('systemStatus.menuBarCompactHint')">
           <button type="button" class="md-help-action" :aria-label="t('systemStatus.menuBarCompactHint')">

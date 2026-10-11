@@ -4,14 +4,6 @@ use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
-pub enum WindowsDisplayMode {
-    Tray,
-    #[default]
-    Taskbar,
-}
-
-#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
 pub enum TaskbarPosition {
     #[default]
     Auto,
@@ -26,6 +18,7 @@ pub enum DisplayMetricId {
     Cpu,
     CpuTemperature,
     Gpu,
+    GpuTemperature,
     Memory,
     Disk,
     Network,
@@ -35,7 +28,7 @@ impl DisplayMetricId {
     pub fn metric(self) -> Option<MetricId> {
         match self {
             Self::Cpu => Some(MetricId::Cpu),
-            Self::CpuTemperature => None,
+            Self::CpuTemperature | Self::GpuTemperature => None,
             Self::Gpu => Some(MetricId::Gpu),
             Self::Memory => Some(MetricId::Memory),
             Self::Disk => Some(MetricId::Disk),
@@ -59,7 +52,6 @@ pub struct ResidentPreferences {
     pub windows_cpu_temperature_enabled: bool,
     pub enabled: bool,
     pub show_icon: bool,
-    pub windows_display_mode: WindowsDisplayMode,
     pub taskbar_position: TaskbarPosition,
     pub taskbar_background: bool,
     pub taskbar_compact: bool,
@@ -73,10 +65,11 @@ pub struct ResidentPreferences {
     pub gpu_adapter: Option<String>,
 }
 
-const DISPLAY_ORDER: [DisplayMetricId; 6] = [
+const DISPLAY_ORDER: [DisplayMetricId; 7] = [
     DisplayMetricId::Cpu,
     DisplayMetricId::CpuTemperature,
     DisplayMetricId::Gpu,
+    DisplayMetricId::GpuTemperature,
     DisplayMetricId::Memory,
     DisplayMetricId::Disk,
     DisplayMetricId::Network,
@@ -85,12 +78,11 @@ const DISPLAY_ORDER: [DisplayMetricId; 6] = [
 impl Default for ResidentPreferences {
     fn default() -> Self {
         Self {
-            schema_version: 12,
+            schema_version: 14,
             revision: 0,
             windows_cpu_temperature_enabled: false,
             enabled: true,
             show_icon: true,
-            windows_display_mode: WindowsDisplayMode::default(),
             taskbar_position: TaskbarPosition::default(),
             taskbar_background: true,
             taskbar_compact: false,
@@ -123,8 +115,11 @@ impl ResidentPreferences {
         self.show_icon
             || !self.metrics.iter().any(|metric| {
                 metric.enabled
-                    && (metric.id != DisplayMetricId::CpuTemperature
-                        || self.temperature_display_supported())
+                    && match metric.id {
+                        DisplayMetricId::CpuTemperature => self.temperature_display_supported(),
+                        DisplayMetricId::GpuTemperature => cfg!(any(target_os = "macos", windows)),
+                        _ => true,
+                    }
             })
     }
 
@@ -139,8 +134,16 @@ impl ResidentPreferences {
                 .any(|metric| metric.id == DisplayMetricId::CpuTemperature && metric.enabled)
     }
 
+    pub fn shows_gpu_temperature(&self) -> bool {
+        cfg!(any(target_os = "macos", windows))
+            && self
+                .metrics
+                .iter()
+                .any(|metric| metric.id == DisplayMetricId::GpuTemperature && metric.enabled)
+    }
+
     pub fn normalize(mut self) -> Result<Self, &'static str> {
-        if self.schema_version != 12 {
+        if self.schema_version != 14 {
             return Err("preferences_version");
         }
         if self.usage_warning_percent < 1
@@ -171,8 +174,16 @@ impl ResidentPreferences {
         // Append newly introduced items without changing any saved relative order.
         for id in DISPLAY_ORDER
             .into_iter()
-            .filter(|id| *id != DisplayMetricId::CpuTemperature)
-            .chain([DisplayMetricId::CpuTemperature])
+            .filter(|id| {
+                !matches!(
+                    id,
+                    DisplayMetricId::CpuTemperature | DisplayMetricId::GpuTemperature
+                )
+            })
+            .chain([
+                DisplayMetricId::CpuTemperature,
+                DisplayMetricId::GpuTemperature,
+            ])
         {
             if !seen.contains(&id) {
                 self.metrics.push(DisplayMetric { id, enabled: false });
@@ -184,6 +195,18 @@ impl ResidentPreferences {
 
 pub fn decode(mut value: serde_json::Value) -> Result<ResidentPreferences, &'static str> {
     let version = value.get("schemaVersion").and_then(|v| v.as_u64());
+    if matches!(version, Some(2..=12))
+        && value
+            .get("metrics")
+            .and_then(|v| v.as_array())
+            .is_some_and(|metrics| {
+                metrics.iter().any(|metric| {
+                    metric.get("id").and_then(|id| id.as_str()) == Some("gpuTemperature")
+                })
+            })
+    {
+        return Err("preferences_invalid");
+    }
     if matches!(version, Some(2..=11)) {
         if value.get("windowsCpuTemperatureEnabled").is_some() {
             return Err("preferences_invalid");
@@ -264,9 +287,8 @@ pub fn decode(mut value: serde_json::Value) -> Result<ResidentPreferences, &'sta
             }
             let mut migrated = ResidentPreferences {
                 enabled: previous.enabled,
-                // Migration preserves the legacy presentation independently of
-                // fresh-install defaults, including fields absent in version 1.
-                windows_display_mode: WindowsDisplayMode::Tray,
+                // Preserve legacy metric and position choices. Windows now uses
+                // taskbar presentation for every supported preference version.
                 taskbar_position: TaskbarPosition::Right,
                 ..Default::default()
             };
@@ -276,32 +298,28 @@ pub fn decode(mut value: serde_json::Value) -> Result<ResidentPreferences, &'sta
             Ok(migrated)
         }
         Some(2) => {
-            // Version 2 has no taskbar mode. Retain every saved selection and the
-            // original tray presentation; never opt an existing installation in.
+            // Version 2 predates taskbar settings. Retain metric choices and
+            // migrate the display destination to the sole supported taskbar mode.
             if value.get("windowsDisplayMode").is_some()
                 || value.get("taskbarPosition").is_some()
                 || value.get("taskbarBackground").is_some()
             {
                 return Err("preferences_invalid");
             }
-            value["schemaVersion"] = 12.into();
+            value["schemaVersion"] = 14.into();
             value["taskbarBackground"] = true.into();
             value["windowsDisplayMode"] = "tray".into();
             value["taskbarPosition"] = "right".into();
-            serde_json::from_value::<ResidentPreferences>(value)
-                .map_err(|_| "preferences_invalid")?
-                .normalize()
+            migrate_display_destination(value)
         }
         Some(3) => {
             if value.get("taskbarPosition").is_some() || value.get("taskbarBackground").is_some() {
                 return Err("preferences_invalid");
             }
-            value["schemaVersion"] = 12.into();
+            value["schemaVersion"] = 14.into();
             value["taskbarBackground"] = true.into();
             value["taskbarPosition"] = "right".into();
-            serde_json::from_value::<ResidentPreferences>(value)
-                .map_err(|_| "preferences_invalid")?
-                .normalize()
+            migrate_display_destination(value)
         }
         Some(4) => {
             if !matches!(
@@ -315,11 +333,9 @@ pub fn decode(mut value: serde_json::Value) -> Result<ResidentPreferences, &'sta
             }
             // Existing installations keep the opaque presentation until the
             // user explicitly selects transparency.
-            value["schemaVersion"] = 12.into();
+            value["schemaVersion"] = 14.into();
             value["taskbarBackground"] = true.into();
-            serde_json::from_value::<ResidentPreferences>(value)
-                .map_err(|_| "preferences_invalid")?
-                .normalize()
+            migrate_display_destination(value)
         }
         Some(5) => {
             // Version 5 predates automatic placement. Do not infer whether a saved
@@ -330,33 +346,100 @@ pub fn decode(mut value: serde_json::Value) -> Result<ResidentPreferences, &'sta
             ) {
                 return Err("preferences_invalid");
             }
-            value["schemaVersion"] = 12.into();
-            serde_json::from_value::<ResidentPreferences>(value)
-                .map_err(|_| "preferences_invalid")?
-                .normalize()
+            value["schemaVersion"] = 14.into();
+            migrate_display_destination(value)
         }
         Some(6) => {
-            value["schemaVersion"] = 12.into();
-            serde_json::from_value::<ResidentPreferences>(value)
-                .map_err(|_| "preferences_invalid")?
-                .normalize()
+            value["schemaVersion"] = 14.into();
+            migrate_display_destination(value)
         }
-        Some(7..=12) => {
-            value["schemaVersion"] = 12.into();
-            serde_json::from_value::<ResidentPreferences>(value)
-                .map_err(|_| "preferences_invalid")?
-                .normalize()
+        Some(7..=13) => {
+            value["schemaVersion"] = 14.into();
+            migrate_display_destination(value)
         }
+        Some(14) => serde_json::from_value::<ResidentPreferences>(value)
+            .map_err(|_| "preferences_invalid")?
+            .normalize(),
         _ => Err("preferences_version"),
     }
+}
+
+fn migrate_display_destination(
+    mut value: serde_json::Value,
+) -> Result<ResidentPreferences, &'static str> {
+    if let Some(mode) = value
+        .as_object_mut()
+        .and_then(|object| object.remove("windowsDisplayMode"))
+    {
+        if !matches!(mode.as_str(), Some("taskbar" | "tray")) {
+            return Err("preferences_invalid");
+        }
+    }
+    value["schemaVersion"] = 14.into();
+    serde_json::from_value::<ResidentPreferences>(value)
+        .map_err(|_| "preferences_invalid")?
+        .normalize()
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
     #[test]
+    fn version_thirteen_removes_tray_destination_and_preserves_user_settings() {
+        for mode in ["tray", "taskbar"] {
+            let mut old = serde_json::to_value(ResidentPreferences::default()).unwrap();
+            old["schemaVersion"] = 13.into();
+            old["windowsDisplayMode"] = mode.into();
+            old["gpuAdapter"] = "selected-adapter".into();
+            old["enabled"] = false.into();
+            old["revision"] = 47.into();
+            let migrated = decode(old).unwrap();
+            assert_eq!(migrated.schema_version, 14);
+            assert_eq!(migrated.revision, 47);
+            assert!(!migrated.enabled);
+            assert_eq!(migrated.gpu_adapter.as_deref(), Some("selected-adapter"));
+            let serialized = serde_json::to_value(&migrated).unwrap();
+            assert!(serialized.get("windowsDisplayMode").is_none());
+            assert_eq!(decode(serialized).unwrap(), migrated);
+        }
+        let mut current = serde_json::to_value(ResidentPreferences::default()).unwrap();
+        current["windowsDisplayMode"] = "tray".into();
+        assert!(decode(current).is_err());
+    }
+
+    #[test]
+    fn version_twelve_preserves_gpu_selection_and_appends_unselected_temperature() {
+        let mut value = serde_json::to_value(ResidentPreferences::default()).unwrap();
+        value["schemaVersion"] = 12.into();
+        value["revision"] = 84.into();
+        value["gpuAdapter"] = "fixed-gpu".into();
+        let metrics = value["metrics"].as_array_mut().unwrap();
+        metrics.retain(|metric| metric["id"] != "gpuTemperature");
+        metrics.reverse();
+        let mut expected = metrics.clone();
+        expected.push(serde_json::json!({"id":"gpuTemperature", "enabled":false}));
+        let migrated = decode(value.clone()).unwrap();
+        assert_eq!(migrated.revision, 84);
+        assert_eq!(migrated.gpu_adapter.as_deref(), Some("fixed-gpu"));
+        assert!(!migrated.shows_gpu_temperature());
+        assert_eq!(
+            serde_json::to_value(&migrated).unwrap()["metrics"],
+            serde_json::json!(expected)
+        );
+        value["metrics"]
+            .as_array_mut()
+            .unwrap()
+            .push(serde_json::json!({"id":"gpuTemperature", "enabled":true}));
+        assert!(decode(value).is_err());
+    }
+
+    #[test]
     fn version_eleven_never_opts_into_privileged_collection_during_migration() {
         let mut old = serde_json::to_value(ResidentPreferences::default()).unwrap();
+        old["metrics"]
+            .as_array_mut()
+            .unwrap()
+            .retain(|m| m["id"] != "gpuTemperature");
         old["schemaVersion"] = 11.into();
         old["revision"] = 43.into();
         old["metrics"].as_array_mut().unwrap().reverse();
@@ -365,12 +448,14 @@ mod tests {
             .unwrap()
             .remove("windowsCpuTemperatureEnabled");
         let migrated = decode(old.clone()).unwrap();
+        let mut expected = old["metrics"].clone();
+        expected
+            .as_array_mut()
+            .unwrap()
+            .push(serde_json::json!({"id":"gpuTemperature","enabled":false}));
         assert!(!migrated.windows_cpu_temperature_enabled);
         assert_eq!(migrated.revision, 43);
-        assert_eq!(
-            serde_json::to_value(migrated).unwrap()["metrics"],
-            old["metrics"]
-        );
+        assert_eq!(serde_json::to_value(migrated).unwrap()["metrics"], expected);
         old["windowsCpuTemperatureEnabled"] = true.into();
         assert!(decode(old).is_err());
     }
@@ -385,13 +470,17 @@ mod tests {
         old["revision"] = 42.into();
         old["metrics"].as_array_mut().unwrap().reverse();
         let migrated = decode(old.clone()).unwrap();
-        assert_eq!(migrated.schema_version, 12);
+        assert_eq!(migrated.schema_version, 14);
         assert_eq!(migrated.revision, 42);
         let mut expected = old["metrics"].clone();
         expected
             .as_array_mut()
             .unwrap()
             .push(serde_json::json!({"id":"cpuTemperature","enabled":false}));
+        expected
+            .as_array_mut()
+            .unwrap()
+            .push(serde_json::json!({"id":"gpuTemperature","enabled":false}));
         assert_eq!(
             serde_json::to_value(&migrated).unwrap()["metrics"],
             expected
@@ -442,7 +531,7 @@ mod tests {
         value["metrics"]
             .as_array_mut()
             .unwrap()
-            .retain(|metric| metric["id"] != "cpuTemperature");
+            .retain(|metric| metric["id"] != "cpuTemperature" && metric["id"] != "gpuTemperature");
         value
     }
 
@@ -479,7 +568,7 @@ mod tests {
         old["networkInterface"] = "wifi".into();
         old.as_object_mut().unwrap().remove("gpuAdapter");
         let migrated = decode(old.clone()).unwrap();
-        assert_eq!(migrated.schema_version, 12);
+        assert_eq!(migrated.schema_version, 14);
         assert_eq!(migrated.network_interface.as_deref(), Some("wifi"));
         assert!(migrated.gpu_adapter.is_none());
         old["gpuAdapter"] = "unexpected".into();
@@ -513,7 +602,7 @@ mod tests {
             {"id":"network", "enabled":true}, {"id":"disk", "enabled":false}
         ]);
         let migrated = decode(old).unwrap();
-        assert_eq!(migrated.schema_version, 12);
+        assert_eq!(migrated.schema_version, 14);
         assert_eq!(migrated.revision, 42);
         assert_eq!(
             migrated
@@ -527,7 +616,8 @@ mod tests {
                 DisplayMetricId::Network,
                 DisplayMetricId::Disk,
                 DisplayMetricId::Gpu,
-                DisplayMetricId::CpuTemperature
+                DisplayMetricId::CpuTemperature,
+                DisplayMetricId::GpuTemperature
             ]
         );
         assert!(!migrated.shows(MetricId::Gpu));
@@ -544,7 +634,7 @@ mod tests {
             selected
         );
         let mut future = serde_json::to_value(selected).unwrap();
-        future["schemaVersion"] = 13.into();
+        future["schemaVersion"] = 15.into();
         assert!(decode(future).is_err());
     }
 
@@ -581,8 +671,12 @@ mod tests {
             .as_array_mut()
             .unwrap()
             .push(serde_json::json!({"id":"cpuTemperature", "enabled":false}));
+        order
+            .as_array_mut()
+            .unwrap()
+            .push(serde_json::json!({"id":"gpuTemperature","enabled":false}));
         let migrated = decode(old).unwrap();
-        assert_eq!(migrated.schema_version, 12);
+        assert_eq!(migrated.schema_version, 14);
         assert!(!migrated.menu_bar_compact);
         assert!(migrated.usage_colors);
         assert_eq!(serde_json::to_value(migrated).unwrap()["metrics"], order);
@@ -612,7 +706,8 @@ mod tests {
                 DisplayMetricId::Disk,
                 DisplayMetricId::Network,
                 DisplayMetricId::Gpu,
-                DisplayMetricId::CpuTemperature
+                DisplayMetricId::CpuTemperature,
+                DisplayMetricId::GpuTemperature
             ]
         );
         assert!(migrated.shows(MetricId::Network));
@@ -657,7 +752,7 @@ mod tests {
             old.as_object_mut().unwrap().remove("taskbarCompact");
             old["taskbarPosition"] = position.into();
             let migrated = decode(old).unwrap();
-            assert_eq!(migrated.schema_version, 12);
+            assert_eq!(migrated.schema_version, 14);
             assert_eq!(
                 serde_json::to_value(migrated).unwrap()["taskbarPosition"],
                 position
@@ -694,10 +789,6 @@ mod tests {
     fn fresh_preferences_show_logo_cpu_memory_with_automatic_taskbar_position() {
         let preferences = ResidentPreferences::default();
         assert!(preferences.enabled && preferences.show_icon && preferences.taskbar_background);
-        assert_eq!(
-            preferences.windows_display_mode,
-            WindowsDisplayMode::Taskbar
-        );
         assert_eq!(preferences.taskbar_position, TaskbarPosition::Auto);
         assert_eq!(
             preferences
@@ -714,7 +805,6 @@ mod tests {
     #[test]
     fn saved_preferences_are_not_replaced_by_new_install_defaults() {
         let mut saved = ResidentPreferences {
-            windows_display_mode: WindowsDisplayMode::Tray,
             taskbar_position: TaskbarPosition::Right,
             enabled: false,
             show_icon: false,
@@ -738,19 +828,18 @@ mod tests {
                     serde_json::json!({"schemaVersion":1,"enabled":enabled,"showMemory":memory}),
                 )
                 .unwrap();
-                assert_eq!(migrated.windows_display_mode, WindowsDisplayMode::Tray);
                 assert_eq!(migrated.taskbar_position, TaskbarPosition::Right);
                 assert_eq!(migrated.enabled, enabled);
                 assert_eq!(migrated.shows(MetricId::Memory), memory);
                 assert!(migrated.show_icon);
                 assert!(!migrated.shows(MetricId::Cpu));
-                assert_eq!(migrated.schema_version, 12);
+                assert_eq!(migrated.schema_version, 14);
             }
         }
     }
 
     #[test]
-    fn version_two_migrates_to_tray_without_changing_choices() {
+    fn version_two_migrates_to_taskbar_without_changing_metric_choices() {
         let mut old = legacy_preferences();
         old["schemaVersion"] = 2.into();
         old.as_object_mut()
@@ -764,7 +853,6 @@ mod tests {
         old.as_object_mut().unwrap().remove("windowsDisplayMode");
         old.as_object_mut().unwrap().remove("taskbarPosition");
         let migrated = decode(old).unwrap();
-        assert_eq!(migrated.windows_display_mode, WindowsDisplayMode::Tray);
         assert_eq!(migrated.revision, 17);
         assert!(!migrated.show_icon);
         assert_eq!(
@@ -774,7 +862,7 @@ mod tests {
     }
 
     #[test]
-    fn version_three_preserves_taskbar_mode_and_defaults_to_right() {
+    fn version_three_preserves_choices_and_defaults_to_right() {
         let mut old = legacy_preferences();
         old["schemaVersion"] = 3.into();
         old.as_object_mut()
@@ -788,7 +876,6 @@ mod tests {
         old.as_object_mut().unwrap().remove("taskbarPosition");
         let migrated = decode(old).unwrap();
         assert_eq!(migrated.taskbar_position, TaskbarPosition::Right);
-        assert_eq!(migrated.windows_display_mode, WindowsDisplayMode::Taskbar);
         assert_eq!(migrated.revision, 42);
         let mut current = serde_json::to_value(migrated).unwrap();
         current["taskbarPosition"] = "left".into();
@@ -815,7 +902,6 @@ mod tests {
         let migrated = decode(old.clone()).unwrap();
         assert!(migrated.taskbar_background);
         assert_eq!(migrated.taskbar_position, TaskbarPosition::Left);
-        assert_eq!(migrated.windows_display_mode, WindowsDisplayMode::Taskbar);
         let mut current = serde_json::to_value(migrated).unwrap();
         current["taskbarBackground"] = false.into();
         assert!(!decode(current.clone()).unwrap().taskbar_background);
@@ -842,7 +928,7 @@ mod tests {
         }
         .normalize()
         .unwrap();
-        assert_eq!(preferences.metrics.len(), 6);
+        assert_eq!(preferences.metrics.len(), 7);
         assert_eq!(preferences.metrics[0].id, DisplayMetricId::Network);
         assert!(preferences.shows(MetricId::Network));
         assert!(!preferences.shows(MetricId::Memory));
@@ -876,7 +962,14 @@ mod tests {
                 }
                 assert_eq!(
                     preferences.effective_icon(),
-                    show_icon || (bits == 0 || (!cfg!(target_os = "macos") && bits == 2))
+                    show_icon
+                        || !preferences.metrics.iter().any(|m| m.enabled
+                            && match m.id {
+                                DisplayMetricId::CpuTemperature => cfg!(target_os = "macos"),
+                                DisplayMetricId::GpuTemperature =>
+                                    cfg!(any(target_os = "macos", windows)),
+                                _ => true,
+                            })
                 );
                 assert!(
                     preferences.effective_icon()

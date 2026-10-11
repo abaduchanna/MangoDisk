@@ -68,7 +68,7 @@ pub fn columns(
                     match entry.id {
                         DisplayId::Cpu => "CPU",
                         DisplayId::CpuTemperature => "CPU",
-                        DisplayId::Gpu => "GPU",
+                        DisplayId::Gpu | DisplayId::GpuTemperature => "GPU",
                         DisplayId::Memory => "MEM",
                         _ => "DISK",
                     }
@@ -86,7 +86,10 @@ pub fn columns(
                         entry.digits,
                         if entry.digits == "—" {
                             ""
-                        } else if entry.id == DisplayId::CpuTemperature {
+                        } else if matches!(
+                            entry.id,
+                            DisplayId::CpuTemperature | DisplayId::GpuTemperature
+                        ) {
                             "°C"
                         } else {
                             "%"
@@ -95,7 +98,10 @@ pub fn columns(
                 },
                 // Compact units save width without discarding numeric precision.
                 // Four numeric characters cover 99.9 and a rounded 1000.
-                width: ((if entry.id == DisplayId::CpuTemperature {
+                width: ((if matches!(
+                    entry.id,
+                    DisplayId::CpuTemperature | DisplayId::GpuTemperature
+                ) {
                     // Three digits plus Celsius fit at every supported DPI.
                     44
                 } else {
