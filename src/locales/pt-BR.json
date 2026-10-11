@@ -4180,6 +4180,7 @@
     "label": "Temperatura da CPU",
     "coreAverageHint": "Média de {count} sensores legíveis dos núcleos da CPU",
     "packageHint": "Temperatura do pacote da CPU; maior valor entre {count} sensores",
+    "amdZenHint": "Temperatura do chip AMD (Tdie), com os offsets de Tctl dos modelos aplicáveis removidos",
     "coreMaximumHint": "Maior temperatura entre {count} sensores dos núcleos da CPU",
     "unsupportedHint": "O MangoDisk não consegue ler um sensor de temperatura da CPU identificado neste dispositivo",
     "trend": "Temperatura da CPU no último minuto, em graus Celsius"
@@ -4212,13 +4213,13 @@
       "removalFailed": "A remoção não foi concluída. Atualize o status e tente novamente"
     },
     "disabledHint": "A coleta da temperatura da CPU está desativada. Ative nas configurações dos itens exibidos",
-    "supportHint": "Oferece temperatura do pacote de CPUs Intel em PCs x64 compatíveis",
+    "supportHint": "Oferece temperaturas do pacote Intel e do chip AMD em PCs x64 compatíveis",
     "collectionHint": "A temperatura é registrada enquanto o MangoDisk está em execução",
     "displayHint": "Ocultar a temperatura não interrompe o registro",
     "more": "Mais",
     "installBody": "Instale o serviço de coleta do MangoDisk para ver a temperatura da CPU e sua evolução",
     "enableHint": "Ative para ver a temperatura da CPU e sua evolução",
-    "supportSummary": "Compatível com alguns PCs Intel",
+    "supportSummary": "Compatível com alguns PCs Intel e AMD",
     "repairHint": "A coleta de temperatura está indisponível. Tente reparar o serviço de coleta",
     "unsupportedHint": "Este dispositivo não oferece suporte à coleta de temperatura da CPU",
     "repairDescription": "Reinstalar o serviço de coleta e verificar o driver",

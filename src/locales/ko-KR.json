@@ -4180,6 +4180,7 @@
     "label": "CPU 온도",
     "coreAverageHint": "읽을 수 있는 CPU 코어 센서 {count}개의 평균 온도",
     "packageHint": "CPU 패키지 온도: 센서 {count}개의 최댓값",
+    "amdZenHint": "AMD CPU 다이 온도(Tdie). 해당 모델의 Tctl 온도 오프셋을 제거한 값",
     "coreMaximumHint": "CPU 코어 센서 {count}개의 최고 온도",
     "unsupportedHint": "MangoDisk가 이 기기에서 확인된 CPU 온도 센서를 읽을 수 없습니다",
     "trend": "최근 1분간 CPU 온도(섭씨)"
@@ -4212,13 +4213,13 @@
       "removalFailed": "제거가 완료되지 않았습니다. 상태를 새로 고친 후 다시 시도하세요"
     },
     "disabledHint": "CPU 온도 수집이 꺼져 있습니다. 표시 항목 설정에서 활성화할 수 있습니다",
-    "supportHint": "호환되는 x64 PC의 Intel CPU 패키지 온도를 지원합니다",
+    "supportHint": "호환되는 x64 PC에서 Intel CPU 패키지 온도와 AMD CPU 다이 온도를 지원합니다",
     "collectionHint": "MangoDisk 실행 중에는 온도 추이를 계속 기록합니다",
     "displayHint": "온도 표시를 숨겨도 기록은 계속됩니다",
     "more": "더 보기",
     "installBody": "MangoDisk 수집 서비스를 설치하면 CPU 온도와 추이를 볼 수 있습니다",
     "enableHint": "활성화하면 CPU 온도와 추이를 볼 수 있습니다",
-    "supportSummary": "현재 일부 Intel PC를 지원합니다",
+    "supportSummary": "일부 Intel 및 AMD PC 지원",
     "repairHint": "온도를 수집할 수 없습니다. 수집 서비스를 복구하세요",
     "unsupportedHint": "이 기기는 CPU 온도 수집을 지원하지 않습니다",
     "repairDescription": "수집 서비스를 다시 설치하고 드라이버 확인",

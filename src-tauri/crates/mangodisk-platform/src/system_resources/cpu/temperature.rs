@@ -26,6 +26,7 @@ pub enum CpuTemperatureSource {
     AppleSmc,
     LinuxHwmon,
     IntelDtsPawnIo,
+    AmdZenPawnIo,
 }
 
 #[derive(Debug, Clone, Serialize)]

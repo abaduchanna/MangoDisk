@@ -4180,6 +4180,7 @@
     "label": "CPU sıcaklığı",
     "coreAverageHint": "Okunabilen {count} CPU çekirdek sensörünün ortalama sıcaklığı",
     "packageHint": "CPU paket sıcaklığı; {count} sensörün en yüksek değeri",
+    "amdZenHint": "AMD CPU yonga sıcaklığı (Tdie); ilgili modellerin Tctl sıcaklık farkı çıkarılmıştır",
     "coreMaximumHint": "{count} CPU çekirdek sensörünün en yüksek sıcaklığı",
     "unsupportedHint": "MangoDisk bu cihazda doğrulanmış bir CPU sıcaklık sensörünü okuyamıyor",
     "trend": "Son bir dakikadaki CPU sıcaklığı, Santigrat derece"
@@ -4212,13 +4213,13 @@
       "removalFailed": "Kaldırma tamamlanmadı. Durumu yenileyip tekrar deneyin"
     },
     "disabledHint": "CPU sıcaklığı toplama kapalı. Görüntüleme öğeleri ayarlarından etkinleştirin",
-    "supportHint": "Uyumlu x64 bilgisayarlarda Intel CPU paket sıcaklığını destekler",
+    "supportHint": "Uyumlu x64 bilgisayarlarda Intel paket ve AMD yonga sıcaklıklarını destekler",
     "collectionHint": "MangoDisk çalışırken sıcaklık kaydedilir",
     "displayHint": "Sıcaklık göstergesini gizlemek kaydı durdurmaz",
     "more": "Diğer",
     "installBody": "CPU sıcaklığını ve grafiğini görmek için MangoDisk toplama hizmetini yükleyin",
     "enableHint": "CPU sıcaklığını ve grafiğini görmek için etkinleştirin",
-    "supportSummary": "Şu anda bazı Intel bilgisayarlar destekleniyor",
+    "supportSummary": "Bazı Intel ve AMD bilgisayarları destekler",
     "repairHint": "Sıcaklık toplama kullanılamıyor. Toplama hizmetini onarmayı deneyin",
     "unsupportedHint": "Bu cihazda CPU sıcaklığı toplama desteklenmiyor",
     "repairDescription": "Toplama hizmetini yeniden yükle ve sürücüyü kontrol et",

@@ -14,3 +14,9 @@ pub const INTEL_MODULE: Artifact = Artifact {
     sha256: "d6ed85d65ab17a22f813ef98207d6d537155ee2ded5976a21cb48413c9b92e5f",
     maximum_bytes: 64 * 1024,
 };
+
+pub const AMD_ZEN_MODULE: Artifact = Artifact {
+    file_name: "AMDFamily17.bin",
+    sha256: "dae74615761b78bdf064dfb3e136252ddcc6fc727d88f14738d0e5800d427a91",
+    maximum_bytes: 64 * 1024,
+};

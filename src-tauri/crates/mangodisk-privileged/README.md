@@ -30,15 +30,21 @@ Keep collectors independent and avoid a generic elevated command dispatcher.
 
 ## CPU temperature
 
-The first implementation supports single-package Intel x64 DTS. It validates the
-sensor-valid bit, TjMax, and the reported distance below TjMax. It does not
-substitute ACPI thermal zones or estimate a temperature from CPU utilization.
-AMD, ARM64, multiple CPU packages, and environments without valid DTS data
-remain unsupported.
+The collector supports single-package x64 Intel DTS and AMD Zen families 17h,
+19h, and 1Ah. Intel readings validate the sensor-valid bit, TjMax, and the
+reported distance below TjMax. AMD reads the fixed `THM_TCON_CUR_TMP` SMN
+register, applies its range selectors, and removes documented early-Zen Tctl
+model offsets to report Tdie. It does not substitute ACPI thermal zones or
+estimate temperature from utilization. ARM64, older AMD families, multiple CPU
+packages, and environments without valid native sensor data remain unsupported.
 
-The collector uses signed PawnIO with a pinned signed IntelMSR module. Only
-the fixed temperature target and package thermal-status registers are read.
-Both reads run on the same processor and restore the thread's affinity.
+The collector uses signed PawnIO with pinned IntelMSR and AMDFamily17 modules.
+Installation deploys the module selected by the host's CPUID identity. Only
+fixed temperature registers are read; no register or write command crosses IPC.
+Intel reads run on the same processor and restore the thread's affinity. AMD's
+SMN index/data transaction is protected by the shared `Global\Access_PCI` mutex
+with a bounded wait, coordinating with other monitoring applications. Selecting
+an SMN index does not change thermal controls, clock settings, or power limits.
 Clients share a four-second cache whose original sample time is retained.
 Idle collection releases the module and driver handle after fifteen seconds;
 the service performs no periodic sampling without requests. Failed reads

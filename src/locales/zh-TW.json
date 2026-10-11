@@ -4180,6 +4180,7 @@
     "label": "CPU 溫度",
     "coreAverageHint": "{count} 個可讀取 CPU 核心感測器的平均溫度",
     "packageHint": "CPU 封裝溫度；取 {count} 個感測器的最高值",
+    "amdZenHint": "AMD CPU 晶片溫度（Tdie），已扣除適用型號的 Tctl 溫度偏移",
     "coreMaximumHint": "{count} 個 CPU 核心感測器的最高溫度",
     "unsupportedHint": "MangoDisk 無法在此裝置讀取已確認的 CPU 溫度感測器",
     "trend": "最近一分鐘 CPU 溫度，單位攝氏度"
@@ -4212,13 +4213,13 @@
       "removalFailed": "移除未完成，請重新整理狀態後重試"
     },
     "disabledHint": "CPU 溫度採集尚未啟用，可在顯示項目設定中開啟",
-    "supportHint": "支援相容 x64 電腦的 Intel CPU 封裝溫度",
+    "supportHint": "支援相容 x64 電腦的 Intel CPU 封裝溫度和 AMD CPU 晶片溫度",
     "collectionHint": "MangoDisk 執行時持續記錄溫度曲線",
     "displayHint": "隱藏溫度顯示後，仍會繼續記錄溫度曲線",
     "more": "更多",
     "installBody": "安裝 MangoDisk 採集服務，即可查看 CPU 溫度和溫度曲線",
     "enableHint": "啟用後，即可查看 CPU 溫度和溫度曲線",
-    "supportSummary": "目前支援部分 Intel 電腦",
+    "supportSummary": "支援部分 Intel 和 AMD 電腦",
     "repairHint": "溫度採集暫時無法使用，請嘗試修復採集服務",
     "unsupportedHint": "此裝置暫不支援 CPU 溫度採集",
     "repairDescription": "重新安裝採集服務，並檢查驅動程式",

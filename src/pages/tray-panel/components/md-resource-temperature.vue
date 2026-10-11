@@ -43,11 +43,13 @@ const statusText = computed(() =>
 const hint = computed(() =>
   value.value
     ? t(
-        value.value.kind === 'sensorAverage'
-          ? 'gpuTemperature.sensorAverageHint'
-          : value.value.kind === 'device'
-            ? 'gpuTemperature.deviceHint'
-            : hintKeys[value.value.kind],
+        value.value.source === 'amdZenPawnIo'
+          ? 'cpuTemperature.amdZenHint'
+          : value.value.kind === 'sensorAverage'
+            ? 'gpuTemperature.sensorAverageHint'
+            : value.value.kind === 'device'
+              ? 'gpuTemperature.deviceHint'
+              : hintKeys[value.value.kind],
         { count: value.value.sensorCount }
       )
     : props.reading.status === 'unsupported'

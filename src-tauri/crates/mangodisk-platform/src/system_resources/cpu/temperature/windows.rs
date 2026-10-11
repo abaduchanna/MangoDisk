@@ -1,15 +1,21 @@
 use super::{unsupported, CpuTemperature, CpuTemperatureKind, CpuTemperatureSource};
 use crate::{PlatformError, PlatformErrorCode, PlatformResult};
-use mangodisk_privileged::windows::{client, deployment};
+use mangodisk_privileged::{
+    cpu_temperature::CpuTemperatureSensor,
+    windows::{client, deployment},
+};
 use mangodisk_privileged_protocol::{CapabilityStatus, Operation, Reply};
 
-pub(super) struct Reader;
+pub(super) struct Reader {
+    source: CpuTemperatureSource,
+}
 impl Reader {
     pub(super) fn new() -> PlatformResult<Self> {
-        if !deployment::hardware_supported() {
-            return Err(unsupported());
-        }
-        Ok(Self)
+        let source = match deployment::temperature_sensor().ok_or_else(unsupported)? {
+            CpuTemperatureSensor::IntelPackageDts => CpuTemperatureSource::IntelDtsPawnIo,
+            CpuTemperatureSensor::AmdZen { .. } => CpuTemperatureSource::AmdZenPawnIo,
+        };
+        Ok(Self { source })
     }
     pub(super) fn read(&mut self) -> PlatformResult<CpuTemperature> {
         let response = client::request(Operation::CpuTemperature).map_err(|error| {
@@ -33,7 +39,7 @@ impl Reader {
                 Ok(CpuTemperature {
                     celsius: reading.celsius,
                     kind: CpuTemperatureKind::Package,
-                    source: CpuTemperatureSource::IntelDtsPawnIo,
+                    source: self.source,
                     sensor_count: 1,
                     sampled_at_ms: Some(reading.sampled_at_ms),
                 })

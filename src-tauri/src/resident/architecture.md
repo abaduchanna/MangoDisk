@@ -808,8 +808,11 @@ is explicitly labeled as such, never as a package reading. These private
 interfaces require per-chip and OS validation; available readings do not establish
 support for every Mac. Linux recognizes coretemp package/core sensors and k10temp
 Tdie, excluding Tctl offsets and anonymous thermal zones. Windows uses the optional
-privileged collection service for supported Intel package sensors; public ACPI
-zone readings are intentionally unsupported rather than mislabeled. Unsupported
+privileged collection service for single-package x64 Intel DTS and AMD Zen
+families 17h, 19h, and 1Ah. AMD reads the fixed SMN temperature register through
+the signed PawnIO module, applies range and documented Tctl offsets, and labels
+the result Tdie. PCI configuration access uses a shared, bounded native mutex.
+Public ACPI zone readings are intentionally unsupported rather than mislabeled. Unsupported
 devices omit the entire temperature section, while failed or stale values display
 an em dash rather than a cached number.
 
@@ -827,7 +830,7 @@ The column keeps a fixed width and displays `—` for unavailable or expired dat
 
 The display checkbox does not control collection. macOS samples temperature every
 four seconds while resident monitoring is enabled. Windows requires explicit
-consent for its optional privileged Intel CPU collection service; once enabled,
+consent for its optional privileged CPU collection service; once enabled,
 it continues independently of panel visibility and resident display selection.
 Linux omits the CPU temperature display item. Unsupported devices omit the entire
 temperature section in CPU details.

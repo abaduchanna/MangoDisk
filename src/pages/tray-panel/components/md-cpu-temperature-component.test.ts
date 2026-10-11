@@ -25,6 +25,21 @@ const render = (compact = false) =>
     global: { plugins: [createI18n({ legacy: false, locale: 'en-US', messages: { 'en-US': enUS } })] },
   });
 describe('CPU temperature presentation', () => {
+  it('describes AMD die temperature without the Intel package sensor hint', async () => {
+    const wrapper = render();
+    try {
+      await wrapper.setProps({
+        reading: {
+          ...reading(),
+          value: { celsius: 65, kind: 'package', source: 'amdZenPawnIo', sensorCount: 1 },
+        },
+      });
+      expect(wrapper.getComponent(MdTooltip).props('text')).toBe(enUS.cpuTemperature.amdZenHint);
+      expect(wrapper.get('strong').text()).toBe('65°C');
+    } finally {
+      wrapper.unmount();
+    }
+  });
   it.each([48.5, 49.5, 50.5, 148.5])('rounds %s degrees consistently in overview and details', async celsius => {
     for (const compact of [false, true]) {
       const wrapper = render(compact);

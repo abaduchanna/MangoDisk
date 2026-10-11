@@ -1,6 +1,6 @@
 //! Installation is the only mutation boundary; runtime IPC exposes read-only facts.
 use super::{cpu, security};
-use crate::artifacts::{Artifact, INTEL_MODULE, PAWNIO_INSTALLER};
+use crate::artifacts::{Artifact, AMD_ZEN_MODULE, INTEL_MODULE, PAWNIO_INSTALLER};
 use mangodisk_privileged_protocol::SERVICE_NAME;
 use sha2::{Digest, Sha256};
 use std::os::windows::{fs::OpenOptionsExt, io::AsRawHandle};
@@ -44,6 +44,9 @@ type Result<T> = std::result::Result<T, Box<dyn std::error::Error>>;
 
 pub fn hardware_supported() -> bool {
     cpu::hardware_supported()
+}
+pub fn temperature_sensor() -> Option<crate::cpu_temperature::CpuTemperatureSensor> {
+    cpu::sensor()
 }
 pub fn install_directory() -> io::Result<PathBuf> {
     Ok(security::program_files()?.join("MangoDiskPrivileged"))
@@ -221,7 +224,7 @@ pub(super) fn stop_service(service: &windows_service::service::Service) -> Resul
     }
     Ok(())
 }
-pub fn install(installer: &[u8], module: &[u8]) -> Result<()> {
+pub(crate) fn install(installer: &[u8], module: &[u8], artifact: &Artifact) -> Result<()> {
     let started = Instant::now();
     super::diagnostics::info(format!(
         "service_install_started version={}",
@@ -236,7 +239,7 @@ pub fn install(installer: &[u8], module: &[u8]) -> Result<()> {
     }
     // Embedded payloads come from the helper image, never a client-supplied path.
     // Validate before touching the driver or the existing service.
-    verify_artifact(module, &INTEL_MODULE)?;
+    verify_artifact(module, artifact)?;
     let directory = install_directory()?;
     protect_directory(&directory)?;
     let _lock = installation_lock(&directory)?;
@@ -294,7 +297,7 @@ pub fn install(installer: &[u8], module: &[u8]) -> Result<()> {
     let mut replacements = Vec::new();
     for (name, bytes) in [
         (EXECUTABLE_NAME, executable.as_slice()),
-        (INTEL_MODULE.file_name, module),
+        (artifact.file_name, module),
     ] {
         for suffix in ["", ".next", ".previous"] {
             let path = directory.join(format!("{name}{suffix}"));
@@ -467,6 +470,7 @@ pub fn uninstall(remove_driver: bool) -> Result<()> {
         for name in [
             EXECUTABLE_NAME,
             INTEL_MODULE.file_name,
+            AMD_ZEN_MODULE.file_name,
             PAWNIO_INSTALLER.file_name,
         ] {
             for suffix in ["", ".next", ".previous"] {

@@ -4180,6 +4180,7 @@
     "label": "CPU 温度",
     "coreAverageHint": "{count} 个可读取 CPU 核心传感器的平均温度",
     "packageHint": "CPU 封装温度；取 {count} 个传感器的最高值",
+    "amdZenHint": "AMD CPU 芯片温度（Tdie），已扣除适用型号的 Tctl 温度偏移",
     "coreMaximumHint": "{count} 个 CPU 核心传感器的最高温度",
     "unsupportedHint": "MangoDisk 无法在此设备读取已确认的 CPU 温度传感器",
     "trend": "最近一分钟 CPU 温度，单位摄氏度"
@@ -4212,13 +4213,13 @@
       "removalFailed": "移除未完成，请刷新状态后重试"
     },
     "disabledHint": "CPU 温度采集尚未启用，可在显示项目设置中开启",
-    "supportHint": "支持兼容 x64 电脑的 Intel CPU 封装温度",
+    "supportHint": "支持兼容 x64 电脑的 Intel CPU 封装温度和 AMD CPU 芯片温度",
     "collectionHint": "MangoDisk 运行时持续记录温度曲线",
     "displayHint": "隐藏温度显示后，仍会继续记录温度曲线",
     "more": "更多",
     "installBody": "安装 MangoDisk 采集服务，即可查看 CPU 温度和温度曲线",
     "enableHint": "启用后，即可查看 CPU 温度和温度曲线",
-    "supportSummary": "目前支持部分 Intel 电脑",
+    "supportSummary": "支持部分 Intel 和 AMD 电脑",
     "repairHint": "温度采集暂不可用，请尝试修复采集服务",
     "unsupportedHint": "此设备暂不支持 CPU 温度采集",
     "repairDescription": "重新安装采集服务，并检查驱动",

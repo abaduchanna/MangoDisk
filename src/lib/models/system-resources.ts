@@ -85,7 +85,7 @@ export const CPU_TEMPERATURE_FRESHNESS_MS = 10_000;
 export interface CpuTemperature {
   celsius: number;
   kind: 'coreAverage' | 'package' | 'coreMaximum';
-  source: 'appleSmc' | 'linuxHwmon' | 'intelDtsPawnIo';
+  source: 'appleSmc' | 'linuxHwmon' | 'intelDtsPawnIo' | 'amdZenPawnIo';
   sensorCount: number;
 }
 export const GPU_TEMPERATURE_FRESHNESS_MS = 10_000;

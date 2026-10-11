@@ -4180,6 +4180,7 @@
     "label": "CPU 温度",
     "coreAverageHint": "読み取り可能な CPU コアセンサー {count} 個の平均温度",
     "packageHint": "CPU パッケージ温度：{count} 個のセンサーの最高値",
+    "amdZenHint": "AMD CPU ダイ温度（Tdie）。対象モデルの Tctl 温度オフセットを補正済み",
     "coreMaximumHint": "CPU コアセンサー {count} 個の最高温度",
     "unsupportedHint": "MangoDisk はこのデバイスで CPU 温度センサーを確認して読み取ることができません",
     "trend": "直近1分間の CPU 温度（摂氏）"
@@ -4212,13 +4213,13 @@
       "removalFailed": "削除が未完了です。状態を更新して再試行してください"
     },
     "disabledHint": "CPU 温度の収集は無効です。表示項目の設定で有効にできます",
-    "supportHint": "対応 x64 PC の Intel CPU パッケージ温度をサポートします",
+    "supportHint": "対応 x64 PC の Intel CPU パッケージ温度と AMD CPU ダイ温度をサポートします",
     "collectionHint": "MangoDisk の実行中は温度の推移を記録します",
     "displayHint": "温度表示を非表示にしても記録は続きます",
     "more": "その他",
     "installBody": "MangoDisk 取得サービスで CPU 温度と推移を表示します",
     "enableHint": "有効にすると CPU 温度と推移を確認できます",
-    "supportSummary": "一部の Intel PC に対応",
+    "supportSummary": "一部の Intel・AMD PC に対応",
     "repairHint": "温度を取得できません。取得サービスを修復してください",
     "unsupportedHint": "このデバイスでは CPU 温度の取得に対応していません",
     "repairDescription": "取得サービスを再インストールし、ドライバーを確認",

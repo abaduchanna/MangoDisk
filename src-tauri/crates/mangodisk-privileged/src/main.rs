@@ -8,6 +8,7 @@ fn main() {
     if let Err(error) = mangodisk_privileged::windows::run(
         vendor_payloads::PAWNIO_INSTALLER_BYTES,
         vendor_payloads::INTEL_MSR_MODULE_BYTES,
+        vendor_payloads::AMD_ZEN_MODULE_BYTES,
     ) {
         let code = error
             .downcast_ref::<std::io::Error>()

@@ -2,7 +2,7 @@
 use mangodisk_platform::system_resources::cpu::{
     details::CpuDetailsReader, temperature::CpuTemperatureReader,
 };
-use std::time::{Duration, Instant};
+use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 fn main() {
     let samples = std::env::args()
         .nth(1)
@@ -28,8 +28,8 @@ fn main() {
         let value = reader.read();
         println!(
             "{}",
-            serde_json::json!({"coldMicros":cold,"readMicros":start.elapsed().as_micros(),"value":value.as_ref().ok(), "error":value.as_ref().err().map(|e|e.diagnostic())})
+            serde_json::json!({"coldMicros":cold,"readMicros":start.elapsed().as_micros(),"sampledAtMs":value.as_ref().ok().and_then(|v|v.sampled_at_ms), "observedAtMs":SystemTime::now().duration_since(UNIX_EPOCH).unwrap_or_default().as_millis(), "value":value.as_ref().ok(), "error":value.as_ref().err().map(|e|e.diagnostic())})
         );
-        std::thread::sleep(Duration::from_secs(1));
+        std::thread::sleep(Duration::from_millis(4010));
     }
 }
