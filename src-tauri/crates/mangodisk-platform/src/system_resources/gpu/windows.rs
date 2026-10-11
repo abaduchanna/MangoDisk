@@ -367,36 +367,43 @@ impl GpuReader {
             return Err(unsupported());
         }
         if let Some(failure) = self.retry.pending(Instant::now()) {
+            self.retry.sample_failed();
             return Err(self.error(failure));
         }
-        let result = (|| {
-            if self.query.is_none() {
-                self.query = Some(Query::open()?);
-            }
-            let query = self.query.as_mut().expect("query was acquired");
-            let memory_enabled =
-                detailed && self.memory_retry_at.is_none_or(|at| Instant::now() >= at);
-            if let Err(error) = query.set_memory(memory_enabled) {
-                if self.memory_failure != Some(error) {
-                    log::warn!(
-                        "gpu_memory_unavailable stage={} native_code={:#x} retry_seconds=30",
-                        error.stage,
-                        error.code
-                    );
+        let attempt = self.retry.read(
+            || {
+                if self.query.is_none() {
+                    self.query = Some(Query::open()?);
                 }
-                self.memory_failure = Some(error);
-                self.memory_retry_at = Some(Instant::now() + Duration::from_secs(30));
-            }
-            query.read()
-        })();
-        match result {
+                let query = self.query.as_mut().expect("query was acquired");
+                let memory_enabled =
+                    detailed && self.memory_retry_at.is_none_or(|at| Instant::now() >= at);
+                if let Err(error) = query.set_memory(memory_enabled) {
+                    if self.memory_failure != Some(error) {
+                        log::warn!(
+                            "gpu_memory_unavailable stage={} native_code={:#x} retry_seconds=30",
+                            error.stage,
+                            error.code
+                        );
+                    }
+                    self.memory_failure = Some(error);
+                    self.memory_retry_at = Some(Instant::now() + Duration::from_secs(30));
+                }
+                query.read()
+            },
+            std::thread::sleep,
+        );
+        if !attempt.retain_query {
+            self.query = None;
+        }
+        match attempt.result {
             Ok(values) => {
                 let Some(values) = values else {
                     self.retry.baseline();
                     return Ok(GpuSample::Baseline);
                 };
                 if let Some(recovery) = self.retry.recovered(Instant::now()) {
-                    log::info!("gpu_source_recovered source=pdh_gpu_engine previous_stage={} previous_native_code={:#x} previous_native_name={} failed_attempts={} elapsed_ms={} outcome=valid_sample", recovery.failure.stage, recovery.failure.code, native_name(recovery.failure.code), recovery.attempts, recovery.elapsed.as_millis());
+                    log::info!("gpu_source_recovered source=pdh_gpu_engine previous_stage={} previous_native_code={:#x} previous_native_name={} failed_attempts={} quick_retries={} failed_samples={} elapsed_ms={} outcome=valid_sample", recovery.failure.stage, recovery.failure.code, native_name(recovery.failure.code), recovery.attempts, attempt.quick_retries, recovery.failed_samples, recovery.elapsed.as_millis());
                 }
                 let memory = detailed.then(|| {
                     if self.memory_retry_at.is_some_and(|at| Instant::now() < at) {
@@ -439,16 +446,7 @@ impl GpuReader {
                 }
                 Ok(GpuSample::Usage(readings))
             }
-            Err(error) => {
-                let decision = self.retry.failed(error, Instant::now());
-                if decision.log {
-                    log::warn!("gpu_source_unavailable source=pdh_gpu_engine stage={} native_code={:#x} native_name={} failed_attempts={} retry_after_ms={} action={}", error.stage, error.code, native_name(error.code), decision.attempts, decision.delay.as_millis(), if decision.retain_query { "retain_query" } else { "reopen_query" });
-                }
-                if !decision.retain_query {
-                    self.query = None;
-                }
-                Err(self.error(error))
-            }
+            Err(error) => Err(self.error(error)),
         }
     }
 
