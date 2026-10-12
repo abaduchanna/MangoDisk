@@ -1379,17 +1379,21 @@ mod tests {
                 assert_eq!(
                     preferences.effective_icon(),
                     show_icon
-                        || !preferences.metrics.iter().any(|m| m.enabled
-                            && match m.id {
-                                DisplayMetricId::CpuTemperature => cfg!(target_os = "macos"),
-                                DisplayMetricId::GpuTemperature =>
-                                    cfg!(any(target_os = "macos", windows)),
-                                DisplayMetricId::BatteryTemperature
-                                | DisplayMetricId::ChargingPower
-                                | DisplayMetricId::BatteryPower
-                                | DisplayMetricId::SystemPower => cfg!(target_os = "macos"),
-                                _ => true,
-                            })
+                        || !preferences.metrics.iter().any(|m| {
+                            m.enabled
+                                && (cfg!(target_os = "macos")
+                                    || !matches!(m.id, DisplayMetricId::CpuTemperature))
+                                && (cfg!(any(target_os = "macos", windows))
+                                    || !matches!(m.id, DisplayMetricId::GpuTemperature))
+                                && (cfg!(target_os = "macos")
+                                    || !matches!(
+                                        m.id,
+                                        DisplayMetricId::BatteryTemperature
+                                            | DisplayMetricId::ChargingPower
+                                            | DisplayMetricId::BatteryPower
+                                            | DisplayMetricId::SystemPower
+                                    ))
+                        })
                 );
                 assert!(
                     preferences.effective_icon()

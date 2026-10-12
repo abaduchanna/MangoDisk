@@ -1256,14 +1256,18 @@ mod tests {
             desired(&prefs),
             DisplayId::ALL
                 .into_iter()
-                .filter(|id| match id {
-                    DisplayId::CpuTemperature => cfg!(target_os = "macos"),
-                    DisplayId::GpuTemperature => cfg!(any(target_os = "macos", windows)),
-                    DisplayId::BatteryTemperature
-                    | DisplayId::ChargingPower
-                    | DisplayId::BatteryPower
-                    | DisplayId::SystemPower => cfg!(target_os = "macos"),
-                    _ => true,
+                .filter(|id| {
+                    (cfg!(target_os = "macos") || !matches!(id, DisplayId::CpuTemperature))
+                        && (cfg!(any(target_os = "macos", windows))
+                            || !matches!(id, DisplayId::GpuTemperature))
+                        && (cfg!(target_os = "macos")
+                            || !matches!(
+                                id,
+                                DisplayId::BatteryTemperature
+                                    | DisplayId::ChargingPower
+                                    | DisplayId::BatteryPower
+                                    | DisplayId::SystemPower
+                            ))
                 })
                 .collect::<Vec<_>>()
         );
