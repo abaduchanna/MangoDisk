@@ -1,0 +1,88 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <meta name="theme-color" content="#0d1117" />
+    <title>MangoDisk · Android Cleaner</title>
+    <link rel="stylesheet" href="mobile.css" />
+  </head>
+  <body>
+    <header class="top">
+      <div class="brand">
+        <img src="mangodisk.svg" alt="" onerror="this.style.display='none'" />
+        <div>
+          <h1>MangoDisk</h1>
+          <p>Android Edition · 1.1.7 · Zero-Cloud</p>
+        </div>
+      </div>
+      <span id="permPill" class="pill off">checking…</span>
+    </header>
+
+    <main>
+      <!-- Permission gate -->
+      <section id="permCard" class="card warn hidden">
+        <h2>All-Files Access needed</h2>
+        <p>
+          MangoDisk cleans junk from your shared storage the same way it does on
+          Windows. Grant <b>All files access</b> once — everything still runs
+          100% locally on this device, no data ever leaves your phone.
+        </p>
+        <button id="grantBtn" class="btn primary">Grant All-Files Access</button>
+      </section>
+
+      <!-- Storage overview -->
+      <section class="card">
+        <div class="row">
+          <h2>Storage</h2>
+          <button id="refreshBtn" class="btn ghost small">Refresh</button>
+        </div>
+        <div class="bar"><div id="barFill" class="bar-fill"></div></div>
+        <div class="stats">
+          <div><span id="stUsed">–</span><label>Used</label></div>
+          <div><span id="stFree">–</span><label>Free</label></div>
+          <div><span id="stTotal">–</span><label>Total</label></div>
+        </div>
+      </section>
+
+      <!-- App cache -->
+      <section class="card">
+        <div class="row">
+          <h2>MangoDisk app cache</h2>
+          <span id="appCacheSize" class="mono">–</span>
+        </div>
+        <p class="muted">Temporary files created by MangoDisk itself.</p>
+        <button id="cacheBtn" class="btn">Clear app cache</button>
+      </section>
+
+      <!-- Scan -->
+      <section class="card">
+        <h2>Junk scan</h2>
+        <p class="muted" id="scanHint">
+          Scans shared storage for temp &amp; log files, cache contents, empty
+          folders and very large files. Progress shows live on this screen.
+        </p>
+        <div id="scanProg" class="scanline hidden">Scanned <span id="scanCount">0</span> files…</div>
+        <button id="scanBtn" class="btn primary big">Start Deep Scan</button>
+      </section>
+
+      <!-- Results -->
+      <section id="results" class="hidden">
+        <section class="card total">
+          <div class="row">
+            <h2>Reclaimable</h2>
+            <span id="totalFree" class="mono big-num">0 B</span>
+          </div>
+          <p class="muted" id="scanMeta"></p>
+        </section>
+        <div id="catList"></div>
+        <button id="cleanBtn" class="btn danger big">Clean Selected Items</button>
+      </section>
+
+      <p id="banner" class="banner hidden"></p>
+      <p class="foot">MangoDisk Android Edition · runs 100% locally · no telemetry · GPL-3.0</p>
+    </main>
+
+    <script src="mobile.js"></script>
+  </body>
+</html>
