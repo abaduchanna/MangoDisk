@@ -1,0 +1,1 @@
+.md-ai-hover-row .md-ai-action{opacity:0;pointer-events:none;transition:opacity .14s}.md-ai-hover-row:hover .md-ai-action,.md-ai-hover-row:focus-within .md-ai-action{opacity:1;pointer-events:auto}@media (hover:none){.md-ai-hover-row .md-ai-action{opacity:1;pointer-events:auto}}

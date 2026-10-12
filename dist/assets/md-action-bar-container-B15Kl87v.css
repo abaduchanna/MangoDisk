@@ -1,0 +1,2 @@
+/*! tailwindcss v4.3.3 | MIT License | https://tailwindcss.com */
+.md-action-bar-container[data-v-fc2797c6]{width:100%;min-height:var(--layout-action-bar-height);border-radius:var(--radius);background:var(--card);color:var(--card-foreground);border-width:1px;border-color:var(--border);box-shadow:0 1px 3px var(--shadow-subtle);align-items:center;display:flex}@supports (color:color-mix(in oklab, black, white)){.md-action-bar-container[data-v-fc2797c6]{background:color-mix(in oklab, var(--card) 95%, transparent);-webkit-backdrop-filter:blur(12px);backdrop-filter:blur(12px)}}

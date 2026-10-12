@@ -1,0 +1,49 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/png" href="/mangodisk.png" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>MangoDisk</title>
+    <style>html,body,#app{width:100%;height:100%;margin:0}body{background:#fffaf1;overflow:hidden}.startup-screen{-webkit-user-select:none;user-select:none;background:radial-gradient(circle at 50% 32%,#ff7e001a,#0000 28%),radial-gradient(circle at 68% 18%,#5d9a2a0a,#0000 24%),#fffaf1;place-items:center;width:100%;height:100%;display:grid}.startup-content{pointer-events:none;color:#3a2b23;letter-spacing:-.015em;justify-items:center;gap:14px;font:650 18px/1.2 -apple-system,BlinkMacSystemFont,Segoe UI,sans-serif;display:grid}.startup-mark{-webkit-backdrop-filter:blur(12px);backdrop-filter:blur(12px);background:#ffffffbd;border:1px solid #c557001f;border-radius:28px;place-items:center;width:92px;height:92px;display:grid;box-shadow:0 18px 44px #7b3d0c1a,inset 0 1px #ffffffd1}.startup-mark img{width:74px;height:74px}.startup-progress{background:#c557001f;border-radius:999px;width:78px;height:3px;margin-top:2px;position:relative;overflow:hidden}.startup-progress:after{inset-block:0;border-radius:inherit;content:"";background:linear-gradient(90deg,#0000,#d15b00 34%,#ff8a00 72%,#0000);width:45%;animation:1.15s ease-in-out infinite startup-progress;position:absolute;left:-45%}@media (prefers-color-scheme:dark){body,.startup-screen{background:#211c18}.startup-screen{background:radial-gradient(circle at 50% 32%,#ff7e0021,#0000 29%),radial-gradient(circle at 68% 18%,#64a32f0f,#0000 24%),#211c18}.startup-mark{background:#302822c2;border-color:#ff973d26;box-shadow:0 18px 44px #0000004d,inset 0 1px #ffffff0d}.startup-content{color:#f3e9df}.startup-progress{background:#ff973d24}.startup-progress:after{background:linear-gradient(90deg,#0000,#ff8908 34%,#ffad50 72%,#0000)}}@media (prefers-reduced-motion:reduce){.startup-progress:after{opacity:.72;width:50%;animation:none;left:25%}}@keyframes startup-progress{50%{left:50%}to{left:100%}}</style>
+    <script type="module" crossorigin src="/assets/main-DbyeFxeW.js"></script>
+    <link rel="modulepreload" crossorigin href="/assets/rolldown-runtime-DK3Fl9T5.js">
+    <link rel="modulepreload" crossorigin href="/assets/icons-Bz2MsjFt.js">
+    <link rel="modulepreload" crossorigin href="/assets/vue-runtime-BwOGZHYd.js">
+    <link rel="modulepreload" crossorigin href="/assets/ui-primitives-Bn1scbHj.js">
+    <link rel="modulepreload" crossorigin href="/assets/main-CIRX_ylK.js">
+    <link rel="modulepreload" crossorigin href="/assets/app-update-DAcBQj-f.js">
+    <link rel="modulepreload" crossorigin href="/assets/dist-js-9Pi51W7K.js">
+    <link rel="modulepreload" crossorigin href="/assets/locale-en-us-L64UOh_Y.js">
+    <link rel="modulepreload" crossorigin href="/assets/locale-ja-jp-ddJ9Cx7r.js">
+    <link rel="modulepreload" crossorigin href="/assets/locale-ko-kr-6jVxErdj.js">
+    <link rel="modulepreload" crossorigin href="/assets/locale-pt-br-Dcc83kft.js">
+    <link rel="modulepreload" crossorigin href="/assets/locale-ru-ru-Bot1pc8e.js">
+    <link rel="modulepreload" crossorigin href="/assets/locale-tr-tr-DexKWXm_.js">
+    <link rel="modulepreload" crossorigin href="/assets/locale-zh-cn-CdShyB8z.js">
+    <link rel="modulepreload" crossorigin href="/assets/locale-zh-tw-DTpUGBsa.js">
+    <link rel="modulepreload" crossorigin href="/assets/app-store-Cbhr3PZM.js">
+    <link rel="modulepreload" crossorigin href="/assets/md-application-icon-BQ8CUr7y.js">
+    <link rel="modulepreload" crossorigin href="/assets/path-C3935jVQ.js">
+    <link rel="modulepreload" crossorigin href="/assets/SelectValue-OShBEyBJ.js">
+    <link rel="modulepreload" crossorigin href="/assets/rich-text-DWsdTbCy.js">
+    <link rel="modulepreload" crossorigin href="/assets/md-checkbox-eECK-Ldm.js">
+    <link rel="stylesheet" crossorigin href="/assets/ui-primitives-Dmp4wfVd.css">
+    <link rel="stylesheet" crossorigin href="/assets/main-fRwE4btD.css">
+    <link rel="stylesheet" crossorigin href="/assets/md-application-icon-CflZjUZI.css">
+    <link rel="stylesheet" crossorigin href="/assets/main-UTMM8uy2.css">
+  </head>
+  <body>
+    <div id="app">
+      <div class="startup-screen" data-tauri-drag-region role="status" aria-label="MangoDisk is starting">
+        <div class="startup-content">
+          <span class="startup-mark"
+            ><img src="/mangodisk.svg" width="74" height="74" fetchpriority="high" alt=""
+          /></span>
+          <strong>MangoDisk</strong>
+          <span class="startup-progress" aria-hidden="true"></span>
+        </div>
+      </div>
+    </div>
+  </body>
+</html>

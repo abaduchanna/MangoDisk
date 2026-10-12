@@ -1,0 +1,1 @@
+import{l as e}from"./main-CIRX_ylK.js";import{Kr as t,hi as n,vi as r}from"./icons-Bz2MsjFt.js";var i={},a={class:`md-action-bar-container`};function o(e,i){return n(),t(`div`,a,[r(e.$slots,`default`,{},void 0,!0)])}var s=e(i,[[`render`,o],[`__scopeId`,`data-v-fc2797c6`]]);export{s as t};

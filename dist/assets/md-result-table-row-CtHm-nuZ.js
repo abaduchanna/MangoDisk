@@ -1,0 +1,1 @@
+import{l as e}from"./main-CIRX_ylK.js";import{Ji as t,Kr as n,Zr as r,hi as i,vi as a}from"./icons-Bz2MsjFt.js";var o=e(r({__name:`md-result-table-row`,props:{layout:{default:`plain`}},setup(e){return(r,o)=>(i(),n(`div`,{class:t([`result-table-row`,`result-table-row-${e.layout}`])},[a(r.$slots,`default`,{},void 0,!0)],2))}}),[[`__scopeId`,`data-v-d4d9d033`]]);export{o as t};

@@ -1,0 +1,1 @@
+function e(e,t){return!t||t<=0?null:Math.min(100,Math.max(0,e/t*100))}export{e as t};

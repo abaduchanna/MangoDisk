@@ -1,0 +1,44 @@
+name: android-apk
+on:
+  push:
+    branches: [android-apk]
+  workflow_dispatch: {}
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Detect Android NDK
+        run: echo "ANDROID_NDK_HOME=$(ls -d ${ANDROID_HOME}/ndk/* | sort | tail -1)" >> $GITHUB_ENV
+
+      - name: Install Rust toolchain (repo-pinned 1.99.0) + Android targets
+        uses: actions-rust-lang/setup-rust-toolchain@v1
+        with:
+          targets: aarch64-linux-android
+
+      - name: Install Tauri CLI
+        run: npm i -g @tauri-apps/cli@^2
+
+      - name: Tauri Android init
+        run: tauri android init
+
+      - name: Build debug APK (arm64)
+        run: tauri android build --apk --debug --target aarch64
+
+      - name: Locate APK
+        run: |
+          find src-tauri/gen/android -name "*.apk" -exec ls -la {} \;
+          echo "APK_PATH=$(find src-tauri/gen/android -name '*arm64*debug.apk' | head -1)" >> $GITHUB_ENV
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: MangoDisk-1.1.7-android-arm64-debug
+          path: ${{ env.APK_PATH }}
+          if-no-files-found: error
