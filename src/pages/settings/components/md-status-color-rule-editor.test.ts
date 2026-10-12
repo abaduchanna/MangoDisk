@@ -44,6 +44,21 @@ async function value(wrapper: VueWrapper, selector: string, text: string) {
 }
 
 describe('color rule dialog', () => {
+  it('restores enabled battery temperature rules with battery-specific thresholds', async () => {
+    const wrapper = await editor('en', { id: 'batteryTemperature', enabled: false, rules: [] });
+    await button(wrapper, en.systemStatus.colorRestore).trigger('click');
+    await flushPromises();
+    await button(wrapper, en.common.save).trigger('click');
+    expect(wrapper.emitted('save')?.[0]?.[0]).toEqual({
+      id: 'batteryTemperature',
+      enabled: true,
+      rules: [
+        { condition: 'below', value: 40, color: 'green' },
+        { condition: 'range', from: 40, to: 45, color: 'orange' },
+        { condition: 'atLeast', value: 45, color: 'red' },
+      ],
+    });
+  });
   it.each(Object.keys(locales) as (keyof typeof locales)[])('renders translated modal controls in %s', async locale => {
     const wrapper = await editor(locale);
     expect(wrapper.find('[role="dialog"]').exists()).toBe(true);

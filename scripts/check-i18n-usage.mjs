@@ -34,7 +34,7 @@ const dynamicKeyGroups = {
   // Native startup dialogs resolve these keys before Vue can mount.
   webviewRuntime: ['updateRequired', 'update', 'exit', 'openFailed'],
   // Native resident menus resolve these keys through Rust's Labels adapter.
-  systemStatus: ['openMain', 'settings', 'quit'],
+  systemStatus: ['openMain', 'settings', 'quit', 'batteryCharging', 'batteryDischarging', 'batteryIdle'],
   navigation: [
     'system-optimization',
     'system-maintenance',

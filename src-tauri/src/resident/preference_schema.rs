@@ -2,6 +2,8 @@
 use mangodisk_core::system_resources::metrics::MetricId;
 use serde::{Deserialize, Serialize};
 
+pub(super) const PREFERENCE_SCHEMA_VERSION: u32 = 20;
+
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub enum TaskbarPosition {
@@ -22,13 +24,22 @@ pub enum DisplayMetricId {
     Memory,
     Disk,
     Network,
+    BatteryTemperature,
+    ChargingPower,
+    BatteryPower,
+    SystemPower,
 }
 
 impl DisplayMetricId {
     pub fn metric(self) -> Option<MetricId> {
         match self {
             Self::Cpu => Some(MetricId::Cpu),
-            Self::CpuTemperature | Self::GpuTemperature => None,
+            Self::CpuTemperature
+            | Self::GpuTemperature
+            | Self::BatteryTemperature
+            | Self::ChargingPower
+            | Self::BatteryPower
+            | Self::SystemPower => None,
             Self::Gpu => Some(MetricId::Gpu),
             Self::Memory => Some(MetricId::Memory),
             Self::Disk => Some(MetricId::Disk),
@@ -64,7 +75,7 @@ pub struct ResidentPreferences {
     pub gpu_adapter: Option<String>,
 }
 
-const DISPLAY_ORDER: [DisplayMetricId; 7] = [
+const DISPLAY_ORDER: [DisplayMetricId; 11] = [
     DisplayMetricId::Cpu,
     DisplayMetricId::CpuTemperature,
     DisplayMetricId::Gpu,
@@ -72,12 +83,16 @@ const DISPLAY_ORDER: [DisplayMetricId; 7] = [
     DisplayMetricId::Memory,
     DisplayMetricId::Disk,
     DisplayMetricId::Network,
+    DisplayMetricId::BatteryTemperature,
+    DisplayMetricId::ChargingPower,
+    DisplayMetricId::BatteryPower,
+    DisplayMetricId::SystemPower,
 ];
 
 impl Default for ResidentPreferences {
     fn default() -> Self {
         Self {
-            schema_version: 16,
+            schema_version: PREFERENCE_SCHEMA_VERSION,
             revision: 0,
             windows_cpu_temperature_enabled: false,
             enabled: true,
@@ -116,6 +131,12 @@ impl ResidentPreferences {
                     && match metric.id {
                         DisplayMetricId::CpuTemperature => self.temperature_display_supported(),
                         DisplayMetricId::GpuTemperature => cfg!(any(target_os = "macos", windows)),
+                        DisplayMetricId::BatteryTemperature
+                        | DisplayMetricId::ChargingPower
+                        | DisplayMetricId::BatteryPower
+                        | DisplayMetricId::SystemPower => {
+                            cfg!(target_os = "macos")
+                        }
                         _ => true,
                     }
             })
@@ -140,8 +161,29 @@ impl ResidentPreferences {
                 .any(|metric| metric.id == DisplayMetricId::GpuTemperature && metric.enabled)
     }
 
+    pub fn shows_battery_item(&self, id: DisplayMetricId) -> bool {
+        cfg!(target_os = "macos")
+            && self
+                .metrics
+                .iter()
+                .any(|metric| metric.id == id && metric.enabled)
+    }
+    pub fn shows_system_power(&self) -> bool {
+        cfg!(target_os = "macos")
+            && self
+                .metrics
+                .iter()
+                .any(|metric| metric.id == DisplayMetricId::SystemPower && metric.enabled)
+    }
+
+    pub fn shows_battery(&self) -> bool {
+        self.shows_battery_item(DisplayMetricId::BatteryTemperature)
+            || self.shows_battery_item(DisplayMetricId::ChargingPower)
+            || self.shows_battery_item(DisplayMetricId::BatteryPower)
+    }
+
     pub fn normalize(mut self) -> Result<Self, &'static str> {
-        if self.schema_version != 16 {
+        if self.schema_version != PREFERENCE_SCHEMA_VERSION {
             return Err("preferences_version");
         }
         if !super::color_rules::valid(&self.color_rules)
@@ -173,12 +215,21 @@ impl ResidentPreferences {
             .filter(|id| {
                 !matches!(
                     id,
-                    DisplayMetricId::CpuTemperature | DisplayMetricId::GpuTemperature
+                    DisplayMetricId::CpuTemperature
+                        | DisplayMetricId::GpuTemperature
+                        | DisplayMetricId::BatteryTemperature
+                        | DisplayMetricId::ChargingPower
+                        | DisplayMetricId::BatteryPower
+                        | DisplayMetricId::SystemPower
                 )
             })
             .chain([
                 DisplayMetricId::CpuTemperature,
                 DisplayMetricId::GpuTemperature,
+                DisplayMetricId::BatteryTemperature,
+                DisplayMetricId::ChargingPower,
+                DisplayMetricId::BatteryPower,
+                DisplayMetricId::SystemPower,
             ])
         {
             if !seen.contains(&id) {
@@ -369,15 +420,80 @@ pub fn decode(mut value: serde_json::Value) -> Result<ResidentPreferences, &'sta
             )?;
             value["colorRules"] = serde_json::to_value(rules).map_err(|_| "preferences_invalid")?;
             value["schemaVersion"] = 16.into();
-            serde_json::from_value::<ResidentPreferences>(value)
-                .map_err(|_| "preferences_invalid")?
-                .normalize()
+            migrate_battery(value)
         }
-        Some(16) => serde_json::from_value::<ResidentPreferences>(value)
+        Some(16 | 17) => migrate_battery(value),
+        Some(18) => migrate_system_power(value),
+        Some(19) => {
+            let mut preferences = serde_json::from_value::<ResidentPreferences>(value)
+                .map_err(|_| "preferences_invalid")?;
+            upgrade_battery_temperature_default(&mut preferences);
+            preferences.schema_version = PREFERENCE_SCHEMA_VERSION;
+            preferences.normalize()
+        }
+        Some(20) => serde_json::from_value::<ResidentPreferences>(value)
             .map_err(|_| "preferences_invalid")?
             .normalize(),
         _ => Err("preferences_version"),
     }
+}
+
+fn upgrade_battery_temperature_default(preferences: &mut ResidentPreferences) {
+    if let Some(rule) = preferences.color_rules.iter_mut().find(|rule| {
+        rule.id == DisplayMetricId::BatteryTemperature && !rule.enabled && rule.rules.is_empty()
+    }) {
+        // Match only the old inactive, empty default. Saved custom rules and
+        // version-20 users who deliberately clear rules must remain unchanged.
+        *rule = super::color_rules::MetricColorRule::defaults(DisplayMetricId::BatteryTemperature);
+    }
+}
+
+fn migrate_system_power(value: serde_json::Value) -> Result<ResidentPreferences, &'static str> {
+    let mut preferences =
+        serde_json::from_value::<ResidentPreferences>(value).map_err(|_| "preferences_invalid")?;
+    if preferences
+        .metrics
+        .iter()
+        .any(|metric| metric.id == DisplayMetricId::SystemPower)
+    {
+        return Err("preferences_invalid");
+    }
+    // Only append the new rule. Existing malformed version-18 rules must still
+    // fail validation instead of being silently repaired and persisted.
+    preferences
+        .color_rules
+        .push(super::color_rules::MetricColorRule::defaults(
+            DisplayMetricId::SystemPower,
+        ));
+    preferences.schema_version = PREFERENCE_SCHEMA_VERSION;
+    upgrade_battery_temperature_default(&mut preferences);
+    preferences.normalize()
+}
+
+fn migrate_battery(mut value: serde_json::Value) -> Result<ResidentPreferences, &'static str> {
+    let rules = value
+        .get_mut("colorRules")
+        .and_then(|value| value.as_array_mut())
+        .ok_or("preferences_invalid")?;
+    for id in [
+        DisplayMetricId::BatteryTemperature,
+        DisplayMetricId::ChargingPower,
+        DisplayMetricId::BatteryPower,
+        DisplayMetricId::SystemPower,
+    ] {
+        let name = serde_json::to_value(id).map_err(|_| "preferences_invalid")?;
+        if !rules.iter().any(|rule| rule.get("id") == Some(&name)) {
+            rules.push(
+                serde_json::to_value(super::color_rules::MetricColorRule::defaults(id))
+                    .map_err(|_| "preferences_invalid")?,
+            );
+        }
+    }
+    value["schemaVersion"] = PREFERENCE_SCHEMA_VERSION.into();
+    let mut preferences =
+        serde_json::from_value::<ResidentPreferences>(value).map_err(|_| "preferences_invalid")?;
+    upgrade_battery_temperature_default(&mut preferences);
+    preferences.normalize()
 }
 
 fn migrate_display_destination(
@@ -417,14 +533,207 @@ fn migrate_display_destination(
         serde_json::to_value(super::color_rules::legacy(warning as u16, critical as u16))
             .map_err(|_| "preferences_invalid")?;
     value["schemaVersion"] = 16.into();
-    serde_json::from_value::<ResidentPreferences>(value)
-        .map_err(|_| "preferences_invalid")?
-        .normalize()
+    migrate_battery(value)
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn version_nineteen_upgrades_only_the_old_empty_battery_temperature_default() {
+        use super::super::color_rules::{ColorRule, DisplayColor, MetricColorRule};
+        for custom in [false, true] {
+            let mut preferences = ResidentPreferences {
+                schema_version: 19,
+                ..Default::default()
+            };
+            let rule = preferences
+                .color_rules
+                .iter_mut()
+                .find(|rule| rule.id == DisplayMetricId::BatteryTemperature)
+                .unwrap();
+            rule.enabled = false;
+            rule.rules = if custom {
+                vec![ColorRule::AtLeast {
+                    value: 50,
+                    color: DisplayColor::Blue,
+                }]
+            } else {
+                vec![]
+            };
+            let before = preferences.clone();
+            let migrated = decode(serde_json::to_value(preferences).unwrap()).unwrap();
+            let current = migrated
+                .color_rules
+                .iter()
+                .find(|rule| rule.id == DisplayMetricId::BatteryTemperature)
+                .unwrap();
+            if custom {
+                assert_eq!(
+                    current,
+                    before
+                        .color_rules
+                        .iter()
+                        .find(|rule| rule.id == DisplayMetricId::BatteryTemperature)
+                        .unwrap()
+                );
+            } else {
+                assert_eq!(
+                    *current,
+                    MetricColorRule::defaults(DisplayMetricId::BatteryTemperature)
+                );
+                assert!(current.enabled);
+            }
+            assert_eq!(migrated.metrics, before.metrics);
+            let mut cleared = migrated;
+            let current = cleared
+                .color_rules
+                .iter_mut()
+                .find(|rule| rule.id == DisplayMetricId::BatteryTemperature)
+                .unwrap();
+            current.enabled = false;
+            current.rules.clear();
+            assert_eq!(
+                decode(serde_json::to_value(&cleared).unwrap()).unwrap(),
+                cleared
+            );
+        }
+    }
+
+    #[test]
+    fn version_eighteen_does_not_repair_malformed_existing_color_rules() {
+        let mut old = serde_json::to_value(ResidentPreferences::default()).unwrap();
+        old["schemaVersion"] = 18.into();
+        old["metrics"]
+            .as_array_mut()
+            .unwrap()
+            .retain(|row| row["id"] != "systemPower");
+        old["colorRules"]
+            .as_array_mut()
+            .unwrap()
+            .retain(|row| row["id"] != "systemPower" && row["id"] != "batteryPower");
+        assert!(decode(old).is_err());
+    }
+    #[test]
+    fn version_eighteen_preserves_settings_and_appends_system_power_disabled() {
+        let mut old = serde_json::to_value(ResidentPreferences::default()).unwrap();
+        old["schemaVersion"] = 18.into();
+        old["revision"] = 123.into();
+        for key in ["metrics", "colorRules"] {
+            old[key]
+                .as_array_mut()
+                .unwrap()
+                .retain(|row| row["id"] != "systemPower");
+            old[key].as_array_mut().unwrap().reverse();
+        }
+        let before = old.clone();
+        let migrated = serde_json::to_value(decode(old).unwrap()).unwrap();
+        assert_eq!(migrated["revision"], before["revision"]);
+        for key in ["metrics", "colorRules"] {
+            let previous = before[key].as_array().unwrap();
+            let current = migrated[key].as_array().unwrap();
+            assert_eq!(&current[..previous.len()], previous);
+            assert_eq!(current.last().unwrap()["id"], "systemPower");
+            assert_eq!(current.last().unwrap()["enabled"], false);
+        }
+    }
+
+    #[test]
+    fn actual_version_fifteen_six_color_metrics_migrate_with_empty_power_rules() {
+        let mut old = serde_json::to_value(ResidentPreferences::default()).unwrap();
+        old["schemaVersion"] = 15.into();
+        old["colorRules"] = serde_json::json!(["cpu", "cpuTemperature", "gpu", "gpuTemperature", "memory", "disk"])
+            .as_array().unwrap().iter().map(|id| serde_json::json!({
+                "id": id, "enabled": true,
+                "bands": [{"from":0,"color":"default"},{"from":70,"color":"orange"},{"from":90,"color":"red"}]
+            })).collect();
+        let migrated = decode(old).unwrap();
+        let power = migrated
+            .color_rules
+            .iter()
+            .find(|rule| rule.id == DisplayMetricId::SystemPower)
+            .unwrap();
+        assert!(!power.enabled);
+        assert!(power.rules.is_empty());
+    }
+
+    #[test]
+    fn version_seventeen_preserves_battery_selections_and_appends_battery_power_disabled() {
+        let mut preferences = ResidentPreferences::default();
+        for row in &mut preferences.metrics {
+            if matches!(
+                row.id,
+                DisplayMetricId::BatteryTemperature | DisplayMetricId::ChargingPower
+            ) {
+                row.enabled = true;
+            }
+        }
+        let mut old = serde_json::to_value(preferences).unwrap();
+        old["schemaVersion"] = 17.into();
+        for key in ["metrics", "colorRules"] {
+            old[key]
+                .as_array_mut()
+                .unwrap()
+                .retain(|row| row["id"] != "batteryPower" && row["id"] != "systemPower");
+        }
+        let old_metrics = old["metrics"].clone();
+        let old_colors = old["colorRules"].clone();
+        let migrated = decode(old).unwrap();
+        assert!(
+            migrated.shows_battery_item(DisplayMetricId::ChargingPower)
+                || !cfg!(target_os = "macos")
+        );
+        let current = serde_json::to_value(migrated).unwrap();
+        assert_eq!(
+            &current["metrics"].as_array().unwrap()[..9],
+            old_metrics.as_array().unwrap()
+        );
+        assert_eq!(
+            &current["colorRules"].as_array().unwrap()[..8],
+            old_colors.as_array().unwrap()
+        );
+        assert_eq!(current["metrics"][9]["enabled"], false);
+    }
+    #[test]
+    fn version_sixteen_preserves_custom_colors_and_appends_disabled_battery_items() {
+        let mut old = serde_json::to_value(ResidentPreferences::default()).unwrap();
+        old["schemaVersion"] = 16.into();
+        for key in ["metrics", "colorRules"] {
+            old[key].as_array_mut().unwrap().retain(|row| {
+                !matches!(
+                    row["id"].as_str(),
+                    Some("batteryTemperature" | "chargingPower" | "batteryPower" | "systemPower")
+                )
+            });
+        }
+        old["revision"] = 123.into();
+        old["metrics"].as_array_mut().unwrap().reverse();
+        let old_metrics = old["metrics"].clone();
+        let old_colors = old["colorRules"].clone();
+        let migrated = decode(old).unwrap();
+        assert_eq!(migrated.revision, 123);
+        assert!(migrated
+            .metrics
+            .iter()
+            .filter(|row| matches!(
+                row.id,
+                DisplayMetricId::BatteryTemperature
+                    | DisplayMetricId::ChargingPower
+                    | DisplayMetricId::BatteryPower
+            ))
+            .all(|row| !row.enabled));
+        let current = serde_json::to_value(&migrated).unwrap();
+        assert_eq!(
+            &current["metrics"].as_array().unwrap()[..7],
+            old_metrics.as_array().unwrap()
+        );
+        assert_eq!(
+            &current["colorRules"].as_array().unwrap()[..6],
+            old_colors.as_array().unwrap()
+        );
+        assert_eq!(decode(current).unwrap(), migrated);
+    }
+
     #[test]
     fn version_fifteen_migrates_colors_without_changing_selections_or_boundaries() {
         let mut old = serde_json::to_value(ResidentPreferences::default()).unwrap();
@@ -433,7 +742,7 @@ mod tests {
             "id": id, "enabled": false, "bands": [{"from": 0, "color": "blue"}, {"from": 55, "color": "yellow"}, {"from": 95, "color": "red"}]
         })).collect());
         let migrated = decode(old.clone()).unwrap();
-        assert_eq!(migrated.schema_version, 16);
+        assert_eq!(migrated.schema_version, 20);
         assert_eq!(
             serde_json::to_value(&migrated.metrics).unwrap(),
             old["metrics"]
@@ -470,7 +779,7 @@ mod tests {
     #[test]
     fn current_rules_reject_unknown_colors_missing_metrics_and_legacy_fields() {
         let current = serde_json::to_value(ResidentPreferences::default()).unwrap();
-        assert_eq!(decode(current.clone()).unwrap().schema_version, 16);
+        assert_eq!(decode(current.clone()).unwrap().schema_version, 20);
         let mut value = current.clone();
         value["colorRules"][0]["rules"][0]["color"] = "purple".into();
         assert!(decode(value).is_err());
@@ -497,7 +806,7 @@ mod tests {
             old["enabled"] = false.into();
             old["revision"] = 47.into();
             let migrated = decode(old).unwrap();
-            assert_eq!(migrated.schema_version, 16);
+            assert_eq!(migrated.schema_version, 20);
             assert_eq!(migrated.revision, 47);
             assert!(!migrated.enabled);
             assert_eq!(migrated.gpu_adapter.as_deref(), Some("selected-adapter"));
@@ -573,7 +882,7 @@ mod tests {
         old["revision"] = 42.into();
         old["metrics"].as_array_mut().unwrap().reverse();
         let migrated = decode(old.clone()).unwrap();
-        assert_eq!(migrated.schema_version, 16);
+        assert_eq!(migrated.schema_version, 20);
         assert_eq!(migrated.revision, 42);
         let mut expected = old["metrics"].clone();
         expected
@@ -671,7 +980,7 @@ mod tests {
         old["networkInterface"] = "wifi".into();
         old.as_object_mut().unwrap().remove("gpuAdapter");
         let migrated = decode(old.clone()).unwrap();
-        assert_eq!(migrated.schema_version, 16);
+        assert_eq!(migrated.schema_version, 20);
         assert_eq!(migrated.network_interface.as_deref(), Some("wifi"));
         assert!(migrated.gpu_adapter.is_none());
         old["gpuAdapter"] = "unexpected".into();
@@ -705,7 +1014,7 @@ mod tests {
             {"id":"network", "enabled":true}, {"id":"disk", "enabled":false}
         ]);
         let migrated = decode(old).unwrap();
-        assert_eq!(migrated.schema_version, 16);
+        assert_eq!(migrated.schema_version, 20);
         assert_eq!(migrated.revision, 42);
         assert_eq!(
             migrated
@@ -720,7 +1029,11 @@ mod tests {
                 DisplayMetricId::Disk,
                 DisplayMetricId::Gpu,
                 DisplayMetricId::CpuTemperature,
-                DisplayMetricId::GpuTemperature
+                DisplayMetricId::GpuTemperature,
+                DisplayMetricId::BatteryTemperature,
+                DisplayMetricId::ChargingPower,
+                DisplayMetricId::BatteryPower,
+                DisplayMetricId::SystemPower,
             ]
         );
         assert!(!migrated.shows(MetricId::Gpu));
@@ -737,7 +1050,7 @@ mod tests {
             selected
         );
         let mut future = serde_json::to_value(selected).unwrap();
-        future["schemaVersion"] = 17.into();
+        future["schemaVersion"] = 21.into();
         assert!(decode(future).is_err());
     }
 
@@ -788,7 +1101,7 @@ mod tests {
             .unwrap()
             .push(serde_json::json!({"id":"gpuTemperature","enabled":false}));
         let migrated = decode(old).unwrap();
-        assert_eq!(migrated.schema_version, 16);
+        assert_eq!(migrated.schema_version, 20);
         assert!(!migrated.menu_bar_compact);
         assert!(migrated.usage_colors);
         assert_eq!(serde_json::to_value(migrated).unwrap()["metrics"], order);
@@ -819,7 +1132,11 @@ mod tests {
                 DisplayMetricId::Network,
                 DisplayMetricId::Gpu,
                 DisplayMetricId::CpuTemperature,
-                DisplayMetricId::GpuTemperature
+                DisplayMetricId::GpuTemperature,
+                DisplayMetricId::BatteryTemperature,
+                DisplayMetricId::ChargingPower,
+                DisplayMetricId::BatteryPower,
+                DisplayMetricId::SystemPower,
             ]
         );
         assert!(migrated.shows(MetricId::Network));
@@ -851,7 +1168,7 @@ mod tests {
             old.as_object_mut().unwrap().remove("taskbarCompact");
             old["taskbarPosition"] = position.into();
             let migrated = decode(old).unwrap();
-            assert_eq!(migrated.schema_version, 16);
+            assert_eq!(migrated.schema_version, 20);
             assert_eq!(
                 serde_json::to_value(migrated).unwrap()["taskbarPosition"],
                 position
@@ -932,7 +1249,7 @@ mod tests {
                 assert_eq!(migrated.shows(MetricId::Memory), memory);
                 assert!(migrated.show_icon);
                 assert!(!migrated.shows(MetricId::Cpu));
-                assert_eq!(migrated.schema_version, 16);
+                assert_eq!(migrated.schema_version, 20);
             }
         }
     }
@@ -1027,7 +1344,7 @@ mod tests {
         }
         .normalize()
         .unwrap();
-        assert_eq!(preferences.metrics.len(), 7);
+        assert_eq!(preferences.metrics.len(), 11);
         assert_eq!(preferences.metrics[0].id, DisplayMetricId::Network);
         assert!(preferences.shows(MetricId::Network));
         assert!(!preferences.shows(MetricId::Memory));
@@ -1067,6 +1384,10 @@ mod tests {
                                 DisplayMetricId::CpuTemperature => cfg!(target_os = "macos"),
                                 DisplayMetricId::GpuTemperature =>
                                     cfg!(any(target_os = "macos", windows)),
+                                DisplayMetricId::BatteryTemperature
+                                | DisplayMetricId::ChargingPower
+                                | DisplayMetricId::BatteryPower
+                                | DisplayMetricId::SystemPower => cfg!(target_os = "macos"),
                                 _ => true,
                             })
                 );

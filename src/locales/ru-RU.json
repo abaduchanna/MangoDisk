@@ -4113,7 +4113,18 @@
     "colorRangeHint": "Начало диапазона включается, конец — нет",
     "colorEmpty": "Правил нет. Используется цвет по умолчанию",
     "colorLimit": "Не более {max} правил для каждого показателя",
-    "colorTo": "до"
+    "colorTo": "до",
+    "batteryTemperature": "Температура батареи",
+    "chargingPower": "Мощность зарядки",
+    "chargingPowerHint": "Фактическая мощность, поступающая в батарею; 0 Вт при остановке зарядки или отключении питания",
+    "batteryPower": "Мощность батареи",
+    "systemPower": "Мощность системы",
+    "systemPowerUnsupportedHint": "На этом устройстве недоступны данные о мощности системы",
+    "batteryPowerHint": "Текущая мощность заряда и разряда батареи; ↑ заряд, ↓ разряд",
+    "batteryCharging": "Заряжается",
+    "batteryDischarging": "Разряжается",
+    "batteryIdle": "Без заряда и разряда",
+    "batteryUnsupportedHint": "На этом Mac данные батареи недоступны"
   },
   "webviewRuntime": {
     "updateRequired": "Компонент, используемый для отображения MangoDisk, устарел. Обновите среду выполнения Microsoft Edge WebView2, затем откройте MangoDisk снова",

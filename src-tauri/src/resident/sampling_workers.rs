@@ -25,6 +25,17 @@ pub enum Observation {
     #[cfg(test)]
     Unsupported,
     Cpu {
+        battery_present: Option<bool>,
+        system_power: Option<
+            mangodisk_platform::PlatformResult<
+                mangodisk_platform::system_resources::power::SystemPower,
+            >,
+        >,
+        battery: Option<
+            mangodisk_platform::PlatformResult<
+                mangodisk_platform::system_resources::battery::BatterySample,
+            >,
+        >,
         sample: mangodisk_platform::PlatformResult<CpuSample>,
         details: CpuDetails,
     },
@@ -139,6 +150,9 @@ fn run_worker(
 enum Sensor {
     Cpu {
         reader: CpuReader,
+        battery_presence: mangodisk_platform::system_resources::battery::BatteryPresenceReader,
+        power: mangodisk_platform::system_resources::power::SystemPowerReader,
+        battery: mangodisk_platform::system_resources::battery::BatteryReader,
         details: Box<CpuDetailsReader>,
     },
     Gpu(Box<GpuReader>),
@@ -154,11 +168,17 @@ impl Sensor {
             #[cfg(windows)]
             MetricId::Cpu => Self::Cpu {
                 reader: CpuReader::default(),
+                battery_presence: Default::default(),
+                power: Default::default(),
+                battery: Default::default(),
                 details: Box::default(),
             },
             #[cfg(not(windows))]
             MetricId::Cpu => Self::Cpu {
                 reader: CpuReader,
+                battery_presence: Default::default(),
+                power: Default::default(),
+                battery: Default::default(),
                 details: Box::default(),
             },
             MetricId::Gpu => Self::Gpu(Box::default()),
@@ -168,7 +188,10 @@ impl Sensor {
         }
     }
     fn reset_baselines(&mut self) {
-        if let Self::Cpu { reader, details } = self {
+        if let Self::Cpu {
+            reader, details, ..
+        } = self
+        {
             details.reset();
             // Re-enabling must prime a fresh interval, including short pauses.
             reader.reset();
@@ -180,10 +203,36 @@ impl Sensor {
     fn sample(&mut self, demand: &Demand, timestamp_ms: u64) -> CoreResult<Observation> {
         use mangodisk_platform::system_resources::disk;
         Ok(match self {
-            Self::Cpu { reader, details } => Observation::Cpu {
-                sample: reader.read(),
-                details: details.read(demand.detailed, demand.temperature),
-            },
+            Self::Cpu {
+                reader,
+                details,
+                battery,
+                power,
+                battery_presence,
+            } => {
+                let sample = reader.read();
+                let details = details.read(demand.detailed, demand.temperature);
+                // Read battery last so a slow CPU detail query cannot age its timestamp.
+                let battery_present = battery_presence.read();
+                let battery_sample = if demand.battery && battery_present != Some(false) {
+                    Some(battery.read())
+                } else {
+                    *battery = Default::default();
+                    None
+                };
+                Observation::Cpu {
+                    battery_present,
+                    system_power: if demand.system_power {
+                        Some(power.read())
+                    } else {
+                        *power = Default::default();
+                        None
+                    },
+                    battery: battery_sample,
+                    sample,
+                    details,
+                }
+            }
             Self::Gpu(reader) if demand.catalogue_only => {
                 Observation::GpuCatalogue(reader.catalogue()?)
             }

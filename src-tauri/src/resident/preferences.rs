@@ -3,8 +3,8 @@ use std::sync::Arc;
 use tauri::Manager;
 use tauri_plugin_store::StoreExt;
 
-use super::preference_schema::decode;
 pub use super::preference_schema::ResidentPreferences;
+use super::preference_schema::{decode, PREFERENCE_SCHEMA_VERSION};
 const FILE: &str = "resident.json";
 
 pub fn load(app: &tauri::AppHandle) -> ResidentPreferences {
@@ -37,7 +37,7 @@ pub fn load(app: &tauri::AppHandle) -> ResidentPreferences {
 }
 
 fn save(app: &tauri::AppHandle, preferences: &ResidentPreferences) -> Result<(), Failure> {
-    if preferences.schema_version != 16 {
+    if preferences.schema_version != PREFERENCE_SCHEMA_VERSION {
         return Err(Failure::state("preferences_version"));
     }
     let store = app

@@ -4113,7 +4113,18 @@
     "colorRangeHint": "Intervalos incluem o início e excluem o fim",
     "colorEmpty": "Nenhuma regra. Os valores usam a cor padrão",
     "colorLimit": "Até {max} regras por item",
-    "colorTo": "a"
+    "colorTo": "a",
+    "batteryTemperature": "Temperatura da bateria",
+    "chargingPower": "Potência de carga",
+    "chargingPowerHint": "Potência líquida que entra na bateria; 0 W quando a carga está pausada ou desconectada",
+    "batteryPower": "Potência da bateria",
+    "systemPower": "Potência do sistema",
+    "systemPowerUnsupportedHint": "A potência do sistema não está disponível neste dispositivo",
+    "batteryPowerHint": "Potência real de carga e descarga da bateria; ↑ carregando, ↓ descarregando",
+    "batteryCharging": "Carregando",
+    "batteryDischarging": "Descarregando",
+    "batteryIdle": "Em repouso",
+    "batteryUnsupportedHint": "A telemetria da bateria não está disponível neste Mac"
   },
   "webviewRuntime": {
     "updateRequired": "O componente usado para exibir o MangoDisk está desatualizado. Atualize o Microsoft Edge WebView2 Runtime e abra o MangoDisk novamente",

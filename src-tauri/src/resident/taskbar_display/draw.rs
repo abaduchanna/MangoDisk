@@ -207,6 +207,7 @@ mod tests {
                     let columns = presentation::columns(
                         &[DisplayEntry {
                             tone: Default::default(),
+                            power_state: None,
                             color_value: None,
                             id,
                             marker: String::new(),

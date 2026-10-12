@@ -69,25 +69,59 @@ pub struct MetricColorRule {
 }
 
 pub const MAX_COLOR_RULES: usize = 16;
-pub const COLOR_METRICS: [DisplayMetricId; 6] = [
+pub const COLOR_METRICS: [DisplayMetricId; 10] = [
     DisplayMetricId::Cpu,
     DisplayMetricId::CpuTemperature,
     DisplayMetricId::Gpu,
     DisplayMetricId::GpuTemperature,
     DisplayMetricId::Memory,
     DisplayMetricId::Disk,
+    DisplayMetricId::BatteryTemperature,
+    DisplayMetricId::ChargingPower,
+    DisplayMetricId::BatteryPower,
+    DisplayMetricId::SystemPower,
 ];
 
 pub fn temperature(id: DisplayMetricId) -> bool {
     matches!(
         id,
-        DisplayMetricId::CpuTemperature | DisplayMetricId::GpuTemperature
+        DisplayMetricId::CpuTemperature
+            | DisplayMetricId::GpuTemperature
+            | DisplayMetricId::BatteryTemperature
     )
+}
+
+pub fn limit(id: DisplayMetricId) -> u16 {
+    match id {
+        DisplayMetricId::SystemPower => 3000,
+        DisplayMetricId::ChargingPower | DisplayMetricId::BatteryPower => 300,
+        DisplayMetricId::BatteryTemperature => 100,
+        id if temperature(id) => 150,
+        _ => 100,
+    }
 }
 
 impl MetricColorRule {
     pub fn defaults(id: DisplayMetricId) -> Self {
-        let (middle, high) = if temperature(id) { (60, 80) } else { (70, 90) };
+        if matches!(
+            id,
+            DisplayMetricId::ChargingPower
+                | DisplayMetricId::BatteryPower
+                | DisplayMetricId::SystemPower
+        ) {
+            return Self {
+                id,
+                enabled: false,
+                rules: Vec::new(),
+            };
+        }
+        let (middle, high) = if id == DisplayMetricId::BatteryTemperature {
+            (40, 45)
+        } else if temperature(id) {
+            (60, 80)
+        } else {
+            (70, 90)
+        };
         Self {
             id,
             enabled: true,
@@ -110,7 +144,7 @@ impl MetricColorRule {
     }
 
     pub fn valid(&self) -> bool {
-        let limit = if temperature(self.id) { 150 } else { 100 };
+        let limit = limit(self.id);
         COLOR_METRICS.contains(&self.id)
             && self.rules.len() <= MAX_COLOR_RULES
             && self.rules.iter().all(|rule| rule.valid(limit))
@@ -144,6 +178,15 @@ pub fn legacy(warning: u16, critical: u16) -> Vec<MetricColorRule> {
     defaults()
         .into_iter()
         .map(|mut rule| {
+            if matches!(
+                rule.id,
+                DisplayMetricId::BatteryTemperature
+                    | DisplayMetricId::ChargingPower
+                    | DisplayMetricId::BatteryPower
+                    | DisplayMetricId::SystemPower
+            ) {
+                return rule;
+            }
             if temperature(rule.id) {
                 rule.enabled = false;
             } else {
@@ -187,7 +230,7 @@ pub fn migrate_bands(value: serde_json::Value) -> Result<Vec<MetricColorRule>, &
         serde_json::from_value(value).map_err(|_| "preferences_invalid")?;
     let mut migrated = Vec::with_capacity(previous.len());
     for rule in previous {
-        let limit = if temperature(rule.id) { 150 } else { 100 };
+        let limit = limit(rule.id);
         if !(2..=5).contains(&rule.bands.len())
             || rule.bands[0].from != 0
             || rule.bands.iter().any(|band| band.from > limit)
@@ -224,6 +267,17 @@ pub fn migrate_bands(value: serde_json::Value) -> Result<Vec<MetricColorRule>, &
             rules,
         });
     }
+    if migrated.len() == 6 {
+        migrated.extend(
+            [
+                DisplayMetricId::BatteryTemperature,
+                DisplayMetricId::ChargingPower,
+                DisplayMetricId::BatteryPower,
+                DisplayMetricId::SystemPower,
+            ]
+            .map(MetricColorRule::defaults),
+        );
+    }
     if valid(&migrated) {
         Ok(migrated)
     } else {
@@ -234,6 +288,37 @@ pub fn migrate_bands(value: serde_json::Value) -> Result<Vec<MetricColorRule>, &
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn battery_temperature_defaults_cover_boundaries_with_independent_power_rules() {
+        let rule = MetricColorRule::defaults(DisplayMetricId::BatteryTemperature);
+        assert!(rule.enabled && rule.valid());
+        for (value, expected) in [
+            (0, DisplayColor::Green),
+            (39, DisplayColor::Green),
+            (40, DisplayColor::Orange),
+            (44, DisplayColor::Orange),
+            (45, DisplayColor::Red),
+            (100, DisplayColor::Red),
+        ] {
+            assert_eq!(
+                rule.rules
+                    .iter()
+                    .find(|rule| rule.matches(value))
+                    .unwrap()
+                    .color(),
+                expected
+            );
+        }
+        for id in [
+            DisplayMetricId::ChargingPower,
+            DisplayMetricId::BatteryPower,
+            DisplayMetricId::SystemPower,
+        ] {
+            let power = MetricColorRule::defaults(id);
+            assert!(!power.enabled && power.rules.is_empty());
+        }
+    }
 
     #[test]
     fn conditions_accept_empty_single_gapped_and_reordered_rules() {

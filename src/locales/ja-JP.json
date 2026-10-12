@@ -4113,7 +4113,18 @@
     "colorRangeHint": "範囲は始点を含み、終点を含みません",
     "colorEmpty": "ルールはありません。既定の色を使用します",
     "colorLimit": "項目ごとに最大 {max} 件のルール",
-    "colorTo": "～"
+    "colorTo": "～",
+    "batteryTemperature": "バッテリー温度",
+    "chargingPower": "充電電力",
+    "chargingPowerHint": "バッテリーに供給される実際の電力。充電停止中や電源未接続時は 0 W",
+    "batteryPower": "バッテリー電力",
+    "systemPower": "システム消費電力",
+    "systemPowerUnsupportedHint": "このデバイスではシステム消費電力を取得できません",
+    "batteryPowerHint": "バッテリーの充放電電力。↑ 充電、↓ 放電",
+    "batteryCharging": "充電中",
+    "batteryDischarging": "放電中",
+    "batteryIdle": "充放電停止",
+    "batteryUnsupportedHint": "この Mac ではバッテリーデータを取得できません"
   },
   "webviewRuntime": {
     "updateRequired": "MangoDisk の画面表示に必要なコンポーネントが古くなっています。Microsoft Edge WebView2 Runtime を更新してから、MangoDisk を再起動してください",

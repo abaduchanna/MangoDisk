@@ -81,6 +81,37 @@ afterEach(() => {
   vi.useRealTimers();
 });
 describe('status display interactions', () => {
+  it('hides selected battery rows only on confirmed absence and preserves saved choices', async () => {
+    const saved = preferencesFixture();
+    for (const row of saved.metrics) {
+      if (['batteryTemperature', 'chargingPower', 'batteryPower'].includes(row.id)) row.enabled = true;
+    }
+    vi.mocked(ResidentService.preferences).mockResolvedValue(saved);
+    const reading = readingFixture();
+    reading.batteryPresent = false;
+    vi.mocked(ResidentService.catalogue).mockResolvedValue(reading);
+    const wrapper = mount(Settings, { props: { isMacOs: true }, global: global() });
+    wrappers.push(wrapper);
+    await flushPromises();
+    await openConfiguration(wrapper);
+    for (const id of ['batteryTemperature', 'chargingPower', 'batteryPower']) {
+      expect(wrapper.find(`[data-metric="${id}"]`).exists()).toBe(false);
+    }
+    expect(wrapper.find('[data-metric="systemPower"]').exists()).toBe(true);
+    expect(ResidentService.savePreferences).not.toHaveBeenCalled();
+    const onReading = vi.mocked(ResidentService.onReading).mock.calls.at(-1)![0];
+    onReading({
+      ...readingFixture(99),
+      batteryPresent: true,
+      batteryTemperature: { status: 'unsupported', sampledAtMs: null, value: null },
+    });
+    await flushPromises();
+    for (const id of ['batteryTemperature', 'chargingPower', 'batteryPower']) {
+      expect(wrapper.get(`[data-metric="${id}"] [role="checkbox"]`).attributes('aria-checked')).toBe('true');
+    }
+    expect(ResidentService.savePreferences).not.toHaveBeenCalled();
+  });
+
   it('persists a fixed GPU and retains a missing choice until automatic is selected', async () => {
     const saved = preferencesFixture();
     saved.metrics.find(row => row.id === 'gpu')!.enabled = true;
@@ -110,6 +141,42 @@ describe('status display interactions', () => {
     selector.vm.$emit('update:modelValue', 'automatic');
     await flushPromises();
     expect(ResidentService.savePreferences).toHaveBeenLastCalledWith(expect.objectContaining({ gpuAdapter: null }));
+  });
+  it('shows independent disabled battery and system power items only on macOS', async () => {
+    for (const isMacOs of [true, false]) {
+      const wrapper = mount(Settings, { props: { isMacOs }, global: global() });
+      wrappers.push(wrapper);
+      await flushPromises();
+      await openConfiguration(wrapper);
+      expect(wrapper.find('[data-metric="batteryTemperature"]').exists()).toBe(isMacOs);
+      expect(wrapper.find('[data-metric="chargingPower"]').exists()).toBe(isMacOs);
+      expect(wrapper.find('[data-metric="batteryPower"]').exists()).toBe(isMacOs);
+      expect(wrapper.find('[data-metric="systemPower"]').exists()).toBe(isMacOs);
+      if (isMacOs) {
+        for (const id of ['batteryTemperature', 'chargingPower', 'batteryPower', 'systemPower']) {
+          expect(wrapper.get(`[data-metric="${id}"] [role="checkbox"]`).attributes('aria-checked')).toBe('false');
+        }
+      }
+      wrapper.unmount();
+    }
+  });
+  it('shows one explanation when charging power is unsupported', async () => {
+    const reading = readingFixture();
+    reading.chargingPower.status = 'unsupported';
+    vi.mocked(ResidentService.catalogue).mockResolvedValue(reading);
+    const wrapper = mount(Settings, { props: { isMacOs: true }, global: global() });
+    wrappers.push(wrapper);
+    await flushPromises();
+    await openConfiguration(wrapper);
+    const row = wrapper.get('[data-metric="chargingPower"]');
+    expect(
+      row.findAll(
+        'button[aria-label="systemStatus.chargingPowerHint"], button[aria-label="systemStatus.batteryUnsupportedHint"]'
+      )
+    ).toHaveLength(1);
+    expect(
+      row.get('.metric-label-group').find('button[aria-label="systemStatus.batteryUnsupportedHint"]').exists()
+    ).toBe(true);
   });
   it('opens the native resource panel without changing resident preferences', async () => {
     const wrapper = mount(Settings, { props: { isMacOs: true }, global: global() });
@@ -307,7 +374,7 @@ describe('status display interactions', () => {
     await flushPromises();
     await openConfiguration(wrapper);
     expect(wrapper.find('#menu-bar-cpu-temperature').exists()).toBe(false);
-    expect(wrapper.findAll('.drag-handle')).toHaveLength(7);
+    expect(wrapper.findAll('.drag-handle')).toHaveLength(11);
     expect(wrapper.get('[data-metric="cpuTemperature"] label').text()).toBe('cpuTemperature.label');
     const handle = wrapper.get('[data-metric="cpuTemperature"] .drag-handle');
     await handle.trigger('keydown', { key: ' ' });
@@ -575,7 +642,7 @@ describe('status display interactions', () => {
     await wrapper.get('input[name="taskbar-position"][value="auto"]').setValue(true);
     await flushPromises();
     expect(ResidentService.savePreferences).toHaveBeenLastCalledWith(
-      expect.objectContaining({ schemaVersion: 16, taskbarPosition: 'auto' })
+      expect.objectContaining({ schemaVersion: 20, taskbarPosition: 'auto' })
     );
   });
 

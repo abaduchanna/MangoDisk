@@ -19,10 +19,14 @@ pub enum DisplayId {
     Upload,
     Download,
     Disk,
+    BatteryTemperature,
+    ChargingPower,
+    BatteryPower,
+    SystemPower,
 }
 
 impl DisplayId {
-    pub const ALL: [Self; 9] = [
+    pub const ALL: [Self; 13] = [
         Self::App,
         Self::Cpu,
         Self::CpuTemperature,
@@ -32,6 +36,10 @@ impl DisplayId {
         Self::Upload,
         Self::Download,
         Self::Disk,
+        Self::BatteryTemperature,
+        Self::ChargingPower,
+        Self::BatteryPower,
+        Self::SystemPower,
     ];
     pub fn tray_id(self) -> &'static str {
         match self {
@@ -44,11 +52,19 @@ impl DisplayId {
             Self::Upload => "resident-upload",
             Self::Download => "resident-download",
             Self::Disk => "resident-disk",
+            Self::BatteryTemperature => "resident-battery-temperature",
+            Self::ChargingPower => "resident-charging-power",
+            Self::BatteryPower => "resident-battery-power",
+            Self::SystemPower => "resident-system-power",
         }
     }
     pub fn metric(self) -> Option<MetricId> {
         match self {
-            Self::App => None,
+            Self::App
+            | Self::BatteryTemperature
+            | Self::ChargingPower
+            | Self::BatteryPower
+            | Self::SystemPower => None,
             Self::Cpu | Self::CpuTemperature => Some(MetricId::Cpu),
             Self::Gpu | Self::GpuTemperature => Some(MetricId::Gpu),
             Self::Memory => Some(MetricId::Memory),
@@ -63,6 +79,8 @@ impl DisplayId {
 pub struct DisplayEntry {
     pub id: DisplayId,
     pub tone: super::usage_color::UsageTone,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub power_state: Option<mangodisk_platform::system_resources::battery::BatteryPowerState>,
     pub color_value: Option<u16>,
     pub marker: String,
     pub digits: String,
@@ -87,9 +105,13 @@ pub fn indicator_title(entries: &[DisplayEntry], compact: bool) -> Option<String
                         let direction = marker.next()?;
                         format!("{direction}{}{}", entry.digits, marker.as_str())
                     }
-                    DisplayId::App | DisplayId::CpuTemperature | DisplayId::GpuTemperature => {
-                        return None
-                    }
+                    DisplayId::App
+                    | DisplayId::CpuTemperature
+                    | DisplayId::GpuTemperature
+                    | DisplayId::BatteryTemperature
+                    | DisplayId::ChargingPower
+                    | DisplayId::BatteryPower
+                    | DisplayId::SystemPower => return None,
                 }
             } else {
                 entry.text.trim().to_string()
@@ -110,6 +132,16 @@ pub fn desired(preferences: &ResidentPreferences) -> Vec<DisplayId> {
         .filter(|id| match id {
             DisplayId::CpuTemperature => preferences.shows_cpu_temperature(),
             DisplayId::GpuTemperature => preferences.shows_gpu_temperature(),
+            DisplayId::BatteryTemperature => {
+                preferences.shows_battery_item(DisplayMetricId::BatteryTemperature)
+            }
+            DisplayId::SystemPower => preferences.shows_system_power(),
+            DisplayId::ChargingPower => {
+                preferences.shows_battery_item(DisplayMetricId::ChargingPower)
+            }
+            DisplayId::BatteryPower => {
+                preferences.shows_battery_item(DisplayMetricId::BatteryPower)
+            }
             id => match id.metric() {
                 Some(metric) => preferences.shows(metric),
                 None => preferences.effective_icon(),
@@ -200,6 +232,32 @@ pub fn entries(
             }
             continue;
         }
+        if matches!(
+            metric.id,
+            DisplayMetricId::BatteryTemperature
+                | DisplayMetricId::ChargingPower
+                | DisplayMetricId::BatteryPower
+        ) {
+            if values.battery_present != Some(false) && preferences.shows_battery_item(metric.id) {
+                entries.push(battery_entry(
+                    values,
+                    labels,
+                    metric.id,
+                    preferences.menu_bar_compact,
+                ));
+            }
+            continue;
+        }
+        if metric.id == DisplayMetricId::SystemPower {
+            if preferences.shows_system_power() {
+                entries.push(system_power_entry(
+                    values,
+                    labels,
+                    preferences.menu_bar_compact,
+                ));
+            }
+            continue;
+        }
         let Some(metric_id) = metric.id.metric() else {
             continue;
         };
@@ -251,7 +309,13 @@ pub fn entries(
                         .as_ref()
                         .map(|value| value.received_bytes_per_second),
                 ),
-                DisplayId::App | DisplayId::CpuTemperature | DisplayId::GpuTemperature => {
+                DisplayId::App
+                | DisplayId::CpuTemperature
+                | DisplayId::GpuTemperature
+                | DisplayId::BatteryTemperature
+                | DisplayId::ChargingPower
+                | DisplayId::BatteryPower
+                | DisplayId::SystemPower => {
                     unreachable!()
                 }
             };
@@ -269,6 +333,7 @@ pub fn entries(
             if status != MetricStatus::Ready || value.is_none() {
                 entries.push(DisplayEntry {
                     tone: Default::default(),
+                    power_state: None,
                     color_value: None,
                     id,
                     marker: marker.into(),
@@ -299,6 +364,7 @@ pub fn entries(
                     .unwrap_or("");
                 DisplayEntry {
                     tone: Default::default(),
+                    power_state: None,
                     color_value: None,
                     id,
                     marker: format!("{marker}{unit}"),
@@ -361,6 +427,7 @@ pub fn entries(
                 };
                 DisplayEntry {
                     tone: Default::default(),
+                    power_state: None,
                     color_value: Some(u16::from(percent)),
                     id,
                     marker: marker.into(),
@@ -411,6 +478,7 @@ fn temperature_entry(values: &ResourceReadings, labels: &super::labels::Labels) 
     DisplayEntry {
         id: DisplayId::CpuTemperature,
         tone: Default::default(),
+        power_state: None,
         // Rules are selected by metric ID, so Celsius keeps its own thresholds.
         color_value: value.map(|value| value.celsius.round() as u16),
         marker: "°C".into(),
@@ -461,6 +529,7 @@ fn gpu_temperature_entry(
     DisplayEntry {
         id: DisplayId::GpuTemperature,
         tone: Default::default(),
+        power_state: None,
         color_value: value.map(|value| value.celsius.round() as u16),
         marker: "°C".into(),
         text: if value.is_some() {
@@ -473,9 +542,366 @@ fn gpu_temperature_entry(
     }
 }
 
+fn displayed_power(value: f64, compact: bool) -> f64 {
+    // Switch before a one-decimal value rounds up to 100.0. Always round the
+    // original sample once, preventing a second rounding from changing watts.
+    if compact && (value * 10.0).round() >= 1000.0 {
+        value.round()
+    } else {
+        (value * 10.0).round() / 10.0
+    }
+}
+
+fn power_digits(displayed: f64, compact: bool) -> String {
+    if compact && displayed >= 100.0 {
+        format!("{displayed:.0}")
+    } else {
+        format!("{displayed:.1}")
+    }
+}
+
+fn system_power_entry(
+    values: &ResourceReadings,
+    labels: &super::labels::Labels,
+    compact: bool,
+) -> DisplayEntry {
+    use mangodisk_platform::system_resources::power::{
+        SYSTEM_POWER_FRESHNESS_MS, SYSTEM_POWER_MAX_WATTS,
+    };
+    let reading = &values.system_power;
+    let displayed = reading
+        .value
+        .as_ref()
+        .filter(|value| {
+            reading.status == MetricStatus::Ready
+                && value.watts.is_finite()
+                && (0.0..=SYSTEM_POWER_MAX_WATTS).contains(&value.watts)
+                && reading
+                    .sampled_at_ms
+                    .and_then(|at| values.observed_at_ms.checked_sub(at))
+                    .is_some_and(|age| age <= SYSTEM_POWER_FRESHNESS_MS)
+        })
+        .map(|value| displayed_power(value.watts, compact));
+    let digits = displayed
+        .map(|value| power_digits(value, compact))
+        .unwrap_or_else(|| "—".into());
+    let name = labels.text("systemPower");
+    let text = if displayed.is_some() {
+        format!("{name} {digits}W")
+    } else {
+        format!("{name} —")
+    };
+    let tooltip = if displayed.is_some() {
+        text.clone()
+    } else {
+        format!(
+            "{name} · {}",
+            labels.status(if reading.status == MetricStatus::Ready {
+                MetricStatus::Stale
+            } else {
+                reading.status
+            })
+        )
+    };
+    DisplayEntry {
+        id: DisplayId::SystemPower,
+        tone: Default::default(),
+        power_state: None,
+        color_value: displayed.map(|value| value.floor() as u16),
+        marker: "W".into(),
+        digits,
+        text,
+        tooltip,
+    }
+}
+
+fn battery_entry(
+    values: &ResourceReadings,
+    labels: &super::labels::Labels,
+    id: DisplayMetricId,
+    compact: bool,
+) -> DisplayEntry {
+    use mangodisk_platform::system_resources::battery::BATTERY_FRESHNESS_MS;
+    let temperature = id == DisplayMetricId::BatteryTemperature;
+    let battery_power = id == DisplayMetricId::BatteryPower;
+    let (status, sampled_at, value) = if temperature {
+        (
+            values.battery_temperature.status,
+            values.battery_temperature.sampled_at_ms,
+            values
+                .battery_temperature
+                .value
+                .as_ref()
+                .map(|value| value.celsius),
+        )
+    } else if battery_power {
+        (
+            values.battery_power.status,
+            values.battery_power.sampled_at_ms,
+            values.battery_power.value.as_ref().map(|value| value.watts),
+        )
+    } else {
+        (
+            values.charging_power.status,
+            values.charging_power.sampled_at_ms,
+            values
+                .charging_power
+                .value
+                .as_ref()
+                .map(|value| value.watts),
+        )
+    };
+    let value = value.filter(|value| {
+        status == MetricStatus::Ready
+            && value.is_finite()
+            && (0.0..=if temperature { 100.0 } else { 300.0 }).contains(value)
+            && sampled_at
+                .and_then(|at| values.observed_at_ms.checked_sub(at))
+                .is_some_and(|age| age <= BATTERY_FRESHNESS_MS)
+    });
+    let displayed = value.map(|value| {
+        if temperature {
+            value.round()
+        } else {
+            displayed_power(value, compact)
+        }
+    });
+    let digits = displayed
+        .map(|value| {
+            if temperature {
+                format!("{value:.0}")
+            } else {
+                power_digits(value, compact)
+            }
+        })
+        .unwrap_or_else(|| "—".into());
+    let unit = if temperature { "°C" } else { "W" };
+    let name = labels.text(if temperature {
+        "batteryTemperature"
+    } else if battery_power {
+        "batteryPower"
+    } else {
+        "chargingPower"
+    });
+    let power_state = battery_power
+        .then(|| values.battery_power.value.as_ref().map(|value| value.state))
+        .flatten()
+        .filter(|_| value.is_some());
+    let text = if let Some(state) = power_state {
+        use mangodisk_platform::system_resources::battery::BatteryPowerState;
+        let state_name = labels.text(match state {
+            BatteryPowerState::Charging => "batteryCharging",
+            BatteryPowerState::Discharging => "batteryDischarging",
+            BatteryPowerState::Idle => "batteryIdle",
+        });
+        format!("{name} {digits}{unit} · {state_name}")
+    } else if value.is_some() {
+        format!("{name} {digits}{unit}")
+    } else {
+        format!("{name} —")
+    };
+    let tooltip = if value.is_some() {
+        text.clone()
+    } else {
+        format!(
+            "{name} · {}",
+            labels.status(if status == MetricStatus::Ready {
+                MetricStatus::Stale
+            } else {
+                status
+            })
+        )
+    };
+    DisplayEntry {
+        id: if temperature {
+            DisplayId::BatteryTemperature
+        } else if battery_power {
+            DisplayId::BatteryPower
+        } else {
+            DisplayId::ChargingPower
+        },
+        tone: Default::default(),
+        power_state,
+        color_value: displayed.map(|value| value.floor() as u16),
+        marker: unit.into(),
+        digits,
+        text,
+        tooltip,
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    #[cfg(target_os = "macos")]
+    fn physical_absence_hides_selected_battery_items_without_changing_preferences() {
+        let mut preferences = ResidentPreferences::default();
+        for metric in &mut preferences.metrics {
+            metric.enabled = matches!(
+                metric.id,
+                DisplayMetricId::BatteryTemperature
+                    | DisplayMetricId::ChargingPower
+                    | DisplayMetricId::BatteryPower
+                    | DisplayMetricId::SystemPower
+            );
+        }
+        let before = preferences.clone();
+        let mut readings = ResourceReadings {
+            battery_present: Some(false),
+            ..Default::default()
+        };
+        let labels = super::super::labels::Labels::for_locale("en-US");
+        let visible = entries(&preferences, &readings, &labels, 1000.0);
+        assert_eq!(visible.len(), 1);
+        assert_eq!(visible[0].id, DisplayId::SystemPower);
+        for present in [None, Some(true)] {
+            readings.battery_present = present;
+            readings.battery_temperature.status = MetricStatus::Unsupported;
+            assert_eq!(entries(&preferences, &readings, &labels, 1000.0).len(), 4);
+        }
+        assert_eq!(preferences, before);
+    }
+    #[test]
+    fn compact_power_precision_handles_boundary_rounding_without_double_rounding() {
+        use mangodisk_core::system_resources::metrics::MetricReading;
+        use mangodisk_platform::system_resources::battery::{
+            BatteryPower, BatteryPowerState, BatterySource, ChargingPower,
+        };
+        let labels = super::super::labels::Labels::for_locale("en-US");
+        for (watts, expected) in [
+            (0.0, "0.0"),
+            (99.94, "99.9"),
+            (99.96, "100"),
+            (100.0, "100"),
+            (135.46, "135"),
+            (135.5, "136"),
+            (300.0, "300"),
+        ] {
+            let values = ResourceReadings {
+                observed_at_ms: 1000,
+                charging_power: MetricReading::ready(
+                    ChargingPower {
+                        watts,
+                        charging: true,
+                        external_connected: true,
+                        source: BatterySource::AppleSmartBattery,
+                    },
+                    1000,
+                ),
+                battery_power: MetricReading::ready(
+                    BatteryPower {
+                        watts,
+                        state: BatteryPowerState::Charging,
+                        source: BatterySource::AppleSmartBattery,
+                    },
+                    1000,
+                ),
+                ..Default::default()
+            };
+            for id in [
+                DisplayMetricId::ChargingPower,
+                DisplayMetricId::BatteryPower,
+            ] {
+                let entry = battery_entry(&values, &labels, id, true);
+                assert_eq!(entry.digits, expected, "compact {id:?} at {watts} W");
+            }
+        }
+    }
+
+    #[test]
+    fn battery_power_preserves_direction_and_clears_it_when_stale() {
+        use mangodisk_core::system_resources::metrics::MetricReading;
+        use mangodisk_platform::system_resources::battery::{
+            BatteryPower, BatteryPowerState, BatterySource,
+        };
+        for (state, watts, heading) in [
+            (BatteryPowerState::Charging, 75.0, "BAT↑"),
+            (BatteryPowerState::Discharging, 24.0, "BAT↓"),
+            (BatteryPowerState::Idle, 0.0, "IDLE"),
+        ] {
+            let mut values = ResourceReadings {
+                observed_at_ms: 1000,
+                battery_power: MetricReading::ready(
+                    BatteryPower {
+                        watts,
+                        state,
+                        source: BatterySource::AppleSmartBattery,
+                    },
+                    1000,
+                ),
+                ..Default::default()
+            };
+            let labels = super::super::labels::Labels::for_locale("en-US");
+            let entry = battery_entry(&values, &labels, DisplayMetricId::BatteryPower, false);
+            assert_eq!(entry.power_state, Some(state));
+            assert_eq!(
+                super::super::macos_presentation::columns(&[entry], true)[0].top,
+                heading
+            );
+            values.observed_at_ms = 6001;
+            let expired = battery_entry(&values, &labels, DisplayMetricId::BatteryPower, false);
+            assert_eq!(expired.digits, "—");
+            assert_eq!(expired.power_state, None);
+        }
+    }
+
+    #[test]
+    fn battery_temperature_rounding_matches_the_other_temperature_items() {
+        use mangodisk_core::system_resources::metrics::MetricReading;
+        use mangodisk_platform::system_resources::battery::{BatterySource, BatteryTemperature};
+        let values = ResourceReadings {
+            observed_at_ms: 1000,
+            battery_temperature: MetricReading::ready(
+                BatteryTemperature {
+                    celsius: 48.5,
+                    source: BatterySource::AppleSmc,
+                },
+                1000,
+            ),
+            ..Default::default()
+        };
+        let entry = battery_entry(
+            &values,
+            &super::super::labels::Labels::for_locale("en-US"),
+            DisplayMetricId::BatteryTemperature,
+            false,
+        );
+        assert_eq!(entry.digits, "49");
+        assert_eq!(entry.color_value, Some(49));
+    }
+    #[test]
+    fn charging_color_thresholds_match_the_displayed_decimal_and_expire() {
+        use mangodisk_core::system_resources::metrics::MetricReading;
+        use mangodisk_platform::system_resources::battery::{BatterySource, ChargingPower};
+        let mut values = ResourceReadings {
+            observed_at_ms: 1000,
+            charging_power: MetricReading::ready(
+                ChargingPower {
+                    watts: 49.99,
+                    charging: true,
+                    external_connected: true,
+                    source: BatterySource::AppleSmc,
+                },
+                1000,
+            ),
+            ..Default::default()
+        };
+        let labels = super::super::labels::Labels::for_locale("en-US");
+        let entry = battery_entry(&values, &labels, DisplayMetricId::ChargingPower, false);
+        assert_eq!(entry.digits, "50.0");
+        assert_eq!(entry.color_value, Some(50));
+        values.observed_at_ms = 6001;
+        assert_eq!(
+            battery_entry(&values, &labels, DisplayMetricId::ChargingPower, false).digits,
+            "—"
+        );
+        values.observed_at_ms = 999;
+        assert_eq!(
+            battery_entry(&values, &labels, DisplayMetricId::ChargingPower, false).color_value,
+            None
+        );
+    }
 
     #[test]
     fn gpu_temperature_preserves_celsius_and_rounded_color_value() {
@@ -678,6 +1104,7 @@ mod tests {
         DisplayEntry {
             id,
             tone: Default::default(),
+            power_state: None,
             color_value: None,
             marker: String::new(),
             digits: String::new(),
@@ -832,6 +1259,10 @@ mod tests {
                 .filter(|id| match id {
                     DisplayId::CpuTemperature => cfg!(target_os = "macos"),
                     DisplayId::GpuTemperature => cfg!(any(target_os = "macos", windows)),
+                    DisplayId::BatteryTemperature
+                    | DisplayId::ChargingPower
+                    | DisplayId::BatteryPower
+                    | DisplayId::SystemPower => cfg!(target_os = "macos"),
                     _ => true,
                 })
                 .collect::<Vec<_>>()

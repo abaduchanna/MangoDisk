@@ -109,6 +109,10 @@ impl ResidentState {
         let temperature_sampling = (cfg!(windows) && preferences.windows_cpu_temperature_enabled)
             || (cfg!(target_os = "macos") && preferences.enabled);
         MetricId::ALL.map(|metric| Demand {
+            system_power: metric == MetricId::Cpu
+                && preferences.enabled
+                && preferences.shows_system_power(),
+            battery: metric == MetricId::Cpu && preferences.enabled && preferences.shows_battery(),
             temperature: (temperature_sampling && metric == MetricId::Cpu)
                 || (gpu_sampling
                     && cfg!(any(target_os = "macos", windows))
@@ -396,7 +400,20 @@ pub fn start(app: &tauri::AppHandle, preferences: ResidentPreferences) -> Arc<Re
                         diagnostics.discard(completion.metric.into());
                     } else {
                         match completion.result {
-                            Ok(Observation::Cpu { sample, details }) => {
+                            Ok(Observation::Cpu {
+                                sample,
+                                details,
+                                battery,
+                                system_power,
+                                battery_present,
+                            }) => {
+                                cache.battery_presence(battery_present, completion.timestamp_ms);
+                                if let Some(sample) = system_power {
+                                    cache.system_power(sample, completion.timestamp_ms);
+                                }
+                                if let Some(sample) = battery {
+                                    cache.battery(sample, completion.timestamp_ms);
+                                }
                                 cache.cpu_details(details, completion.timestamp_ms);
                                 if let Err(error) = &sample {
                                     let status = if error.code()

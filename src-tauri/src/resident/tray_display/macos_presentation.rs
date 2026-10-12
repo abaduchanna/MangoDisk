@@ -89,9 +89,13 @@ pub fn columns(entries: &[DisplayEntry], compact: bool) -> Vec<Column> {
                     rate.unit_offset + rate.unit_width,
                 ),
                 DisplayId::Download | DisplayId::App => return None,
-                DisplayId::CpuTemperature | DisplayId::GpuTemperature => (
+                DisplayId::CpuTemperature
+                | DisplayId::GpuTemperature
+                | DisplayId::BatteryTemperature => (
                     if entry.id == DisplayId::GpuTemperature {
                         "GPU"
+                    } else if entry.id == DisplayId::BatteryTemperature {
+                        "BAT"
                     } else {
                         "CPU"
                     }
@@ -102,6 +106,37 @@ pub fn columns(entries: &[DisplayEntry], compact: bool) -> Vec<Column> {
                         format!("{}°C", entry.digits)
                     },
                     if compact { 37 } else { 46 },
+                ),
+                DisplayId::ChargingPower | DisplayId::BatteryPower | DisplayId::SystemPower => (
+                    if entry.id == DisplayId::SystemPower {
+                        "SYS"
+                    } else if entry.id == DisplayId::ChargingPower {
+                        "CHG"
+                    } else {
+                        use mangodisk_platform::system_resources::battery::BatteryPowerState;
+                        match entry.power_state {
+                            Some(BatteryPowerState::Charging) => "BAT↑",
+                            Some(BatteryPowerState::Discharging) => "BAT↓",
+                            Some(BatteryPowerState::Idle) => "IDLE",
+                            None => "BAT",
+                        }
+                    }
+                    .into(),
+                    if entry.digits == "—" {
+                        "—".into()
+                    } else {
+                        format!("{}W", entry.digits)
+                    },
+                    // Compact power values use at most one decimal below 100 W.
+                    if compact {
+                        if entry.id == DisplayId::SystemPower {
+                            41
+                        } else {
+                            37
+                        }
+                    } else {
+                        62
+                    },
                 ),
                 id => (
                     match id {
@@ -180,6 +215,7 @@ mod tests {
     fn entry(id: DisplayId, digits: &str, marker: &str) -> DisplayEntry {
         DisplayEntry {
             tone: Default::default(),
+            power_state: None,
             color_value: None,
             id,
             digits: digits.into(),

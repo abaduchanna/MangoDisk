@@ -4,10 +4,17 @@ import type { MetricId, ResourceReadings } from '@/lib/models/system-resources';
 export interface ResidentReading extends ResourceReadings {
   revision: number;
 }
-export type ResidentDisplayMetricId = MetricId | 'cpuTemperature' | 'gpuTemperature';
+export type ResidentDisplayMetricId =
+  | MetricId
+  | 'cpuTemperature'
+  | 'gpuTemperature'
+  | 'batteryTemperature'
+  | 'chargingPower'
+  | 'batteryPower'
+  | 'systemPower';
 
 export interface ResidentPreferences {
-  schemaVersion: 16;
+  schemaVersion: 20;
   windowsCpuTemperatureEnabled: boolean;
   revision: number;
   enabled: boolean;

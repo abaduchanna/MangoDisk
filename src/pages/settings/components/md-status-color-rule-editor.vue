@@ -14,7 +14,8 @@ import {
   DISPLAY_COLORS,
   MAX_COLOR_RULES,
   defaultColorRule,
-  isTemperatureMetric,
+  colorMetricUnit,
+  colorMetricLimit,
 } from '@/lib/models/resident-color-rules';
 import type { ColorRule, DisplayColor, MetricColorRule } from '@/lib/models/resident-color-rules';
 
@@ -49,8 +50,8 @@ function editable(rule: ColorRule): DraftRule {
 }
 const enabled = ref(props.rule.enabled);
 const rules = ref(props.rule.rules.map(editable));
-const unit = computed(() => (isTemperatureMetric(props.rule.id) ? '°C' : '%'));
-const limit = computed(() => (isTemperatureMetric(props.rule.id) ? 150 : 100));
+const unit = computed(() => colorMetricUnit(props.rule.id));
+const limit = computed(() => colorMetricLimit(props.rule.id));
 function whole(value: number | null): value is number {
   return value !== null && Number.isInteger(value) && value >= 0 && value <= limit.value;
 }

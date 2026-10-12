@@ -1,4 +1,4 @@
-//! Read-only Apple SMC transport shared by identified CPU and GPU sensors.
+//! Read-only Apple SMC transport shared by identified CPU, GPU, and battery sensors.
 use crate::{PlatformError, PlatformErrorCode, PlatformResult};
 use core_foundation::dictionary::CFMutableDictionaryRef;
 use std::{ffi::c_void, mem::size_of};
@@ -177,6 +177,38 @@ fn native_error(stage: &str, code: i32) -> PlatformError {
         PlatformErrorCode::OperationFailed,
         format!("SMC {stage} native_code=0x{:08x}", code as u32),
     )
+}
+
+/// Fixed, identified telemetry keys share the same read-only transport.
+pub(crate) struct ValueReader(Connection);
+impl ValueReader {
+    pub(crate) fn new() -> PlatformResult<Self> {
+        Connection::open().map(Self)
+    }
+    pub(crate) fn read(&self, key: [u8; 4]) -> PlatformResult<Option<f64>> {
+        let key = u32::from_be_bytes(key);
+        let Some(info) = self.0.query(Packet {
+            key,
+            command: 9,
+            ..Default::default()
+        })?
+        else {
+            return Ok(None);
+        };
+        if !supported_encoding(info.info) {
+            return Ok(None);
+        }
+        let Some(value) = self.0.query(Packet {
+            key,
+            info: info.info,
+            command: 5,
+            ..Default::default()
+        })?
+        else {
+            return Ok(None);
+        };
+        Ok(decode(info.info, &value.bytes))
+    }
 }
 
 pub(crate) struct TemperatureSensors {

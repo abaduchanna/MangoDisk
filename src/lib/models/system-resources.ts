@@ -138,8 +138,28 @@ export interface DiskIoRate {
   readBytesPerSecond: number;
   writtenBytesPerSecond: number;
 }
+export type BatterySource = 'appleSmc' | 'appleSmartBattery';
+export interface BatteryTemperature {
+  celsius: number;
+  source: BatterySource;
+}
+export interface ChargingPower {
+  watts: number;
+  charging: boolean;
+  externalConnected: boolean;
+  source: BatterySource;
+}
+export type BatteryPowerState = 'charging' | 'discharging' | 'idle';
+export interface BatteryPower {
+  watts: number;
+  state: BatteryPowerState;
+  source: BatterySource;
+}
+export interface SystemPower {
+  watts: number;
+}
 export interface ResourceReadings {
-  schemaVersion: 17;
+  schemaVersion: 21;
   observedAtMs: number;
   cpu: MetricReading<CpuUsage>;
   cpuIdentity: CpuIdentity | null;
@@ -148,6 +168,11 @@ export interface ResourceReadings {
   cpuTemperatureHistory: TrendPoint[];
   gpuTemperature: MetricReading<GpuTemperature>;
   gpuTemperatureHistory: TrendPoint[];
+  batteryPresent: boolean | null;
+  batteryTemperature: MetricReading<BatteryTemperature>;
+  chargingPower: MetricReading<ChargingPower>;
+  batteryPower: MetricReading<BatteryPower>;
+  systemPower: MetricReading<SystemPower>;
   gpu: MetricReading<GpuUsage>;
   gpuDetails: MetricReading<GpuUsage>;
   gpuDetailHistory: TrendPoint[];

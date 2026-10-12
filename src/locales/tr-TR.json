@@ -4113,7 +4113,18 @@
     "colorRangeHint": "Aralık başlangıcı içerir, sonu içermez",
     "colorEmpty": "Kural yok. Varsayılan renk kullanılır",
     "colorLimit": "Öğe başına en fazla {max} kural",
-    "colorTo": "ile"
+    "colorTo": "ile",
+    "batteryTemperature": "Pil sıcaklığı",
+    "chargingPower": "Şarj gücü",
+    "chargingPowerHint": "Pile giren net güç; şarj duraklatıldığında veya bağlantı kesildiğinde 0 W",
+    "batteryPower": "Pil gücü",
+    "systemPower": "Sistem gücü",
+    "systemPowerUnsupportedHint": "Bu cihazda sistem gücü okunamıyor",
+    "batteryPowerHint": "Pilin anlık şarj ve deşarj gücü; ↑ şarj, ↓ deşarj",
+    "batteryCharging": "Şarj oluyor",
+    "batteryDischarging": "Deşarj oluyor",
+    "batteryIdle": "Boşta",
+    "batteryUnsupportedHint": "Bu Mac üzerinde pil verileri okunamıyor"
   },
   "webviewRuntime": {
     "updateRequired": "MangoDisk'i görüntüleyen bileşen güncel değil. Microsoft Edge WebView2 Runtime'ı güncelleyin, ardından MangoDisk'i yeniden açın",

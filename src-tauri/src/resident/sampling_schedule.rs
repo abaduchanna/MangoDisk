@@ -5,6 +5,8 @@ pub struct Demand {
     pub active: bool,
     pub detailed: bool,
     pub temperature: bool,
+    pub battery: bool,
+    pub system_power: bool,
     pub catalogue_only: bool,
     pub selection: Option<String>,
 }

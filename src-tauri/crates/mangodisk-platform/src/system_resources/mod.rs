@@ -2,6 +2,7 @@
 //! product aggregation and desktop scheduling stay in their respective layers.
 #[cfg(target_os = "macos")]
 mod application_metadata_macos;
+pub mod battery;
 pub mod cpu;
 pub mod disk;
 pub mod disk_io;
@@ -10,6 +11,7 @@ pub mod memory;
 #[cfg(target_os = "macos")]
 mod memory_macos;
 pub mod network;
+pub mod power;
 pub mod process_cpu;
 #[cfg(target_os = "macos")]
 mod process_cpu_macos;

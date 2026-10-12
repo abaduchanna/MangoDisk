@@ -80,6 +80,7 @@ fn native_grayscale_preserves_alpha_colors_and_field_fit_across_dpi() {
                 ]
                 .into_iter()
                 .map(|(id, text, digits)| DisplayEntry {
+                    power_state: None,
                     tone: match id {
                         DisplayId::Cpu => {
                             crate::resident::tray_display::usage_color::UsageTone::Critical

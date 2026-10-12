@@ -18,9 +18,12 @@ const maximumLocaleGzipBytes = 60 * 1024;
 // Per-item color rules add 21 net labels: Japanese measures 322,154 raw bytes;
 // Russian measures 389,672 raw / 68,621 gzip bytes. Expand only these local margins.
 // Independent condition dialogs measure 322,964 Japanese / 390,657 Russian raw bytes.
+// Battery metrics and power-direction labels measure 391,458 Russian raw bytes.
+// Reserve one additional KiB locally; keep application and gzip budgets unchanged.
+// Whole-system power adds two labels: Japanese measures 323,767 raw bytes.
 const localeChunkLimitOverrides = new Map([
-  ['ja-jp', { bytes: 316 * 1024, gzipBytes: 60 * 1024 }],
-  ['ru-ru', { bytes: 382 * 1024, gzipBytes: 68 * 1024 }],
+  ['ja-jp', { bytes: 317 * 1024, gzipBytes: 60 * 1024 }],
+  ['ru-ru', { bytes: 383 * 1024, gzipBytes: 68 * 1024 }],
 ]);
 
 function fail(message) {

@@ -4113,7 +4113,18 @@
     "colorRangeHint": "범위는 시작을 포함하고 끝은 제외합니다",
     "colorEmpty": "규칙이 없습니다. 기본 색상을 사용합니다",
     "colorLimit": "항목당 최대 {max}개 규칙",
-    "colorTo": "~"
+    "colorTo": "~",
+    "batteryTemperature": "배터리 온도",
+    "chargingPower": "충전 전력",
+    "chargingPowerHint": "배터리에 실제로 공급되는 전력입니다. 충전이 일시 중지되거나 전원이 연결되지 않으면 0 W입니다",
+    "batteryPower": "배터리 전력",
+    "systemPower": "시스템 소비 전력",
+    "systemPowerUnsupportedHint": "이 기기에서는 시스템 소비 전력을 읽을 수 없습니다",
+    "batteryPowerHint": "배터리 실시간 충방전 전력: ↑ 충전, ↓ 방전",
+    "batteryCharging": "충전 중",
+    "batteryDischarging": "방전 중",
+    "batteryIdle": "충방전 대기",
+    "batteryUnsupportedHint": "이 Mac에서는 배터리 데이터를 읽을 수 없습니다"
   },
   "webviewRuntime": {
     "updateRequired": "MangoDisk 화면 표시에 필요한 구성 요소의 버전이 오래되었습니다. Microsoft Edge WebView2 Runtime을 업데이트한 후 MangoDisk를 다시 실행해 주세요",

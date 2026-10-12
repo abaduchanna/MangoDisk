@@ -36,7 +36,7 @@ returns that reserved slot directly, so centered buttons do not send the monitor
 to an unrelated outer gap. Unknown environments prefer right,
 and collision checks still apply. These defaults do not replace saved choices.
 
-Resident preferences use schema version 16; resource readings use version 17.
+Resident preferences use schema version 20; resource readings use version 21.
 Versions 1–8 preferences preserve every saved selection and order, appending GPU
 display disabled. New installations also leave GPU display unselected. Resource
 version 9 adds the GPU catalogue. Version 9 preferences migrate GPU selection to automatic; version 10 persists fixed selection. Frontends reject mismatched envelopes.
@@ -890,3 +890,73 @@ Device identity appears only in the utilization card. Both charts share typograp
 padding, and chart height without axis labels or grid lines. Overview and detail
 summary cards share a 104-DIP height and eight-DIP vertical card spacing. GPU facts
 remain outside the scrolling memory and engine detail sections, matching CPU facts.
+
+### macOS battery display
+
+Preference version 20 keeps battery temperature, charging power, and battery power
+display disabled by default, preserving saved selections, order, and color rules.
+Battery-temperature rules use the defaults described below; power rules start
+disabled and empty. Limits are 100°C and 300 W. Power uses one decimal
+place in normal mode; compact mode uses integers at 100 W and above. Integer color
+thresholds compare against the displayed, rounded watt value.
+Resource version 21 carries independent freshness and source for all three readings.
+
+Battery telemetry runs on the existing CPU worker every two seconds only while
+at least one battery display item is selected. Disabling all three releases its SMC
+connection without stopping CPU sampling. SMC TB1T/TB2T provide the available
+sensor average, with AppleSmartBattery Temperature divided by 100 as fallback.
+SMC open or read failures release the connection and retry on the next scheduled
+sample. Diagnostics retain the native failure and record recovery; missing sensor
+keys remain distinct from connection failures.
+Charging power means net power entering the battery, measured from battery
+voltage times signed InstantAmperage, falling back to Amperage when unavailable.
+PPBR can report discharge-rail consumption
+while the pack charges, so it must not substitute for charging current. Battery
+power has a typed charging/discharging/idle state. While disconnected it prefers
+SMC PPBR, because pack current can remain zero for a minute after unplugging;
+signed pack power is the fallback. While connected, it uses signed pack power,
+never substituting discharge-rail consumption for charging current. Adapter input
+and rated watts are not substitutes. Charging power reports 0 W when paused or disconnected; missing
+flags or unavailable telemetry report unavailable. Values expire after five
+seconds. Diagnostics record capability/source and charge-state changes plus a
+periodic numeric observation, without battery identity or raw registry contents.
+
+Native battery power headings use BAT↑ for charging, BAT↓ for discharging, and
+IDLE for zero current without charging. Tooltips localize the state; stale readings
+clear the state along with the value. Version 17 selections and colors migrate
+without changing them, appending battery power disabled.
+
+
+### macOS whole-system power display
+
+Preference version 19 appends whole-system power disabled and preserves saved
+selections, relative order, and color rules. Its color rules start disabled and
+empty, use watts, and accept thresholds up to 3000 W. The new metric is visible
+only on macOS and uses SYS in the native menu bar; localized tooltips name the
+metric explicitly.
+
+Whole-system power uses the same identified SMC PSTR sensor as Stats System
+Total. It does not require AppleSmartBattery and must not substitute adapter
+ratings, battery power, or a fabricated zero when PSTR is unavailable. The
+existing CPU worker reads it every two seconds only while selected; disabling it
+releases its own SMC connection. Native failures reopen the connection on the
+next scheduled read. Missing, failed, invalid and stale samples remain distinct;
+values expire after five seconds. Diagnostics log sensor/state changes and a
+bounded periodic watt observation. No private sensor dumps are persisted.
+
+
+Battery presence is a separate nullable boolean in resource version 21. The
+existing CPU worker checks AppleSmartBattery and BatteryInstalled every 30
+seconds independently of battery display selection. A successful empty match
+means absent; a registry error retains the last known state instead of hiding
+controls because a sensor failed. Confirmed absence hides all three battery rows
+and native columns while preserving saved selections and color rules. If no
+visible metric remains, the native brand icon preserves access to settings.
+
+
+Preference version 20 adds enabled battery-temperature color defaults: below
+40°C green, 40–45°C orange, and at least 45°C red. Migration upgrades only the
+old inactive, empty battery-temperature default; custom rules remain intact.
+Current-version users can still disable or remove every rule. Charging, battery
+and whole-system power defaults remain disabled and empty. Battery help actions
+sit immediately after their labels, separate from color controls.

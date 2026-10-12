@@ -4113,7 +4113,18 @@
     "colorRangeHint": "範圍包含起點，不包含終點",
     "colorEmpty": "尚未新增規則，使用預設顏色",
     "colorLimit": "每項最多新增 {max} 條規則",
-    "colorTo": "至"
+    "colorTo": "至",
+    "batteryTemperature": "電池溫度",
+    "chargingPower": "充電功率",
+    "chargingPowerHint": "實際進入電池的功率；暫停充電或拔除電源時為 0 W",
+    "batteryPower": "電池功率",
+    "systemPower": "整機功率",
+    "systemPowerUnsupportedHint": "目前裝置無法讀取整機功率",
+    "batteryPowerHint": "電池即時充放電功率；↑ 充電，↓ 放電",
+    "batteryCharging": "充電中",
+    "batteryDischarging": "放電中",
+    "batteryIdle": "未充放電",
+    "batteryUnsupportedHint": "此 Mac 無法讀取電池資料"
   },
   "webviewRuntime": {
     "updateRequired": "目前的介面執行元件版本較舊。請更新 Microsoft Edge WebView2 Runtime，然後重新開啟 MangoDisk",

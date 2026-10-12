@@ -200,9 +200,15 @@ pub fn apply(
             item.setLength(-1.0);
         }
         button.setAccessibilityLabel(Some(&NSString::from_str(&label)));
-        Some((appearance, identity, redraw))
+        Some((
+            appearance,
+            identity,
+            redraw,
+            item.isVisible(),
+            button.window().map(|window| window.frame()),
+        ))
     })?;
-    let Some((appearance, button, redraw)) = result else {
+    let Some((appearance, button, redraw, native_visible, native_frame)) = result else {
         return Err(tauri::Error::Io(std::io::Error::other(
             "display_native_button",
         )));
@@ -213,7 +219,7 @@ pub fn apply(
             != macos_presentation::width(&columns, icon, compact)
     {
         log::info!(
-            "resident_macos_layout columns={} content_width_pt={} dark={} compact={compact}",
+            "resident_macos_layout columns={} content_width_pt={} dark={} compact={compact} native_visible={native_visible} native_frame={native_frame:?}",
             columns.len(),
             macos_presentation::width(&columns, icon, compact),
             appearance.contains("Dark")
@@ -245,6 +251,7 @@ mod tests {
         }
         let entry = DisplayEntry {
             tone: Default::default(),
+            power_state: None,
             color_value: None,
             id: super::super::format::DisplayId::Cpu,
             digits: "100".into(),
@@ -271,7 +278,48 @@ mod tests {
                 );
             }
         }
+        for compact in [false, true] {
+            let size = if compact { 11.0 } else { 12.0 };
+            let column = macos_presentation::columns(
+                &[DisplayEntry {
+                    id: super::super::format::DisplayId::ChargingPower,
+                    ..entry.clone()
+                }],
+                compact,
+            );
+            let maximum = if compact { "300W" } else { "300.0W" };
+            for value in ["0.0W", "9.9W", "99.9W", maximum, "—"] {
+                assert!(
+                    measured(value, size, 0.3) <= f64::from(column[0].width),
+                    "charging power {value} overflows"
+                );
+            }
+            for heading in ["BAT↑", "BAT↓", "IDLE"] {
+                assert!(
+                    measured(heading, 7.5, 0.0) <= f64::from(column[0].width),
+                    "battery state heading {heading} overflows"
+                );
+            }
+        }
         // Real AppKit metrics catch regressions that string-length tests miss.
+        for compact in [false, true] {
+            let size = if compact { 11.0 } else { 12.0 };
+            let width = macos_presentation::columns(
+                &[DisplayEntry {
+                    id: super::super::format::DisplayId::SystemPower,
+                    ..entry.clone()
+                }],
+                compact,
+            )[0]
+            .width;
+            let maximum = if compact { "3000W" } else { "3000.0W" };
+            for value in ["0.0W", "99.9W", maximum, "—"] {
+                assert!(
+                    measured(value, size, 0.3) <= f64::from(width),
+                    "system power {value} overflows"
+                );
+            }
+        }
         for value in 0..=100 {
             assert!(
                 measured(&format!("{value}%"), 11.0, 0.3) <= 34.0,

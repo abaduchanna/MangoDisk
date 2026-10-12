@@ -53,24 +53,53 @@ const volumes = ref<ResourceVolume[]>([]);
 const gpuAdapters = ref<{ id: string; name: string }[]>([]);
 const catalogueError = ref(false);
 const gpuTemperatureStatus = ref<ResidentReading['gpuTemperature']['status']>('loading');
+const batteryPresent = ref<boolean | null>(null);
+const batteryTemperatureStatus = ref<ResidentReading['batteryTemperature']['status']>('loading');
+const chargingPowerStatus = ref<ResidentReading['chargingPower']['status']>('loading');
+const systemPowerStatus = ref<ResidentReading['systemPower']['status']>('loading');
+const batteryPowerStatus = ref<ResidentReading['batteryPower']['status']>('loading');
+function batteryHint(id: ResidentDisplayMetricId) {
+  const unavailable =
+    id === 'batteryTemperature'
+      ? batteryTemperatureStatus.value === 'unsupported'
+      : id === 'batteryPower'
+        ? batteryPowerStatus.value === 'unsupported'
+        : chargingPowerStatus.value === 'unsupported';
+  return t(
+    unavailable
+      ? 'systemStatus.batteryUnsupportedHint'
+      : id === 'batteryPower'
+        ? 'systemStatus.batteryPowerHint'
+        : 'systemStatus.chargingPowerHint'
+  );
+}
 const dragging = ref<ResidentDisplayMetricId | null>(null);
 const pointerDragging = ref(false);
 const dragRows = ref<ResidentPreferences['metrics'] | null>(null);
 const announcement = ref('');
 const metricRowsElement = ref<HTMLElement | null>(null);
 const rows = computed(() => dragRows.value ?? settings.draft?.metrics ?? []);
+function isBatteryMetric(id: ResidentDisplayMetricId | null): boolean {
+  return id === 'batteryTemperature' || id === 'chargingPower' || id === 'batteryPower';
+}
 const displayLabelKeys = {
   ...METRIC_LABEL_KEYS,
   cpuTemperature: 'cpuTemperature.label',
   gpuTemperature: 'gpuTemperature.label',
+  batteryTemperature: 'systemStatus.batteryTemperature',
+  chargingPower: 'systemStatus.chargingPower',
+  batteryPower: 'systemStatus.batteryPower',
+  systemPower: 'systemStatus.systemPower',
 };
 const visibleRows = computed(() =>
   rows.value
     .filter(
       row =>
+        (batteryPresent.value !== false || !isBatteryMetric(row.id)) &&
         (!props.isLinux || row.id !== 'gpuTemperature') &&
         (!props.isLinux || row.id !== 'cpuTemperature') &&
-        (!props.isLinux || row.id !== 'gpu')
+        (!props.isLinux || row.id !== 'gpu') &&
+        (props.isMacOs || (!isBatteryMetric(row.id) && row.id !== 'systemPower'))
     )
     .map(row =>
       row.id === 'cpuTemperature' && !props.isMacOs && !settings.draft?.windowsCpuTemperatureEnabled
@@ -93,6 +122,11 @@ const settingsOpen = ref(false);
 const temperatureSetupOpen = ref(false);
 const selectTemperatureAfterSetup = ref(false);
 const activeColor = ref<ColorMetricId | null>(null);
+watch(batteryPresent, present => {
+  if (present !== false) return;
+  if (isBatteryMetric(activeColor.value)) activeColor.value = null;
+  if (isBatteryMetric(dragging.value)) cancelDrag();
+});
 function openColor(id: ColorMetricId) {
   cancelDrag();
   expandedSelection.value = null;
@@ -188,12 +222,17 @@ let disposed = false;
 let unlisten: (() => void) | null = null;
 let revision = -1;
 function accept(value: ResidentReading) {
-  if (disposed || value.schemaVersion !== 17 || value.revision < revision) return;
+  if (disposed || value.schemaVersion !== 21 || value.revision < revision) return;
   revision = value.revision;
   interfaces.value = value.interfaces;
   volumes.value = value.volumes;
   gpuAdapters.value = value.gpuAdapters;
   gpuTemperatureStatus.value = value.gpuTemperature.status;
+  batteryPresent.value = value.batteryPresent;
+  batteryTemperatureStatus.value = value.batteryTemperature.status;
+  chargingPowerStatus.value = value.chargingPower.status;
+  batteryPowerStatus.value = value.batteryPower.status;
+  systemPowerStatus.value = value.systemPower.status;
 }
 async function enable(id: ResidentDisplayMetricId, enabled: boolean) {
   if (id === 'gpuTemperature' && enabled && gpuTemperatureStatus.value === 'unsupported') return;
@@ -569,10 +608,34 @@ onBeforeUnmount(() => {
                           }}
                         </label>
                         <MdTooltip
+                          v-if="
+                            row.id === 'chargingPower' ||
+                            row.id === 'batteryPower' ||
+                            (row.id === 'batteryTemperature' && batteryTemperatureStatus === 'unsupported')
+                          "
+                          :text="batteryHint(row.id)"
+                        >
+                          <button type="button" class="md-help-action" :aria-label="batteryHint(row.id)">
+                            <MdIcon :name="ICON_NAMES.info" :size="14" />
+                          </button>
+                        </MdTooltip>
+                        <MdTooltip
                           v-if="row.id === 'cpuTemperature' && !isMacOs && !isLinux"
                           :text="t('windowsMonitoring.displayHint')"
                         >
                           <button type="button" class="md-help-action" :aria-label="t('windowsMonitoring.displayHint')">
+                            <MdIcon :name="ICON_NAMES.info" :size="14" />
+                          </button>
+                        </MdTooltip>
+                        <MdTooltip
+                          v-if="row.id === 'systemPower' && systemPowerStatus === 'unsupported'"
+                          :text="t('systemStatus.systemPowerUnsupportedHint')"
+                        >
+                          <button
+                            type="button"
+                            class="md-help-action"
+                            :aria-label="t('systemStatus.systemPowerUnsupportedHint')"
+                          >
                             <MdIcon :name="ICON_NAMES.info" :size="14" />
                           </button>
                         </MdTooltip>
@@ -606,6 +669,7 @@ onBeforeUnmount(() => {
                           }}</span
                         >
                       </div>
+
                       <Button
                         v-if="row.id === 'cpuTemperature' && !isMacOs && !isLinux"
                         variant="ghost"

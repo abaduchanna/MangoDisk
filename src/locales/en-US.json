@@ -4113,7 +4113,18 @@
     "colorRangeHint": "Ranges include the start and exclude the end",
     "colorEmpty": "No rules. Values use the default color",
     "colorLimit": "Up to {max} rules per item",
-    "colorTo": "to"
+    "colorTo": "to",
+    "batteryTemperature": "Battery temperature",
+    "chargingPower": "Charging power",
+    "chargingPowerHint": "Net power entering the battery; 0 W when charging is paused or disconnected",
+    "batteryPower": "Battery power",
+    "systemPower": "System power",
+    "systemPowerUnsupportedHint": "System power is unavailable on this device",
+    "batteryPowerHint": "Actual battery charge/discharge power; ↑ charging, ↓ discharging",
+    "batteryCharging": "Charging",
+    "batteryDischarging": "Discharging",
+    "batteryIdle": "Idle",
+    "batteryUnsupportedHint": "Battery telemetry is unavailable on this Mac"
   },
   "webviewRuntime": {
     "updateRequired": "The component used to display MangoDisk is out of date. Update Microsoft Edge WebView2 Runtime, then reopen MangoDisk",

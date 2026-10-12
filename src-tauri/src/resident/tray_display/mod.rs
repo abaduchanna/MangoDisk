@@ -69,6 +69,14 @@ impl DisplayState {
                 DisplayId::GpuTemperature => {
                     super::preference_schema::DisplayMetricId::GpuTemperature
                 }
+                DisplayId::BatteryTemperature => {
+                    super::preference_schema::DisplayMetricId::BatteryTemperature
+                }
+                DisplayId::ChargingPower => {
+                    super::preference_schema::DisplayMetricId::ChargingPower
+                }
+                DisplayId::SystemPower => super::preference_schema::DisplayMetricId::SystemPower,
+                DisplayId::BatteryPower => super::preference_schema::DisplayMetricId::BatteryPower,
                 DisplayId::Memory => super::preference_schema::DisplayMetricId::Memory,
                 DisplayId::Disk => super::preference_schema::DisplayMetricId::Disk,
                 _ => {
@@ -503,7 +511,7 @@ fn render(
         if macos::apply(
             &tray,
             &entries,
-            preferences.effective_icon(),
+            preferences.effective_icon() || entries.is_empty(),
             preferences.menu_bar_compact,
             &summary,
             &mut state.macos,
@@ -559,6 +567,35 @@ mod tests {
     use usage_color::UsageTone;
 
     #[test]
+    fn battery_power_color_rules_apply_to_their_own_slot() {
+        use crate::resident::color_rules::{ColorRule, DisplayColor};
+        use crate::resident::preference_schema::DisplayMetricId;
+        let mut preferences = ResidentPreferences::default();
+        let rule = preferences
+            .color_rules
+            .iter_mut()
+            .find(|rule| rule.id == DisplayMetricId::BatteryPower)
+            .unwrap();
+        rule.enabled = true;
+        rule.rules = vec![ColorRule::Below {
+            value: 100,
+            color: DisplayColor::Blue,
+        }];
+        let mut entries = vec![DisplayEntry {
+            id: DisplayId::BatteryPower,
+            tone: Default::default(),
+            power_state: None,
+            color_value: Some(50),
+            marker: "W".into(),
+            digits: "50.0".into(),
+            text: String::new(),
+            tooltip: String::new(),
+        }];
+        DisplayState::default().apply_colors(&mut entries, &preferences, None, None, None);
+        assert_eq!(entries[0].tone, UsageTone::Blue);
+    }
+
+    #[test]
     fn temperature_and_percentage_rules_are_independent_and_unavailable_is_neutral() {
         let mut state = DisplayState::default();
         let preferences = ResidentPreferences::default();
@@ -571,6 +608,7 @@ mod tests {
         .map(|id| DisplayEntry {
             id,
             tone: Default::default(),
+            power_state: None,
             color_value: Some(65),
             marker: String::new(),
             digits: String::new(),
@@ -604,6 +642,7 @@ mod tests {
             .map(|id| DisplayEntry {
                 id,
                 tone: UsageTone::Normal,
+                power_state: None,
                 color_value: Some(95),
                 marker: String::new(),
                 digits: String::new(),

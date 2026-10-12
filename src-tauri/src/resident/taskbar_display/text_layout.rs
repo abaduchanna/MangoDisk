@@ -192,6 +192,7 @@ mod tests {
             for tone in [UsageTone::Normal, UsageTone::Warning, UsageTone::Critical] {
                 let columns = super::super::presentation::columns(
                     &[DisplayEntry {
+                        power_state: None,
                         id,
                         tone,
                         color_value: Some(90),
@@ -249,6 +250,7 @@ mod tests {
                     let columns = super::super::presentation::columns(
                         &[DisplayEntry {
                             tone: Default::default(),
+                            power_state: None,
                             color_value: None,
                             id: DisplayId::Upload,
                             text: title.into(),
