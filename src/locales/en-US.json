@@ -4223,6 +4223,8 @@
     "packageHint": "CPU package temperature; highest value across {count} sensors",
     "amdZenHint": "AMD CPU die temperature (Tdie), with model-specific Tctl offsets removed",
     "coreMaximumHint": "Highest temperature across {count} CPU core sensors",
+    "diodeHint": "CPU diode temperature",
+    "proximityHint": "Temperature measured near the CPU; differs from core and package temperatures",
     "unsupportedHint": "MangoDisk cannot read an identified CPU temperature sensor on this device",
     "trend": "CPU temperature over the last minute, in degrees Celsius"
   },

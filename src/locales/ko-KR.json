@@ -4223,6 +4223,8 @@
     "packageHint": "CPU 패키지 온도: 센서 {count}개의 최댓값",
     "amdZenHint": "AMD CPU 다이 온도(Tdie). 해당 모델의 Tctl 온도 오프셋을 제거한 값",
     "coreMaximumHint": "CPU 코어 센서 {count}개의 최고 온도",
+    "diodeHint": "CPU 다이오드 온도",
+    "proximityHint": "CPU 근처 센서에서 측정한 온도이며 코어 및 패키지 온도와 다릅니다",
     "unsupportedHint": "MangoDisk가 이 기기에서 확인된 CPU 온도 센서를 읽을 수 없습니다",
     "trend": "최근 1분간 CPU 온도(섭씨)"
   },

@@ -13,19 +13,15 @@ pub(super) struct Reader {
 }
 impl Reader {
     pub(super) fn new(model: Option<&str>) -> PlatformResult<Self> {
+        #[cfg(target_arch = "x86_64")]
+        let (keys, _) = cpu_keys(model).ok_or_else(unsupported)?;
+        #[cfg(not(target_arch = "x86_64"))]
         let (keys, kind) = cpu_keys(model).ok_or_else(unsupported)?;
         let sensors = TemperatureSensors::new(keys)?;
         #[cfg(target_arch = "x86_64")]
-        let (sensors, kind) = if sensors.len() == 0 {
+        let (sensors, kind) = {
             let mut sensors = sensors;
-            let keys = intel_core_keys(intel_physical_cores()?).ok_or_else(unsupported)?;
-            sensors.select(keys)?;
-            // Unused Intel core slots can expose plausible sentinel values.
-            if sensors.len() != keys.len() {
-                return Err(unsupported());
-            }
-            (sensors, CpuTemperatureKind::CoreMaximum)
-        } else {
+            let kind = select_intel_sensors(&mut sensors)?.ok_or_else(unsupported)?;
             (sensors, kind)
         };
         if sensors.len() == 0 {
@@ -48,6 +44,53 @@ impl Reader {
         })
     }
 }
+#[cfg(target_arch = "x86_64")]
+fn usable_sensors(sensors: &TemperatureSensors, expected: usize) -> PlatformResult<bool> {
+    if sensors.len() != expected {
+        return Ok(false);
+    }
+    // Present keys can contain disabled-sensor sentinels. Native query and
+    // response-size errors propagate instead of silently changing the sensor.
+    sensors.has_valid_readings()
+}
+#[cfg(target_arch = "x86_64")]
+fn select_intel_sensors(
+    sensors: &mut TemperatureSensors,
+) -> PlatformResult<Option<CpuTemperatureKind>> {
+    if usable_sensors(sensors, 1)? {
+        log::info!("cpu_temperature_sensor_selected sensor=TCAD kind=Package");
+        return Ok(Some(CpuTemperatureKind::Package));
+    }
+    if let Some(keys) = intel_core_keys(intel_physical_cores()?) {
+        sensors.select(keys)?;
+        // Require the complete physical core set to exclude unused core slots.
+        if usable_sensors(sensors, keys.len())? {
+            log::info!(
+                "cpu_temperature_sensor_selected kind=CoreMaximum count={}",
+                keys.len()
+            );
+            return Ok(Some(CpuTemperatureKind::CoreMaximum));
+        }
+    }
+    for (key, kind) in INTEL_FALLBACK_SENSORS {
+        sensors.select(&[key])?;
+        if usable_sensors(sensors, 1)? {
+            log::info!(
+                "cpu_temperature_sensor_selected sensor={} kind={kind:?}",
+                String::from_utf8_lossy(&key)
+            );
+            return Ok(Some(kind));
+        }
+    }
+    Ok(None)
+}
+#[cfg(target_arch = "x86_64")]
+const INTEL_FALLBACK_SENSORS: [([u8; 4], CpuTemperatureKind); 4] = [
+    (*b"TC0D", CpuTemperatureKind::Diode),
+    (*b"TC0E", CpuTemperatureKind::Diode),
+    (*b"TC0F", CpuTemperatureKind::Diode),
+    (*b"TC0P", CpuTemperatureKind::Proximity),
+];
 #[cfg(target_arch = "x86_64")]
 fn intel_physical_cores() -> PlatformResult<usize> {
     let mut count = 0u32;
@@ -150,6 +193,40 @@ fn cpu_keys(model: Option<&str>) -> Option<(&'static [[u8; 4]], CpuTemperatureKi
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[cfg(target_arch = "x86_64")]
+    #[test]
+    #[ignore = "requires an Intel Mac with readable TC0P and PSTR fallback sensors"]
+    fn native_intel_fallback_preserves_proximity_identity_and_power_reading() {
+        let mut reader = Reader::new(None).unwrap();
+        let temperature = reader.read().unwrap();
+        assert_eq!(temperature.kind, CpuTemperatureKind::Proximity);
+        assert_eq!(temperature.sensor_count, 1);
+        let raw = crate::system_resources::macos_smc::ValueReader::new()
+            .unwrap()
+            .read(*b"TC0P")
+            .unwrap()
+            .unwrap();
+        assert!((raw - temperature.celsius).abs() < 2.0);
+        let power = crate::system_resources::power::SystemPowerReader::default()
+            .read()
+            .unwrap();
+        assert!(power.watts > 0.0 && power.watts <= 3_000.0);
+    }
+    #[cfg(target_arch = "x86_64")]
+    #[test]
+    fn intel_fallback_keeps_diode_and_proximity_measurements_distinct() {
+        assert_eq!(
+            INTEL_FALLBACK_SENSORS[0],
+            (*b"TC0D", CpuTemperatureKind::Diode)
+        );
+        assert_eq!(
+            INTEL_FALLBACK_SENSORS[3],
+            (*b"TC0P", CpuTemperatureKind::Proximity)
+        );
+        assert!(!INTEL_FALLBACK_SENSORS
+            .iter()
+            .any(|(key, _)| key == b"TCGC" || key == b"TC0H"));
+    }
     #[cfg(target_arch = "x86_64")]
     #[test]
     fn intel_fallback_excludes_unused_slots_and_unidentified_topologies() {

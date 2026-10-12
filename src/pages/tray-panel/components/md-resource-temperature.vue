@@ -30,6 +30,8 @@ const hintKeys: Record<CpuTemperature['kind'], string> = {
   coreAverage: 'cpuTemperature.coreAverageHint',
   package: 'cpuTemperature.packageHint',
   coreMaximum: 'cpuTemperature.coreMaximumHint',
+  diode: 'cpuTemperature.diodeHint',
+  proximity: 'cpuTemperature.proximityHint',
 };
 const value = computed(() =>
   props.metric === 'cpu'

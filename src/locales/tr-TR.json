@@ -4223,6 +4223,8 @@
     "packageHint": "CPU paket sıcaklığı; {count} sensörün en yüksek değeri",
     "amdZenHint": "AMD CPU yonga sıcaklığı (Tdie); ilgili modellerin Tctl sıcaklık farkı çıkarılmıştır",
     "coreMaximumHint": "{count} CPU çekirdek sensörünün en yüksek sıcaklığı",
+    "diodeHint": "CPU diyot sıcaklığı",
+    "proximityHint": "CPU yakınındaki sensörün ölçtüğü sıcaklık; çekirdek ve paket sıcaklıklarından farklıdır",
     "unsupportedHint": "MangoDisk bu cihazda doğrulanmış bir CPU sıcaklık sensörünü okuyamıyor",
     "trend": "Son bir dakikadaki CPU sıcaklığı, Santigrat derece"
   },

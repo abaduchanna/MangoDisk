@@ -4223,6 +4223,8 @@
     "packageHint": "CPU パッケージ温度：{count} 個のセンサーの最高値",
     "amdZenHint": "AMD CPU ダイ温度（Tdie）。対象モデルの Tctl 温度オフセットを補正済み",
     "coreMaximumHint": "CPU コアセンサー {count} 個の最高温度",
+    "diodeHint": "CPU ダイオード温度",
+    "proximityHint": "CPU 付近のセンサーで測定した温度です。コアやパッケージの温度とは異なります",
     "unsupportedHint": "MangoDisk はこのデバイスで CPU 温度センサーを確認して読み取ることができません",
     "trend": "直近1分間の CPU 温度（摂氏）"
   },

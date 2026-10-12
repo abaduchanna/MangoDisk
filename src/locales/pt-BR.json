@@ -4223,6 +4223,8 @@
     "packageHint": "Temperatura do pacote da CPU; maior valor entre {count} sensores",
     "amdZenHint": "Temperatura do chip AMD (Tdie), com os offsets de Tctl dos modelos aplicáveis removidos",
     "coreMaximumHint": "Maior temperatura entre {count} sensores dos núcleos da CPU",
+    "diodeHint": "Temperatura do diodo da CPU",
+    "proximityHint": "Temperatura medida perto da CPU; difere das temperaturas dos núcleos e do pacote",
     "unsupportedHint": "O MangoDisk não consegue ler um sensor de temperatura da CPU identificado neste dispositivo",
     "trend": "Temperatura da CPU no último minuto, em graus Celsius"
   },

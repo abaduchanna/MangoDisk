@@ -4223,6 +4223,8 @@
     "packageHint": "CPU 封装温度；取 {count} 个传感器的最高值",
     "amdZenHint": "AMD CPU 芯片温度（Tdie），已扣除适用型号的 Tctl 温度偏移",
     "coreMaximumHint": "{count} 个 CPU 核心传感器的最高温度",
+    "diodeHint": "CPU 二极管温度",
+    "proximityHint": "CPU 邻近传感器测得的温度，与核心和封装温度不同",
     "unsupportedHint": "MangoDisk 无法在此设备读取已确认的 CPU 温度传感器",
     "trend": "最近一分钟 CPU 温度，单位摄氏度"
   },

@@ -813,7 +813,12 @@ Intel prefers the CPU package key TCAD. When absent, machines with one to eight
 physical cores can use the highest TC1C–TC8C core temperature, bounded by
 `hw.physicalcpu_max` and requiring the complete selected set. Unused slots are
 excluded because they can expose plausible-looking sentinel values. A core maximum
-is explicitly labeled as such, never as a package reading. These private
+is explicitly labeled as such, never as a package reading. If those readings are
+unavailable or contain disabled-sensor sentinels, Intel falls back to the first
+valid TC0D/TC0E/TC0F diode reading, then TC0P CPU proximity. The protocol and detail
+hints distinguish diode and proximity from core/package measurements. Native
+transport failures remain errors rather than triggering a different sensor.
+These private
 interfaces require per-chip and OS validation; available readings do not establish
 support for every Mac. Linux recognizes coretemp package/core sensors and k10temp
 Tdie, excluding Tctl offsets and anonymous thermal zones. Windows uses the optional
@@ -936,7 +941,9 @@ only on macOS and uses SYS in the native menu bar; localized tooltips name the
 metric explicitly.
 
 Whole-system power uses the same identified SMC PSTR sensor as Stats System
-Total. It does not require AppleSmartBattery and must not substitute adapter
+Total. The transport decodes both Apple Silicon floats and Intel signed sp96
+fixed-point values; unsupported encodings are diagnosed separately from absent
+keys. It does not require AppleSmartBattery and must not substitute adapter
 ratings, battery power, or a fabricated zero when PSTR is unavailable. The
 existing CPU worker reads it every two seconds only while selected; disabling it
 releases its own SMC connection. Native failures reopen the connection on the

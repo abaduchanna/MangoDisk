@@ -196,7 +196,7 @@ impl ValueReader {
             return Ok(None);
         };
         if !supported_encoding(info.info) {
-            return Ok(None);
+            return Err(encoding_error(key, info.info));
         }
         let Some(value) = self.0.query(Packet {
             key,
@@ -232,34 +232,45 @@ impl TemperatureSensors {
     pub(crate) fn len(&self) -> usize {
         self.sensors.len()
     }
+    #[cfg(target_arch = "x86_64")]
+    pub(crate) fn has_valid_readings(&self) -> PlatformResult<bool> {
+        for &(key, info) in &self.sensors {
+            if self.read_sensor(key, info)?.is_none() {
+                return Ok(false);
+            }
+        }
+        Ok(!self.sensors.is_empty())
+    }
+    fn read_sensor(&self, key: u32, info: KeyInfo) -> PlatformResult<Option<f64>> {
+        let packet = self
+            .connection
+            .query(Packet {
+                key,
+                info,
+                command: 5,
+                ..Default::default()
+            })?
+            .ok_or_else(|| {
+                PlatformError::new(
+                    PlatformErrorCode::OperationFailed,
+                    format!("SMC sensor disappeared key={key:08x}"),
+                )
+            })?;
+        Ok(decode(info, &packet.bytes)
+            .filter(|value| value.is_finite() && *value > 0.0 && *value <= 150.0))
+    }
     pub(crate) fn read(&self) -> PlatformResult<Vec<f64>> {
         // Every selected sensor must remain readable; changing the denominator
         // during a sample would silently change an average's meaning.
         self.sensors
             .iter()
             .map(|&(key, info)| {
-                let packet = self
-                    .connection
-                    .query(Packet {
-                        key,
-                        info,
-                        command: 5,
-                        ..Default::default()
-                    })?
-                    .ok_or_else(|| {
-                        PlatformError::new(
-                            PlatformErrorCode::OperationFailed,
-                            format!("SMC sensor disappeared key={key:08x}"),
-                        )
-                    })?;
-                decode(info, &packet.bytes)
-                    .filter(|value| value.is_finite() && *value > 0.0 && *value <= 150.0)
-                    .ok_or_else(|| {
-                        PlatformError::new(
-                            PlatformErrorCode::InvalidData,
-                            format!("SMC temperature invalid key={key:08x}"),
-                        )
-                    })
+                self.read_sensor(key, info)?.ok_or_else(|| {
+                    PlatformError::new(
+                        PlatformErrorCode::InvalidData,
+                        format!("SMC temperature invalid key={key:08x}"),
+                    )
+                })
             })
             .collect()
     }
@@ -276,7 +287,7 @@ fn discover(connection: &Connection, keys: &[[u8; 4]]) -> PlatformResult<Vec<(u3
         else {
             continue;
         };
-        if supported_encoding(packet.info) {
+        if temperature_encoding(packet.info) {
             sensors.push((key, packet.info));
         }
     }
@@ -284,8 +295,22 @@ fn discover(connection: &Connection, keys: &[[u8; 4]]) -> PlatformResult<Vec<(u3
 }
 
 fn supported_encoding(info: KeyInfo) -> bool {
+    temperature_encoding(info) || (info.kind == u32::from_be_bytes(*b"sp96") && info.size == 2)
+}
+fn temperature_encoding(info: KeyInfo) -> bool {
     (info.kind == u32::from_be_bytes(*b"flt ") && info.size == 4)
         || (info.kind == u32::from_be_bytes(*b"sp78") && info.size == 2)
+}
+fn encoding_error(key: u32, info: KeyInfo) -> PlatformError {
+    PlatformError::new(
+        PlatformErrorCode::Unsupported,
+        format!(
+            "SMC encoding unsupported sensor={} encoding={} size={}",
+            crate::diagnostics::text(&String::from_utf8_lossy(&key.to_be_bytes())),
+            crate::diagnostics::text(&String::from_utf8_lossy(&info.kind.to_be_bytes())),
+            info.size
+        ),
+    )
 }
 fn decode(info: KeyInfo, bytes: &[u8; 32]) -> Option<f64> {
     if !supported_encoding(info) {
@@ -294,13 +319,49 @@ fn decode(info: KeyInfo, bytes: &[u8; 32]) -> Option<f64> {
     if info.size == 4 {
         Some(f64::from(f32::from_le_bytes(bytes[..4].try_into().ok()?)))
     } else {
-        Some(f64::from(i16::from_be_bytes(bytes[..2].try_into().ok()?)) / 256.0)
+        let divisor = if info.kind == u32::from_be_bytes(*b"sp96") {
+            64.0
+        } else {
+            256.0
+        };
+        Some(f64::from(i16::from_be_bytes(bytes[..2].try_into().ok()?)) / divisor)
     }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn intel_power_fixed_point_preserves_fraction_and_sign() {
+        let info = KeyInfo {
+            kind: u32::from_be_bytes(*b"sp96"),
+            size: 2,
+            ..Default::default()
+        };
+        let mut bytes = [0; 32];
+        for (encoded, expected) in [(0x176d, 93.703125), (-32, -0.5), (0, 0.0)] {
+            bytes[..2].copy_from_slice(&(encoded as i16).to_be_bytes());
+            assert_eq!(decode(info, &bytes), Some(expected));
+        }
+        assert!(!temperature_encoding(info));
+        assert!(decode(KeyInfo { size: 4, ..info }, &bytes).is_none());
+    }
+    #[test]
+    fn unsupported_encoding_diagnostics_do_not_claim_the_sensor_is_absent() {
+        let error = encoding_error(
+            u32::from_be_bytes(*b"PSTR"),
+            KeyInfo {
+                kind: u32::from_be_bytes(*b"fpe2"),
+                size: 2,
+                ..Default::default()
+            },
+        );
+        assert_eq!(error.code(), PlatformErrorCode::Unsupported);
+        assert!(error
+            .to_string()
+            .contains("sensor=\"PSTR\" encoding=\"fpe2\" size=2"));
+        assert!(!error.to_string().contains("absent"));
+    }
     #[test]
     fn smc_abi_and_signed_decoding_are_checked() {
         assert_eq!(size_of::<Packet>(), 80);

@@ -1,4 +1,4 @@
-//! Verified CPU sensors only: proximity sensors and anonymous ACPI zones are excluded.
+//! Identified CPU sensors with explicit measurement kinds; anonymous ACPI zones are excluded.
 use crate::{PlatformError, PlatformErrorCode, PlatformResult};
 use serde::Serialize;
 
@@ -18,6 +18,8 @@ pub enum CpuTemperatureKind {
     CoreAverage,
     Package,
     CoreMaximum,
+    Diode,
+    Proximity,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]

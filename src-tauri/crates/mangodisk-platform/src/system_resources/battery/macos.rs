@@ -77,10 +77,8 @@ pub(super) fn battery_present() -> PlatformResult<bool> {
         ));
     }
     if iterator == 0 {
-        return Err(PlatformError::new(
-            PlatformErrorCode::OperationFailed,
-            "battery presence matching returned an invalid iterator",
-        ));
+        // A successful query can return no iterator when no services match.
+        return Ok(false);
     }
     let iterator = Battery(iterator);
     let battery = Battery(unsafe { IOIteratorNext(iterator.0) });
@@ -264,6 +262,30 @@ fn battery_power(
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    #[ignore = "requires macOS IOKit and ioreg"]
+    fn native_battery_presence_matches_an_independent_registry_query() {
+        let output = std::process::Command::new("/usr/sbin/ioreg")
+            .args(["-r", "-c", "AppleSmartBattery", "-a"])
+            .output()
+            .expect("ioreg must be available for this hardware test");
+        assert!(output.status.success());
+        // ioreg emits no plist at all when no services match.
+        let expected = if output.stdout.is_empty() {
+            false
+        } else {
+            let registry = plist::Value::from_reader(std::io::Cursor::new(output.stdout)).unwrap();
+            let services = registry.as_array().expect("ioreg must return an array");
+            services.first().is_some_and(|service| {
+                service
+                    .as_dictionary()
+                    .and_then(|properties| properties.get("BatteryInstalled"))
+                    .and_then(plist::Value::as_boolean)
+                    .unwrap_or(true)
+            })
+        };
+        assert_eq!(battery_present().unwrap(), expected);
+    }
     #[test]
     #[ignore = "requires a Mac with AppleSmartBattery and readable SMC sensors"]
     fn native_battery_smc_recovers_after_an_initial_open_failure() {

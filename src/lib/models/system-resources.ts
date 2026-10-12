@@ -84,7 +84,7 @@ export interface CpuFrequency {
 export const CPU_TEMPERATURE_FRESHNESS_MS = 10_000;
 export interface CpuTemperature {
   celsius: number;
-  kind: 'coreAverage' | 'package' | 'coreMaximum';
+  kind: 'coreAverage' | 'package' | 'coreMaximum' | 'diode' | 'proximity';
   source: 'appleSmc' | 'linuxHwmon' | 'intelDtsPawnIo' | 'amdZenPawnIo';
   sensorCount: number;
 }

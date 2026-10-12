@@ -25,6 +25,21 @@ const render = (compact = false) =>
     global: { plugins: [createI18n({ legacy: false, locale: 'en-US', messages: { 'en-US': enUS } })] },
   });
 describe('CPU temperature presentation', () => {
+  it.each([enUS, zhCN, zhTW, ja, ko, pt, ru, tr])('distinguishes Intel fallback sensor meanings', async messages => {
+    const wrapper = mount(MdCpuTemperature, {
+      props: { reading: reading(), observedAtMs: 1000 },
+      global: { plugins: [createI18n({ legacy: false, locale: 'test', messages: { test: messages } })] },
+    });
+    try {
+      for (const kind of ['diode', 'proximity'] as const) {
+        await wrapper.setProps({ reading: { ...reading(), value: { ...reading().value!, kind, sensorCount: 1 } } });
+        expect(wrapper.getComponent(MdTooltip).props('text')).toBe(messages.cpuTemperature[`${kind}Hint`]);
+        expect(wrapper.get('strong').text()).toBe('49°C');
+      }
+    } finally {
+      wrapper.unmount();
+    }
+  });
   it('describes AMD die temperature without the Intel package sensor hint', async () => {
     const wrapper = render();
     try {
