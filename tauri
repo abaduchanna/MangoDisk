@@ -1,0 +1,6 @@
+#!/usr/bin/env node
+// Shim: gradle BuildTask runs "node tauri android android-studio-script" from repo root.
+const path = require("path")
+const cli = path.join(__dirname, "node_modules", "@tauri-apps", "cli", "tauri.js")
+process.argv.splice(1, 1, cli)
+require(cli)

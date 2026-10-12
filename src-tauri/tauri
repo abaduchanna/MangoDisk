@@ -1,0 +1,5 @@
+#!/usr/bin/env node
+// Shim: gradle rust-task runs "node tauri ..." with cwd=src-tauri.
+// Resolve the real CLI from the repo root node_modules.
+process.argv.splice(1, 1, require("path").join(__dirname, "..", "node_modules", "@tauri-apps", "cli", "tauri.js"))
+require(process.argv[1])
