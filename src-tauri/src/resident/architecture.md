@@ -832,6 +832,11 @@ an em dash rather than a cached number.
 
 ## CPU temperature display
 
+Preference schema 21 keeps network last in the default display order, after
+battery and whole-system power items. Loading an older complete default order
+moves only network to the end; custom saved order, selections and color rules
+remain intact. Missing display items are inserted before a trailing network item.
+
 Preference schema 11 adds `cpuTemperature` to the ordered `metrics` display
 items. It is disabled by default and appended to migrated preferences without
 changing existing selections or relative order. macOS exposes the same checkbox
@@ -901,9 +906,11 @@ remain outside the scrolling memory and engine detail sections, matching CPU fac
 Preference version 20 keeps battery temperature, charging power, and battery power
 display disabled by default, preserving saved selections, order, and color rules.
 Battery-temperature rules use the defaults described below; power rules start
-disabled and empty. Limits are 100°C and 300 W. Power uses one decimal
-place in normal mode; compact mode uses integers at 100 W and above. Integer color
-thresholds compare against the displayed, rounded watt value.
+disabled and empty. Limits are 100°C and 300 W. Menu-bar power uses rounded integer watts in both modes; nonzero
+readings below 1 W display as <1W and use zero as their integer color-rule value.
+Tooltips retain one decimal place. Integer color thresholds compare against the
+displayed, rounded watt value. Native columns reserve three integer digits; whole-system values expand only
+when a rounded reading needs four digits (1000–3000 W).
 Resource version 21 carries independent freshness and source for all three readings.
 
 Battery telemetry runs on the existing CPU worker every two seconds only while
@@ -926,8 +933,9 @@ flags or unavailable telemetry report unavailable. Values expire after five
 seconds. Diagnostics record capability/source and charge-state changes plus a
 periodic numeric observation, without battery identity or raw registry contents.
 
-Native battery power headings use BAT↑ for charging, BAT↓ for discharging, and
-IDLE for zero current without charging. Tooltips localize the state; stale readings
+Native battery power headings use BAT with a separate red ↑ for discharging,
+blue ↓ for charging, and IDLE for zero current without charging. Arrow colors
+indicate direction independently of the value's color rules. Tooltips localize the state; stale readings
 clear the state along with the value. Version 17 selections and colors migrate
 without changing them, appending battery power disabled.
 

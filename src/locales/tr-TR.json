@@ -4120,7 +4120,7 @@
     "batteryPower": "Pil gücü",
     "systemPower": "Sistem gücü",
     "systemPowerUnsupportedHint": "Bu cihazda sistem gücü okunamıyor",
-    "batteryPowerHint": "Pilin anlık şarj ve deşarj gücü; ↑ şarj, ↓ deşarj",
+    "batteryPowerHint": "Pilin anlık şarj ve deşarj gücü; ↑ deşarj, ↓ şarj",
     "batteryCharging": "Şarj oluyor",
     "batteryDischarging": "Deşarj oluyor",
     "batteryIdle": "Boşta",

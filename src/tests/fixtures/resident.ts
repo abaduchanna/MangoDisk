@@ -4,7 +4,7 @@ import { emptyReadings } from '@/lib/utils/system-resources';
 
 export function preferencesFixture(): ResidentPreferences {
   return {
-    schemaVersion: 20,
+    schemaVersion: 21,
     windowsCpuTemperatureEnabled: false,
     revision: 0,
     enabled: true,

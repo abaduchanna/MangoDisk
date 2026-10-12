@@ -4120,7 +4120,7 @@
     "batteryPower": "Potência da bateria",
     "systemPower": "Potência do sistema",
     "systemPowerUnsupportedHint": "A potência do sistema não está disponível neste dispositivo",
-    "batteryPowerHint": "Potência real de carga e descarga da bateria; ↑ carregando, ↓ descarregando",
+    "batteryPowerHint": "Potência real de carga e descarga da bateria; ↑ descarregando, ↓ carregando",
     "batteryCharging": "Carregando",
     "batteryDischarging": "Descarregando",
     "batteryIdle": "Em repouso",

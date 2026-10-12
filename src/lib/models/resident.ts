@@ -14,7 +14,7 @@ export type ResidentDisplayMetricId =
   | 'systemPower';
 
 export interface ResidentPreferences {
-  schemaVersion: 20;
+  schemaVersion: 21;
   windowsCpuTemperatureEnabled: boolean;
   revision: number;
   enabled: boolean;

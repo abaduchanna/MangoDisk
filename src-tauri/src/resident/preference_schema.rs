@@ -2,7 +2,7 @@
 use mangodisk_core::system_resources::metrics::MetricId;
 use serde::{Deserialize, Serialize};
 
-pub(super) const PREFERENCE_SCHEMA_VERSION: u32 = 20;
+pub(super) const PREFERENCE_SCHEMA_VERSION: u32 = 21;
 
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -76,6 +76,20 @@ pub struct ResidentPreferences {
 }
 
 const DISPLAY_ORDER: [DisplayMetricId; 11] = [
+    DisplayMetricId::Cpu,
+    DisplayMetricId::CpuTemperature,
+    DisplayMetricId::Gpu,
+    DisplayMetricId::GpuTemperature,
+    DisplayMetricId::Memory,
+    DisplayMetricId::Disk,
+    DisplayMetricId::BatteryTemperature,
+    DisplayMetricId::ChargingPower,
+    DisplayMetricId::BatteryPower,
+    DisplayMetricId::SystemPower,
+    DisplayMetricId::Network,
+];
+
+const PREVIOUS_DEFAULT_ORDER: [DisplayMetricId; 11] = [
     DisplayMetricId::Cpu,
     DisplayMetricId::CpuTemperature,
     DisplayMetricId::Gpu,
@@ -209,7 +223,8 @@ impl ResidentPreferences {
             seen.push(metric.id);
             true
         });
-        // Append newly introduced items without changing any saved relative order.
+        // Preserve saved relative order. New items precede a trailing network
+        // column so it remains last, including when older preferences migrate.
         for id in DISPLAY_ORDER
             .into_iter()
             .filter(|id| {
@@ -233,7 +248,17 @@ impl ResidentPreferences {
             ])
         {
             if !seen.contains(&id) {
-                self.metrics.push(DisplayMetric { id, enabled: false });
+                let index = if self
+                    .metrics
+                    .last()
+                    .is_some_and(|metric| metric.id == DisplayMetricId::Network)
+                {
+                    self.metrics.len() - 1
+                } else {
+                    self.metrics.len()
+                };
+                self.metrics
+                    .insert(index, DisplayMetric { id, enabled: false });
             }
         }
         Ok(self)
@@ -315,7 +340,7 @@ pub fn decode(mut value: serde_json::Value) -> Result<ResidentPreferences, &'sta
         }
         value["taskbarCompact"] = false.into();
     }
-    match value
+    let mut preferences = match value
         .get("schemaVersion")
         .and_then(serde_json::Value::as_u64)
     {
@@ -431,11 +456,30 @@ pub fn decode(mut value: serde_json::Value) -> Result<ResidentPreferences, &'sta
             preferences.schema_version = PREFERENCE_SCHEMA_VERSION;
             preferences.normalize()
         }
-        Some(20) => serde_json::from_value::<ResidentPreferences>(value)
+        Some(20) => {
+            let mut preferences = serde_json::from_value::<ResidentPreferences>(value)
+                .map_err(|_| "preferences_invalid")?;
+            preferences.schema_version = PREFERENCE_SCHEMA_VERSION;
+            preferences.normalize()
+        }
+        Some(21) => serde_json::from_value::<ResidentPreferences>(value)
             .map_err(|_| "preferences_invalid")?
             .normalize(),
         _ => Err("preferences_version"),
+    }?;
+    // Upgrade the exact former default once. Version-21 custom orders, including
+    // ones that resemble the old default, must remain stable across reloads.
+    if version != Some(u64::from(PREFERENCE_SCHEMA_VERSION))
+        && preferences
+            .metrics
+            .iter()
+            .map(|metric| metric.id)
+            .eq(PREVIOUS_DEFAULT_ORDER)
+    {
+        let network = preferences.metrics.remove(6);
+        preferences.metrics.push(network);
     }
+    Ok(preferences)
 }
 
 fn upgrade_battery_temperature_default(preferences: &mut ResidentPreferences) {
@@ -539,6 +583,72 @@ fn migrate_display_destination(
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn version_twenty_upgrades_only_the_complete_previous_default_order() {
+        for custom in [false, true] {
+            let mut previous = ResidentPreferences {
+                schema_version: 20,
+                revision: 123,
+                metrics: PREVIOUS_DEFAULT_ORDER
+                    .into_iter()
+                    .enumerate()
+                    .map(|(index, id)| DisplayMetric {
+                        id,
+                        enabled: index % 2 == 0,
+                    })
+                    .collect(),
+                ..Default::default()
+            };
+            if custom {
+                previous.metrics.swap(0, 1);
+            }
+            let mut expected = previous.clone();
+            expected.schema_version = 21;
+            if !custom {
+                let network = expected.metrics.remove(6);
+                expected.metrics.push(network);
+            }
+            let migrated = decode(serde_json::to_value(previous).unwrap()).unwrap();
+            assert_eq!(migrated, expected);
+            assert_eq!(
+                decode(serde_json::to_value(&migrated).unwrap()).unwrap(),
+                migrated
+            );
+        }
+    }
+    #[test]
+    fn current_custom_order_can_match_the_former_default_without_being_reordered() {
+        let mut preferences = ResidentPreferences::default();
+        preferences.metrics.sort_by_key(|metric| {
+            PREVIOUS_DEFAULT_ORDER
+                .iter()
+                .position(|id| *id == metric.id)
+                .unwrap()
+        });
+        assert_eq!(
+            decode(serde_json::to_value(&preferences).unwrap()).unwrap(),
+            preferences
+        );
+    }
+    #[test]
+    fn missing_display_items_keep_a_trailing_network_last() {
+        let expected = ResidentPreferences::default();
+        assert_eq!(
+            expected.metrics.last().unwrap().id,
+            DisplayMetricId::Network
+        );
+        let mut partial = expected.clone();
+        partial.metrics.retain(|metric| {
+            !matches!(
+                metric.id,
+                DisplayMetricId::BatteryTemperature
+                    | DisplayMetricId::ChargingPower
+                    | DisplayMetricId::BatteryPower
+                    | DisplayMetricId::SystemPower
+            )
+        });
+        assert_eq!(partial.normalize().unwrap(), expected);
+    }
     #[test]
     fn version_nineteen_upgrades_only_the_old_empty_battery_temperature_default() {
         use super::super::color_rules::{ColorRule, DisplayColor, MetricColorRule};
@@ -685,14 +795,27 @@ mod tests {
         );
         let current = serde_json::to_value(migrated).unwrap();
         assert_eq!(
-            &current["metrics"].as_array().unwrap()[..9],
-            old_metrics.as_array().unwrap()
+            current["metrics"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .filter(|row| { row["id"] != "batteryPower" && row["id"] != "systemPower" })
+                .collect::<Vec<_>>(),
+            old_metrics.as_array().unwrap().iter().collect::<Vec<_>>()
         );
         assert_eq!(
             &current["colorRules"].as_array().unwrap()[..8],
             old_colors.as_array().unwrap()
         );
-        assert_eq!(current["metrics"][9]["enabled"], false);
+        for id in ["batteryPower", "systemPower"] {
+            let row = current["metrics"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .find(|row| row["id"] == id)
+                .unwrap();
+            assert_eq!(row["enabled"], false);
+        }
     }
     #[test]
     fn version_sixteen_preserves_custom_colors_and_appends_disabled_battery_items() {
@@ -742,7 +865,7 @@ mod tests {
             "id": id, "enabled": false, "bands": [{"from": 0, "color": "blue"}, {"from": 55, "color": "yellow"}, {"from": 95, "color": "red"}]
         })).collect());
         let migrated = decode(old.clone()).unwrap();
-        assert_eq!(migrated.schema_version, 20);
+        assert_eq!(migrated.schema_version, 21);
         assert_eq!(
             serde_json::to_value(&migrated.metrics).unwrap(),
             old["metrics"]
@@ -779,7 +902,7 @@ mod tests {
     #[test]
     fn current_rules_reject_unknown_colors_missing_metrics_and_legacy_fields() {
         let current = serde_json::to_value(ResidentPreferences::default()).unwrap();
-        assert_eq!(decode(current.clone()).unwrap().schema_version, 20);
+        assert_eq!(decode(current.clone()).unwrap().schema_version, 21);
         let mut value = current.clone();
         value["colorRules"][0]["rules"][0]["color"] = "purple".into();
         assert!(decode(value).is_err());
@@ -806,7 +929,7 @@ mod tests {
             old["enabled"] = false.into();
             old["revision"] = 47.into();
             let migrated = decode(old).unwrap();
-            assert_eq!(migrated.schema_version, 20);
+            assert_eq!(migrated.schema_version, 21);
             assert_eq!(migrated.revision, 47);
             assert!(!migrated.enabled);
             assert_eq!(migrated.gpu_adapter.as_deref(), Some("selected-adapter"));
@@ -882,7 +1005,7 @@ mod tests {
         old["revision"] = 42.into();
         old["metrics"].as_array_mut().unwrap().reverse();
         let migrated = decode(old.clone()).unwrap();
-        assert_eq!(migrated.schema_version, 20);
+        assert_eq!(migrated.schema_version, 21);
         assert_eq!(migrated.revision, 42);
         let mut expected = old["metrics"].clone();
         expected
@@ -980,7 +1103,7 @@ mod tests {
         old["networkInterface"] = "wifi".into();
         old.as_object_mut().unwrap().remove("gpuAdapter");
         let migrated = decode(old.clone()).unwrap();
-        assert_eq!(migrated.schema_version, 20);
+        assert_eq!(migrated.schema_version, 21);
         assert_eq!(migrated.network_interface.as_deref(), Some("wifi"));
         assert!(migrated.gpu_adapter.is_none());
         old["gpuAdapter"] = "unexpected".into();
@@ -1014,7 +1137,7 @@ mod tests {
             {"id":"network", "enabled":true}, {"id":"disk", "enabled":false}
         ]);
         let migrated = decode(old).unwrap();
-        assert_eq!(migrated.schema_version, 20);
+        assert_eq!(migrated.schema_version, 21);
         assert_eq!(migrated.revision, 42);
         assert_eq!(
             migrated
@@ -1050,7 +1173,7 @@ mod tests {
             selected
         );
         let mut future = serde_json::to_value(selected).unwrap();
-        future["schemaVersion"] = 21.into();
+        future["schemaVersion"] = (PREFERENCE_SCHEMA_VERSION + 1).into();
         assert!(decode(future).is_err());
     }
 
@@ -1101,7 +1224,7 @@ mod tests {
             .unwrap()
             .push(serde_json::json!({"id":"gpuTemperature","enabled":false}));
         let migrated = decode(old).unwrap();
-        assert_eq!(migrated.schema_version, 20);
+        assert_eq!(migrated.schema_version, 21);
         assert!(!migrated.menu_bar_compact);
         assert!(migrated.usage_colors);
         assert_eq!(serde_json::to_value(migrated).unwrap()["metrics"], order);
@@ -1129,7 +1252,6 @@ mod tests {
                 DisplayMetricId::Cpu,
                 DisplayMetricId::Memory,
                 DisplayMetricId::Disk,
-                DisplayMetricId::Network,
                 DisplayMetricId::Gpu,
                 DisplayMetricId::CpuTemperature,
                 DisplayMetricId::GpuTemperature,
@@ -1137,6 +1259,7 @@ mod tests {
                 DisplayMetricId::ChargingPower,
                 DisplayMetricId::BatteryPower,
                 DisplayMetricId::SystemPower,
+                DisplayMetricId::Network,
             ]
         );
         assert!(migrated.shows(MetricId::Network));
@@ -1168,7 +1291,7 @@ mod tests {
             old.as_object_mut().unwrap().remove("taskbarCompact");
             old["taskbarPosition"] = position.into();
             let migrated = decode(old).unwrap();
-            assert_eq!(migrated.schema_version, 20);
+            assert_eq!(migrated.schema_version, 21);
             assert_eq!(
                 serde_json::to_value(migrated).unwrap()["taskbarPosition"],
                 position
@@ -1249,7 +1372,7 @@ mod tests {
                 assert_eq!(migrated.shows(MetricId::Memory), memory);
                 assert!(migrated.show_icon);
                 assert!(!migrated.shows(MetricId::Cpu));
-                assert_eq!(migrated.schema_version, 20);
+                assert_eq!(migrated.schema_version, 21);
             }
         }
     }
@@ -1345,7 +1468,10 @@ mod tests {
         .normalize()
         .unwrap();
         assert_eq!(preferences.metrics.len(), 11);
-        assert_eq!(preferences.metrics[0].id, DisplayMetricId::Network);
+        assert_eq!(
+            preferences.metrics.last().unwrap().id,
+            DisplayMetricId::Network
+        );
         assert!(preferences.shows(MetricId::Network));
         assert!(!preferences.shows(MetricId::Memory));
     }

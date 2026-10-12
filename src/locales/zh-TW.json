@@ -4120,7 +4120,7 @@
     "batteryPower": "電池功率",
     "systemPower": "整機功率",
     "systemPowerUnsupportedHint": "目前裝置無法讀取整機功率",
-    "batteryPowerHint": "電池即時充放電功率；↑ 充電，↓ 放電",
+    "batteryPowerHint": "電池即時充放電功率；↑ 放電，↓ 充電",
     "batteryCharging": "充電中",
     "batteryDischarging": "放電中",
     "batteryIdle": "未充放電",

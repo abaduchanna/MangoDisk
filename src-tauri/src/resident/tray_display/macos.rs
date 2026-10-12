@@ -25,7 +25,14 @@ pub struct Cache {
     button: usize,
 }
 
-fn text(value: &str, mut rect: NSRect, size: f64, weight: f64, color: &NSColor, right: bool) {
+fn text(
+    value: &str,
+    mut rect: NSRect,
+    size: f64,
+    weight: f64,
+    color: &NSColor,
+    right: bool,
+) -> f64 {
     let font = NSFont::monospacedDigitSystemFontOfSize_weight(size, weight);
     // These AppKit attribute keys require an NSFont and NSColor respectively.
     let attributes: Retained<NSDictionary<NSString, AnyObject>> = unsafe {
@@ -36,15 +43,16 @@ fn text(value: &str, mut rect: NSRect, size: f64, weight: f64, color: &NSColor, 
     };
     unsafe {
         let value = NSString::from_str(value);
+        let width = value.sizeWithAttributes(Some(&attributes)).width;
         if right {
             // Measure with the same font used for drawing. Digits grow leftward
             // within their reserved field; the unit always keeps its own origin.
-            let offset =
-                (rect.size.width - value.sizeWithAttributes(Some(&attributes)).width).max(0.0);
+            let offset = (rect.size.width - width).max(0.0);
             rect.origin.x += offset;
             rect.size.width -= offset;
         }
         value.drawInRect_withAttributes(rect, Some(&attributes));
+        width
     }
 }
 
@@ -140,7 +148,7 @@ fn image(columns: Vec<Column>, icon: bool, dark: bool, compact: bool) -> Retaine
                     f64::from(b) / 255.0,
                     1.0,
                 );
-                text(
+                let heading_width = text(
                     &column.top,
                     rect(x, 0.0, column.width as f64, 9.0),
                     7.5,
@@ -148,6 +156,22 @@ fn image(columns: Vec<Column>, icon: bool, dark: bool, compact: bool) -> Retaine
                     &foreground,
                     false,
                 );
+                use mangodisk_platform::system_resources::battery::BatteryPowerState;
+                let direction = match column.power_state {
+                    Some(BatteryPowerState::Discharging) => Some(("↑", NSColor::systemRedColor())),
+                    Some(BatteryPowerState::Charging) => Some(("↓", NSColor::systemBlueColor())),
+                    Some(BatteryPowerState::Idle) | None => None,
+                };
+                if let Some((arrow, color)) = direction {
+                    text(
+                        arrow,
+                        rect(x + heading_width + 1.0, 0.0, 8.0, 9.0),
+                        7.5,
+                        0.0,
+                        &color,
+                        false,
+                    );
+                }
                 text(
                     &column.bottom,
                     rect(x, 8.0, column.width as f64, 14.0),
@@ -287,11 +311,12 @@ mod tests {
                 }],
                 compact,
             );
-            let maximum = if compact { "300W" } else { "300.0W" };
-            for value in ["0.0W", "9.9W", "99.9W", maximum, "—"] {
+            for value in ["0W", "<1W", "99W", "300W", "—"] {
                 assert!(
                     measured(value, size, 0.3) <= f64::from(column[0].width),
-                    "charging power {value} overflows"
+                    "charging power {value} needs {} pt in a {} pt field (compact={compact})",
+                    measured(value, size, 0.3),
+                    column[0].width
                 );
             }
             for heading in ["BAT↑", "BAT↓", "IDLE"] {
@@ -304,19 +329,25 @@ mod tests {
         // Real AppKit metrics catch regressions that string-length tests miss.
         for compact in [false, true] {
             let size = if compact { 11.0 } else { 12.0 };
-            let width = macos_presentation::columns(
-                &[DisplayEntry {
-                    id: super::super::format::DisplayId::SystemPower,
-                    ..entry.clone()
-                }],
-                compact,
-            )[0]
-            .width;
-            let maximum = if compact { "3000W" } else { "3000.0W" };
-            for value in ["0.0W", "99.9W", maximum, "—"] {
+            for digits in ["0", "<1", "999", "1000", "3000", "—"] {
+                let width = macos_presentation::columns(
+                    &[DisplayEntry {
+                        id: super::super::format::DisplayId::SystemPower,
+                        digits: digits.into(),
+                        ..entry.clone()
+                    }],
+                    compact,
+                )[0]
+                .width;
+                let value = if digits == "—" {
+                    "—".into()
+                } else {
+                    format!("{digits}W")
+                };
                 assert!(
-                    measured(value, size, 0.3) <= f64::from(width),
-                    "system power {value} overflows"
+                    measured(&value, size, 0.3) <= f64::from(width),
+                    "system power {value} needs {} pt in a {width} pt field (compact={compact})",
+                    measured(&value, size, 0.3)
                 );
             }
         }

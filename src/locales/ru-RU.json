@@ -4120,7 +4120,7 @@
     "batteryPower": "Мощность батареи",
     "systemPower": "Мощность системы",
     "systemPowerUnsupportedHint": "На этом устройстве недоступны данные о мощности системы",
-    "batteryPowerHint": "Текущая мощность заряда и разряда батареи; ↑ заряд, ↓ разряд",
+    "batteryPowerHint": "Текущая мощность заряда и разряда батареи; ↑ разряд, ↓ заряд",
     "batteryCharging": "Заряжается",
     "batteryDischarging": "Разряжается",
     "batteryIdle": "Без заряда и разряда",

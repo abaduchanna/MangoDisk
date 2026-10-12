@@ -239,22 +239,13 @@ pub fn entries(
                 | DisplayMetricId::BatteryPower
         ) {
             if values.battery_present != Some(false) && preferences.shows_battery_item(metric.id) {
-                entries.push(battery_entry(
-                    values,
-                    labels,
-                    metric.id,
-                    preferences.menu_bar_compact,
-                ));
+                entries.push(battery_entry(values, labels, metric.id));
             }
             continue;
         }
         if metric.id == DisplayMetricId::SystemPower {
             if preferences.shows_system_power() {
-                entries.push(system_power_entry(
-                    values,
-                    labels,
-                    preferences.menu_bar_compact,
-                ));
+                entries.push(system_power_entry(values, labels));
             }
             continue;
         }
@@ -542,34 +533,30 @@ fn gpu_temperature_entry(
     }
 }
 
-fn displayed_power(value: f64, compact: bool) -> f64 {
-    // Switch before a one-decimal value rounds up to 100.0. Always round the
-    // original sample once, preventing a second rounding from changing watts.
-    if compact && (value * 10.0).round() >= 1000.0 {
+fn displayed_power(value: f64) -> f64 {
+    // Sub-watt readings display as a range, so integer color rules use its
+    // lower bound rather than treating a nonzero reading as idle.
+    if value < 1.0 {
+        0.0
+    } else {
         value.round()
-    } else {
-        (value * 10.0).round() / 10.0
     }
 }
 
-fn power_digits(displayed: f64, compact: bool) -> String {
-    if compact && displayed >= 100.0 {
-        format!("{displayed:.0}")
+fn power_digits(value: f64) -> String {
+    if value > 0.0 && value < 1.0 {
+        "<1".into()
     } else {
-        format!("{displayed:.1}")
+        format!("{:.0}", value.round())
     }
 }
 
-fn system_power_entry(
-    values: &ResourceReadings,
-    labels: &super::labels::Labels,
-    compact: bool,
-) -> DisplayEntry {
+fn system_power_entry(values: &ResourceReadings, labels: &super::labels::Labels) -> DisplayEntry {
     use mangodisk_platform::system_resources::power::{
         SYSTEM_POWER_FRESHNESS_MS, SYSTEM_POWER_MAX_WATTS,
     };
     let reading = &values.system_power;
-    let displayed = reading
+    let value = reading
         .value
         .as_ref()
         .filter(|value| {
@@ -581,18 +568,17 @@ fn system_power_entry(
                     .and_then(|at| values.observed_at_ms.checked_sub(at))
                     .is_some_and(|age| age <= SYSTEM_POWER_FRESHNESS_MS)
         })
-        .map(|value| displayed_power(value.watts, compact));
-    let digits = displayed
-        .map(|value| power_digits(value, compact))
-        .unwrap_or_else(|| "—".into());
+        .map(|value| value.watts);
+    let displayed = value.map(displayed_power);
+    let digits = value.map(power_digits).unwrap_or_else(|| "—".into());
     let name = labels.text("systemPower");
     let text = if displayed.is_some() {
         format!("{name} {digits}W")
     } else {
         format!("{name} —")
     };
-    let tooltip = if displayed.is_some() {
-        text.clone()
+    let tooltip = if let Some(value) = value {
+        format!("{name} {value:.1}W")
     } else {
         format!(
             "{name} · {}",
@@ -619,7 +605,6 @@ fn battery_entry(
     values: &ResourceReadings,
     labels: &super::labels::Labels,
     id: DisplayMetricId,
-    compact: bool,
 ) -> DisplayEntry {
     use mangodisk_platform::system_resources::battery::BATTERY_FRESHNESS_MS;
     let temperature = id == DisplayMetricId::BatteryTemperature;
@@ -663,15 +648,15 @@ fn battery_entry(
         if temperature {
             value.round()
         } else {
-            displayed_power(value, compact)
+            displayed_power(value)
         }
     });
-    let digits = displayed
+    let digits = value
         .map(|value| {
             if temperature {
-                format!("{value:.0}")
+                format!("{:.0}", value.round())
             } else {
-                power_digits(value, compact)
+                power_digits(value)
             }
         })
         .unwrap_or_else(|| "—".into());
@@ -687,21 +672,33 @@ fn battery_entry(
         .then(|| values.battery_power.value.as_ref().map(|value| value.state))
         .flatten()
         .filter(|_| value.is_some());
-    let text = if let Some(state) = power_state {
+    let state_name = power_state.map(|state| {
         use mangodisk_platform::system_resources::battery::BatteryPowerState;
-        let state_name = labels.text(match state {
+        labels.text(match state {
             BatteryPowerState::Charging => "batteryCharging",
             BatteryPowerState::Discharging => "batteryDischarging",
             BatteryPowerState::Idle => "batteryIdle",
-        });
-        format!("{name} {digits}{unit} · {state_name}")
-    } else if value.is_some() {
-        format!("{name} {digits}{unit}")
+        })
+    });
+    let format_reading = |digits: &str| {
+        let reading = format!("{name} {digits}{unit}");
+        if let Some(state) = state_name {
+            format!("{reading} · {state}")
+        } else {
+            reading
+        }
+    };
+    let text = if value.is_some() {
+        format_reading(&digits)
     } else {
         format!("{name} —")
     };
-    let tooltip = if value.is_some() {
-        text.clone()
+    let tooltip = if let Some(value) = value {
+        if temperature {
+            text.clone()
+        } else {
+            format_reading(&format!("{value:.1}"))
+        }
     } else {
         format!(
             "{name} · {}",
@@ -763,15 +760,21 @@ mod tests {
         assert_eq!(preferences, before);
     }
     #[test]
-    fn compact_power_precision_handles_boundary_rounding_without_double_rounding() {
+    fn power_precision_preserves_sub_watt_ranges_and_rounds_once() {
         use mangodisk_core::system_resources::metrics::MetricReading;
         use mangodisk_platform::system_resources::battery::{
             BatteryPower, BatteryPowerState, BatterySource, ChargingPower,
         };
         let labels = super::super::labels::Labels::for_locale("en-US");
         for (watts, expected) in [
-            (0.0, "0.0"),
-            (99.94, "99.9"),
+            (0.0, "0"),
+            (0.01, "<1"),
+            (0.99, "<1"),
+            (1.0, "1"),
+            (19.8, "20"),
+            (99.94, "100"),
+            (134.49, "134"),
+            (134.5, "135"),
             (99.96, "100"),
             (100.0, "100"),
             (135.46, "135"),
@@ -780,6 +783,10 @@ mod tests {
         ] {
             let values = ResourceReadings {
                 observed_at_ms: 1000,
+                system_power: MetricReading::ready(
+                    mangodisk_platform::system_resources::power::SystemPower { watts },
+                    1000,
+                ),
                 charging_power: MetricReading::ready(
                     ChargingPower {
                         watts,
@@ -803,9 +810,14 @@ mod tests {
                 DisplayMetricId::ChargingPower,
                 DisplayMetricId::BatteryPower,
             ] {
-                let entry = battery_entry(&values, &labels, id, true);
-                assert_eq!(entry.digits, expected, "compact {id:?} at {watts} W");
+                let entry = battery_entry(&values, &labels, id);
+                assert_eq!(entry.digits, expected, "{id:?} at {watts} W");
+                assert!(entry.tooltip.contains(&format!("{watts:.1}W")));
+                assert_eq!(entry.color_value, Some(displayed_power(watts) as u16));
             }
+            let entry = system_power_entry(&values, &labels);
+            assert_eq!(entry.digits, expected, "system power at {watts} W");
+            assert!(entry.tooltip.contains(&format!("{watts:.1}W")));
         }
     }
 
@@ -816,8 +828,8 @@ mod tests {
             BatteryPower, BatteryPowerState, BatterySource,
         };
         for (state, watts, heading) in [
-            (BatteryPowerState::Charging, 75.0, "BAT↑"),
-            (BatteryPowerState::Discharging, 24.0, "BAT↓"),
+            (BatteryPowerState::Charging, 75.0, "BAT"),
+            (BatteryPowerState::Discharging, 24.0, "BAT"),
             (BatteryPowerState::Idle, 0.0, "IDLE"),
         ] {
             let mut values = ResourceReadings {
@@ -833,14 +845,13 @@ mod tests {
                 ..Default::default()
             };
             let labels = super::super::labels::Labels::for_locale("en-US");
-            let entry = battery_entry(&values, &labels, DisplayMetricId::BatteryPower, false);
+            let entry = battery_entry(&values, &labels, DisplayMetricId::BatteryPower);
             assert_eq!(entry.power_state, Some(state));
-            assert_eq!(
-                super::super::macos_presentation::columns(&[entry], true)[0].top,
-                heading
-            );
+            let column = &super::super::macos_presentation::columns(&[entry], true)[0];
+            assert_eq!(column.top, heading);
+            assert_eq!(column.power_state, Some(state));
             values.observed_at_ms = 6001;
-            let expired = battery_entry(&values, &labels, DisplayMetricId::BatteryPower, false);
+            let expired = battery_entry(&values, &labels, DisplayMetricId::BatteryPower);
             assert_eq!(expired.digits, "—");
             assert_eq!(expired.power_state, None);
         }
@@ -865,13 +876,12 @@ mod tests {
             &values,
             &super::super::labels::Labels::for_locale("en-US"),
             DisplayMetricId::BatteryTemperature,
-            false,
         );
         assert_eq!(entry.digits, "49");
         assert_eq!(entry.color_value, Some(49));
     }
     #[test]
-    fn charging_color_thresholds_match_the_displayed_decimal_and_expire() {
+    fn charging_color_thresholds_match_the_displayed_integer_and_expire() {
         use mangodisk_core::system_resources::metrics::MetricReading;
         use mangodisk_platform::system_resources::battery::{BatterySource, ChargingPower};
         let mut values = ResourceReadings {
@@ -888,17 +898,17 @@ mod tests {
             ..Default::default()
         };
         let labels = super::super::labels::Labels::for_locale("en-US");
-        let entry = battery_entry(&values, &labels, DisplayMetricId::ChargingPower, false);
-        assert_eq!(entry.digits, "50.0");
+        let entry = battery_entry(&values, &labels, DisplayMetricId::ChargingPower);
+        assert_eq!(entry.digits, "50");
         assert_eq!(entry.color_value, Some(50));
         values.observed_at_ms = 6001;
         assert_eq!(
-            battery_entry(&values, &labels, DisplayMetricId::ChargingPower, false).digits,
+            battery_entry(&values, &labels, DisplayMetricId::ChargingPower).digits,
             "—"
         );
         values.observed_at_ms = 999;
         assert_eq!(
-            battery_entry(&values, &labels, DisplayMetricId::ChargingPower, false).color_value,
+            battery_entry(&values, &labels, DisplayMetricId::ChargingPower).color_value,
             None
         );
     }

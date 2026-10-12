@@ -4120,7 +4120,7 @@
     "batteryPower": "电池功率",
     "systemPower": "整机功率",
     "systemPowerUnsupportedHint": "当前设备无法读取整机功率",
-    "batteryPowerHint": "电池实时充放电功率；↑ 充电，↓ 放电",
+    "batteryPowerHint": "电池实时充放电功率；↑ 放电，↓ 充电",
     "batteryCharging": "充电中",
     "batteryDischarging": "放电中",
     "batteryIdle": "未充放电",

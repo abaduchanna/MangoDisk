@@ -4120,7 +4120,7 @@
     "batteryPower": "Battery power",
     "systemPower": "System power",
     "systemPowerUnsupportedHint": "System power is unavailable on this device",
-    "batteryPowerHint": "Actual battery charge/discharge power; ↑ charging, ↓ discharging",
+    "batteryPowerHint": "Actual battery charge/discharge power; ↑ discharging, ↓ charging",
     "batteryCharging": "Charging",
     "batteryDischarging": "Discharging",
     "batteryIdle": "Idle",

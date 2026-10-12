@@ -43,6 +43,7 @@ pub fn rate_layout(compact: bool) -> RateLayout {
 pub struct Column {
     pub id: DisplayId,
     pub tone: super::usage_color::UsageTone,
+    pub power_state: Option<mangodisk_platform::system_resources::battery::BatteryPowerState>,
     pub top: String,
     pub bottom: String,
     pub width: u32,
@@ -115,8 +116,8 @@ pub fn columns(entries: &[DisplayEntry], compact: bool) -> Vec<Column> {
                     } else {
                         use mangodisk_platform::system_resources::battery::BatteryPowerState;
                         match entry.power_state {
-                            Some(BatteryPowerState::Charging) => "BAT↑",
-                            Some(BatteryPowerState::Discharging) => "BAT↓",
+                            Some(BatteryPowerState::Charging) => "BAT",
+                            Some(BatteryPowerState::Discharging) => "BAT",
                             Some(BatteryPowerState::Idle) => "IDLE",
                             None => "BAT",
                         }
@@ -127,15 +128,19 @@ pub fn columns(entries: &[DisplayEntry], compact: bool) -> Vec<Column> {
                     } else {
                         format!("{}W", entry.digits)
                     },
-                    // Compact power values use at most one decimal below 100 W.
-                    if compact {
-                        if entry.id == DisplayId::SystemPower {
+                    // Three-digit fields stay fixed across ordinary samples.
+                    // Whole-system readings may reach 3000 W; expand only when
+                    // the rounded display actually requires a fourth digit.
+                    if entry.digits.len() >= 4 {
+                        if compact {
                             41
                         } else {
-                            37
+                            45
                         }
+                    } else if compact {
+                        34
                     } else {
-                        62
+                        37
                     },
                 ),
                 id => (
@@ -158,6 +163,7 @@ pub fn columns(entries: &[DisplayEntry], compact: bool) -> Vec<Column> {
             Some(Column {
                 id: entry.id,
                 tone: entry.tone,
+                power_state: entry.power_state,
                 top,
                 bottom,
                 width,

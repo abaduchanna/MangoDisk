@@ -4120,7 +4120,7 @@
     "batteryPower": "배터리 전력",
     "systemPower": "시스템 소비 전력",
     "systemPowerUnsupportedHint": "이 기기에서는 시스템 소비 전력을 읽을 수 없습니다",
-    "batteryPowerHint": "배터리 실시간 충방전 전력: ↑ 충전, ↓ 방전",
+    "batteryPowerHint": "배터리 실시간 충방전 전력: ↑ 방전, ↓ 충전",
     "batteryCharging": "충전 중",
     "batteryDischarging": "방전 중",
     "batteryIdle": "충방전 대기",

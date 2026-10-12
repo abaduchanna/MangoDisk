@@ -4120,7 +4120,7 @@
     "batteryPower": "バッテリー電力",
     "systemPower": "システム消費電力",
     "systemPowerUnsupportedHint": "このデバイスではシステム消費電力を取得できません",
-    "batteryPowerHint": "バッテリーの充放電電力。↑ 充電、↓ 放電",
+    "batteryPowerHint": "バッテリーの充放電電力。↑ 放電、↓ 充電",
     "batteryCharging": "充電中",
     "batteryDischarging": "放電中",
     "batteryIdle": "充放電停止",
