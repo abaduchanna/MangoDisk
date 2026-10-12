@@ -272,7 +272,7 @@ describe('status display interactions', () => {
     await openConfiguration(wrapper);
     const row = wrapper.get('[data-metric="cpuTemperature"]');
     expect(row.get('[role="status"]').text()).toBe('windowsMonitoring.states.unavailable');
-    expect(row.get('.metric-label-group').find('.md-help-action').exists()).toBe(true);
+    expect(row.get('.metric-label-group').find('.md-help-action').exists()).toBe(false);
     expect(wrapper.text()).not.toContain('windowsMonitoring.title');
   });
 

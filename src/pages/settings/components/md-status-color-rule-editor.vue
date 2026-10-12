@@ -126,7 +126,7 @@ const conditions = {
       <MdDialogHeader>
         <DialogTitle>{{ t('systemStatus.colorDialogTitle', { name }) }}</DialogTitle>
       </MdDialogHeader>
-      <div class="min-h-0 flex-1 overflow-y-auto scrollbar-stable px-4 py-3">
+      <div class="min-h-0 min-w-0 flex-1 overflow-x-hidden scrollbar-stable-end px-4 py-3">
         <MdSettingsRow
           compact
           :title="t('systemStatus.colorEnabled')"

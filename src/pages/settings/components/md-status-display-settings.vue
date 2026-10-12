@@ -620,14 +620,6 @@ onBeforeUnmount(() => {
                           </button>
                         </MdTooltip>
                         <MdTooltip
-                          v-if="row.id === 'cpuTemperature' && !isMacOs && !isLinux"
-                          :text="t('windowsMonitoring.displayHint')"
-                        >
-                          <button type="button" class="md-help-action" :aria-label="t('windowsMonitoring.displayHint')">
-                            <MdIcon :name="ICON_NAMES.info" :size="14" />
-                          </button>
-                        </MdTooltip>
-                        <MdTooltip
                           v-if="row.id === 'systemPower' && systemPowerStatus === 'unsupported'"
                           :text="t('systemStatus.systemPowerUnsupportedHint')"
                         >
@@ -635,18 +627,6 @@ onBeforeUnmount(() => {
                             type="button"
                             class="md-help-action"
                             :aria-label="t('systemStatus.systemPowerUnsupportedHint')"
-                          >
-                            <MdIcon :name="ICON_NAMES.info" :size="14" />
-                          </button>
-                        </MdTooltip>
-                        <MdTooltip
-                          v-if="row.id === 'gpuTemperature' && gpuTemperatureStatus === 'unsupported'"
-                          :text="t('gpuTemperature.unsupportedHint')"
-                        >
-                          <button
-                            type="button"
-                            class="md-help-action"
-                            :aria-label="t('gpuTemperature.unsupportedHint')"
                           >
                             <MdIcon :name="ICON_NAMES.info" :size="14" />
                           </button>
