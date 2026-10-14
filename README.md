@@ -1,3 +1,21 @@
+<p align="center">
+  <a href="https://github.com/abaduchanna/MangoDisk/tree/android-apk"><b>Android Edition (APK)</b></a>
+  ·
+  <a href="../../releases?q=android">Android releases</a>
+</p>
+
+<blockquote>
+<p><strong>Fork notice:</strong> this repository is a fork of
+<strong><a href="https://github.com/harry0703/MangoDisk">harry0703/MangoDisk</a></strong> —
+all credit for the original MangoDisk desktop app (macOS / Windows / Linux)
+goes to <strong>@harry0703</strong>. The README below is the upstream project's.
+This fork adds an <strong>Android APK build</strong>: see the
+<a href="https://github.com/abaduchanna/MangoDisk/tree/android-apk">android-apk branch</a>
+and the <a href="../../releases?q=android">Releases</a> page for the APK.</p>
+</blockquote>
+
+---
+
 <h1 align="center">
   <img src="public/mangodisk.svg" width="40" alt="MangoDisk application icon"> MangoDisk
 </h1>
