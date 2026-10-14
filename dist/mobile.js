@@ -7,7 +7,7 @@ const CATS = {
   caches: { label: "Cache contents", hint: "files inside .cache / .thumbnails / .recycle folders", def: true },
   junk_meta: { label: "System junk metadata", hint: "thumbs.db, .ds_store, desktop.ini", def: true },
   empty_dirs: { label: "Empty folders", hint: "directories with nothing inside", def: true },
-  large_files: { label: "Large files (200 MB+)", hint: "review carefully — NOT selected by default", def: false },
+  large_files: { label: "Large files (50 MB+)", hint: "review carefully — NOT selected by default", def: false },
 };
 
 let selection = new Set();

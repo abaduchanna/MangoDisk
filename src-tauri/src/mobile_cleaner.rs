@@ -6,7 +6,7 @@
 #![cfg(target_os = "android")]
 
 use serde::Serialize;
-use std::collections::HashMap;
+use std::collections::{HashMap, VecDeque};
 use std::fs;
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
@@ -16,8 +16,8 @@ use tauri::Manager;
 
 const SCAN_ROOT: &str = "/storage/emulated/0";
 const MAX_ENTRIES_PER_CAT: usize = 400;
-const MAX_WALK_FILES: u64 = 150_000;
-const LARGE_FILE_MIN: u64 = 200 * 1024 * 1024;
+const MAX_WALK_FILES: u64 = 250_000;
+const LARGE_FILE_MIN: u64 = 50 * 1024 * 1024;
 
 // Path segments that mark a file as cache content (safe to delete)
 const CACHE_DIR_NAMES: &[&str] = &[".cache", ".thumbnails", ".recycle", "caches"];
@@ -164,9 +164,12 @@ fn dir_size(path: &Path, budget: u64) -> (u64, bool) {
 
 fn scan_worker() {
     let mut w = Walker::new();
-    let mut stack: Vec<(PathBuf, PathBuf)> = vec![(PathBuf::from(SCAN_ROOT), PathBuf::new())];
+    // BFS (not DFS): every top-level folder is visited before deep subtrees,
+    // so hitting the walk budget never starves whole folders of coverage.
+    let mut queue: VecDeque<(PathBuf, PathBuf)> = VecDeque::new();
+    queue.push_back((PathBuf::from(SCAN_ROOT), PathBuf::new()));
 
-    while let Some((abs, rel)) = stack.pop() {
+    while let Some((abs, rel)) = queue.pop_front() {
         if w.files_seen > MAX_WALK_FILES {
             w.stopped_early = true;
             break;
@@ -191,7 +194,7 @@ fn scan_worker() {
                 if rel.as_os_str().is_empty() && SKIP_SEGMENTS.contains(&lower.as_str()) {
                     continue;
                 }
-                stack.push((child_abs, child_rel));
+                queue.push_back((child_abs, child_rel));
             } else if ft.is_file() {
                 child_count += 1;
                 w.files_seen += 1;
@@ -219,7 +222,7 @@ fn scan_worker() {
         }
     }
 
-    // sort large files desc for display
+    // sort large files desc for display (biggest space hogs first)
     w.large_files.sort_by(|a, b| b.size.cmp(&a.size));
 
     let total = w.bytes.values().sum::<u64>();
