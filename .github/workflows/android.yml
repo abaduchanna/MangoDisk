@@ -18,26 +18,36 @@ jobs:
       - name: Detect Android NDK
         run: echo "ANDROID_NDK_HOME=$(ls -d ${ANDROID_HOME}/ndk/* | sort | tail -1)" >> $GITHUB_ENV
 
-      - name: Install Rust toolchain + Android targets
+      - name: Install Rust toolchain + Android targets (arm64 + armv7)
         uses: actions-rust-lang/setup-rust-toolchain@v1
         with:
-          target: aarch64-linux-android
+          target: aarch64-linux-android armv7-linux-androideabi
           rustflags: ""
           override: false
 
       - name: Install node deps (tauri CLI + shim)
         run: npm install --no-audit --no-fund
 
-      - name: Build debug APK (arm64)
-        run: ./node_modules/.bin/tauri android build --apk --debug --target aarch64
+      - name: Build universal debug APK (arm64 + armv7)
+        run: ./node_modules/.bin/tauri android build --apk --debug --target aarch64 --target armv7
 
-      - name: Locate APK
+      - name: Locate APK (prefer universal)
         run: |
           find src-tauri/gen/android -name "*.apk" -exec ls -la {} \;
-          echo "APK_PATH=$(find src-tauri/gen/android -name '*debug*.apk' | head -1)" >> $GITHUB_ENV
+          UNIV=$(find src-tauri/gen/android -name '*universal*debug*.apk' | head -1)
+          if [ -n "$UNIV" ]; then
+            echo "APK_PATH=$UNIV" >> $GITHUB_ENV
+            echo "APK_KIND=universal" >> $GITHUB_ENV
+          else
+            # fall back: collect every debug APK (per-ABI) into a folder
+            mkdir -p apk_out
+            find src-tauri/gen/android -name '*debug*.apk' -exec cp {} apk_out/ \;
+            echo "APK_PATH=apk_out" >> $GITHUB_ENV
+            echo "APK_KIND=per-abi" >> $GITHUB_ENV
+          fi
 
       - uses: actions/upload-artifact@v4
         with:
-          name: MangoDisk-1.1.8-android-arm64
+          name: MangoDisk-1.1.8-android-${{ env.APK_KIND }}
           path: ${{ env.APK_PATH }}
           if-no-files-found: error
