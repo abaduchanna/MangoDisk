@@ -13,7 +13,7 @@
         <img src="mangodisk.svg" alt="" onerror="this.style.display='none'" />
         <div>
           <h1>MangoDisk</h1>
-          <p>Android Edition · 1.1.7 · Zero-Cloud</p>
+          <p>Android Edition · 1.2.0 · Zero-Cloud</p>
         </div>
       </div>
       <span id="permPill" class="pill off">checking…</span>
@@ -31,6 +31,15 @@
         <button id="grantBtn" class="btn primary">Grant All-Files Access</button>
       </section>
 
+
+      <nav class="tabs" id="tabs">
+        <button class="tab active" data-tab="clean">Clean</button>
+        <button class="tab" data-tab="analyze">Analyze</button>
+        <button class="tab" data-tab="dupes">Duplicates</button>
+        <button class="tab" data-tab="apps">Apps</button>
+        <button class="tab" data-tab="history">History</button>
+      </nav>
+
       <!-- Storage overview -->
       <section class="card">
         <div class="row">
@@ -45,6 +54,7 @@
         </div>
       </section>
 
+      <div id="tab-clean" class="panel">
       <!-- App cache -->
       <section class="card">
         <div class="row">
@@ -78,6 +88,66 @@
         <div id="catList"></div>
         <button id="cleanBtn" class="btn danger big">Clean Selected Items</button>
       </section>
+
+      </div>
+
+      <div id="tab-analyze" class="panel hidden">
+        <section class="card">
+          <h2>Storage analysis</h2>
+          <p class="muted">See what is using your space: by type, by folder, and the biggest files.</p>
+          <div id="anProg" class="scanline hidden">Analysed <span id="anCount">0</span> files…</div>
+          <button id="anBtn" class="btn primary big">Analyze Storage</button>
+        </section>
+        <div id="anOut" class="hidden">
+          <section class="card"><h2>By type</h2><div id="anCats"></div></section>
+          <section class="card"><h2>Biggest folders</h2><div id="anFolders"></div></section>
+          <section class="card"><h2>Biggest files</h2><div id="anFiles"></div></section>
+        </div>
+      </div>
+
+      <div id="tab-dupes" class="panel hidden">
+        <section class="card">
+          <h2>Duplicate files</h2>
+          <p class="muted" id="dpHint">Finds identical files (photos, videos, downloads) by size, then content. Files 100 KB and up. The oldest copy is always kept.</p>
+          <div id="dpProg" class="scanline hidden"></div>
+          <button id="dpBtn" class="btn primary big">Find Duplicates</button>
+          <button id="dpCancel" class="btn ghost hidden" style="margin-top:8px">Stop</button>
+        </section>
+        <section id="dpRes" class="hidden">
+          <section class="card total">
+            <div class="row"><h2>Wasted space</h2><span id="dpWasted" class="mono big-num">0 B</span></div>
+            <p class="muted" id="dpMeta"></p>
+          </section>
+          <div id="dpList"></div>
+          <button id="dpDel" class="btn danger big">Delete Selected Copies</button>
+        </section>
+      </div>
+
+      <div id="tab-apps" class="panel hidden">
+        <section class="card">
+          <div class="row"><h2>Installed apps</h2><span id="appCount" class="mono">–</span></div>
+          <input id="appSearch" class="input" type="search" placeholder="Search apps…" autocomplete="off" />
+          <div class="row2">
+            <select id="appSort" class="input">
+              <option value="size">Sort: biggest</option>
+              <option value="name">Sort: name</option>
+              <option value="installed">Sort: newest installed</option>
+              <option value="oldest">Sort: oldest installed</option>
+            </select>
+            <label class="checkline"><input id="appSys" type="checkbox" /> System apps</label>
+          </div>
+          <p class="muted">Size shown is the app package (APK). Uninstalling opens the Android confirmation screen.</p>
+        </section>
+        <div id="appList"></div>
+      </div>
+
+      <div id="tab-history" class="panel hidden">
+        <section class="card">
+          <div class="row"><h2>History</h2><button id="histClear" class="btn ghost small">Clear</button></div>
+          <p class="muted">Everything MangoDisk cleaned or uninstalled on this device. Stored only on this phone.</p>
+          <div id="histList"></div>
+        </section>
+      </div>
 
       <p id="banner" class="banner hidden"></p>
       <p class="foot">MangoDisk Android Edition · runs 100% locally · no telemetry · GPL-3.0</p>

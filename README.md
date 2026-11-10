@@ -46,3 +46,10 @@ Android packaging and the mobile cleaning engine.
 - On Android 11+ other apps' `Android/data` folders are kernel-locked; the
   cleaner works on shared storage and its own cache (by platform design).
 - The original desktop app lives at the upstream repository above.
+
+## v1.2.0 — new Android features
+- **Analyze**: storage by type, biggest folders, biggest files (with delete).
+- **Duplicates**: size → sample → full-content verification; oldest copy always kept.
+- **Apps**: list installed apps, search/sort, uninstall via the system confirmation screen.
+- **History**: log of cleans, duplicate removals and uninstalls (stored only on the device).
+- Compatibility: Android 7+ (minSdk 24), arm64 + armv7 universal APK (Redmi A3, Redmi Note 10 / MIUI & HyperOS, and other brands). Android 7–10 use the classic storage permission; Android 11+ uses All-files access.

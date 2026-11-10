@@ -48,6 +48,6 @@ jobs:
 
       - uses: actions/upload-artifact@v4
         with:
-          name: MangoDisk-1.1.8-android-${{ env.APK_KIND }}
+          name: MangoDisk-1.2.0-android-${{ env.APK_KIND }}
           path: ${{ env.APK_PATH }}
           if-no-files-found: error

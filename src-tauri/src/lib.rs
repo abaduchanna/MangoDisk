@@ -1,5 +1,9 @@
 #[cfg(target_os = "android")]
 pub mod mobile_cleaner;
+#[cfg(target_os = "android")]
+pub mod mobile_core;
+#[cfg(target_os = "android")]
+pub mod mobile_extra;
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
@@ -24,7 +28,10 @@ pub fn run() {
         mobile_cleaner::mobile_scan_start,
         mobile_cleaner::mobile_scan_status,
         mobile_cleaner::mobile_clean_files,
-        mobile_cleaner::mobile_clean_app_cache
+        mobile_cleaner::mobile_clean_app_cache,
+            mobile_extra::mobile_analyze_start, mobile_extra::mobile_analyze_status,
+            mobile_extra::mobile_dupes_start, mobile_extra::mobile_dupes_status,
+            mobile_extra::mobile_dupes_cancel
     ]);
 
     builder
